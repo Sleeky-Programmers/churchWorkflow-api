@@ -8,7 +8,8 @@ import {
   MaritalStatus,
   MembershipStatus,
 } from '../../common/utils/enums.utils';
-const csv = require('csv-parser');
+
+const csv = require('csv-parser'); // Use require to fix TS + CommonJS issue
 
 @Injectable()
 export class MembersService {
@@ -19,82 +20,75 @@ export class MembersService {
 
   async createMembersByCsv(fileBuffer: Buffer) {
     const members: Partial<Member>[] = [];
-    const errors: any[] = [];
+    const errors: { row: number; reason: string }[] = [];
     let rowIndex = 1;
 
-    return new Promise((resolve, reject) => {
-      Readable.from(fileBuffer)
-        .pipe(csv())
-        .on('data', (row: any) => {
-          rowIndex++;
+    const stream = Readable.from(fileBuffer).pipe(csv());
 
-          try {
-            const gender: Gender | undefined = Object.values(Gender).includes(
-              row.gender as Gender,
-            )
-              ? (row.gender as Gender)
-              : undefined;
+    try {
+      for await (const row of stream) {
+        rowIndex++;
 
-            const maritalStatus: MaritalStatus | undefined = Object.values(
-              MaritalStatus,
-            ).includes(row.maritalStatus as MaritalStatus)
-              ? (row.maritalStatus as MaritalStatus)
-              : undefined;
+        try {
+          const gender: Gender | undefined = Object.values(Gender).includes(
+            row.gender as Gender,
+          )
+            ? (row.gender as Gender)
+            : undefined;
 
-            const membershipStatus: MembershipStatus | undefined =
-              Object.values(MembershipStatus).includes(
-                row.membershipStatus as MembershipStatus,
-              )
-                ? (row.membershipStatus as MembershipStatus)
-                : undefined;
+          const maritalStatus: MaritalStatus | undefined = Object.values(
+            MaritalStatus,
+          ).includes(row.maritalStatus as MaritalStatus)
+            ? (row.maritalStatus as MaritalStatus)
+            : undefined;
 
-            const birthday = row.birthday ? new Date(row.birthday) : null;
-            const dateOfMarriage = row.dateOfMarriage
-              ? new Date(row.dateOfMarriage)
-              : null;
-            const dateJoined = row.dateJoined ? new Date(row.dateJoined) : null;
+          const membershipStatus: MembershipStatus | undefined = Object.values(
+            MembershipStatus,
+          ).includes(row.membershipStatus as MembershipStatus)
+            ? (row.membershipStatus as MembershipStatus)
+            : undefined;
 
-            members.push({
-              title: row.title?.trim(),
-              fullName: row.fullName.trim(),
-              gender,
-              birthday,
-              maritalStatus,
-              dateOfMarriage,
-              spouseFirstName: row.spouseFirstName?.trim(),
-              spouseLastName: row.spouseLastName?.trim(),
-              phoneNumber: row.phoneNumber?.trim(),
-              email: row.email.toLowerCase().trim(),
-              occupation: row.occupation?.trim(),
-              educationalBackground: row.educationalBackground?.trim(),
-              membershipStatus,
-              dateJoined,
-              previousChurchMembership: row.previousChurchMembership?.trim(),
-              isBaptized: row.isBaptized?.toLowerCase() === 'true',
-              ministries: row.ministries?.trim(),
-              volunteerPreferences: row.volunteerPreferences?.trim(),
-              cellGroupName: row.cellGroupName?.trim(),
-            });
-          } catch (err) {
-            errors.push({ row: rowIndex, reason: err.message });
-          }
-        })
-        .on('end', async () => {
-          if (!members.length) {
-            return reject(
-              new BadRequestException('CSV file is empty or invalid'),
-            );
-          }
+          const birthday = row.birthday ? new Date(row.birthday) : null;
+          const dateOfMarriage = row.dateOfMarriage
+            ? new Date(row.dateOfMarriage)
+            : null;
+          const dateJoined = row.dateJoined ? new Date(row.dateJoined) : null;
 
-          try {
-            await this.memberModel.insertMany(members, { ordered: false });
-          } catch (err) {
-            // Could handle duplicate email errors here if needed
-          }
+          members.push({
+            title: row.title?.trim(),
+            fullName: row.fullName.trim(),
+            gender,
+            birthday,
+            maritalStatus,
+            dateOfMarriage,
+            spouseFirstName: row.spouseFirstName?.trim(),
+            spouseLastName: row.spouseLastName?.trim(),
+            phoneNumber: row.phoneNumber?.trim(),
+            email: row.email.toLowerCase().trim(),
+            occupation: row.occupation?.trim(),
+            educationalBackground: row.educationalBackground?.trim(),
+            membershipStatus,
+            dateJoined,
+            previousChurchMembership: row.previousChurchMembership?.trim(),
+            isBaptized: row.isBaptized?.toLowerCase() === 'true',
+            ministries: row.ministries?.trim(),
+            volunteerPreferences: row.volunteerPreferences?.trim(),
+            cellGroupName: row.cellGroupName?.trim(),
+          });
+        } catch (err: any) {
+          errors.push({ row: rowIndex, reason: err.message });
+        }
+      }
+    } catch (err) {
+      throw new BadRequestException('Failed to parse CSV file');
+    }
 
-          resolve({ inserted: members.length, skipped: errors.length, errors });
-        })
-        .on('error', reject);
-    });
+    if (!members.length) {
+      throw new BadRequestException('CSV file is empty or invalid');
+    }
+
+    await this.memberModel.insertMany(members, { ordered: false });
+
+    return { inserted: members.length, skipped: errors.length, errors };
   }
 }
