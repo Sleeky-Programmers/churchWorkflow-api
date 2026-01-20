@@ -8,8 +8,7 @@ import {
   MaritalStatus,
   MembershipStatus,
 } from '../../common/utils/enums.utils';
-
-const csv = require('csv-parser'); // Use require to fix TS + CommonJS issue
+const csv = require('csv-parser');
 
 @Injectable()
 export class MembersService {
