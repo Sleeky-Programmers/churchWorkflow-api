@@ -1,24 +1,24 @@
-import { IsNotEmpty, IsOptional } from 'class-validator';
+import { IsNotEmpty } from 'class-validator';
 
 export class ChurchIdentityDto {
   @IsNotEmpty()
   name: string;
 
-  @IsOptional()
+  @IsNotEmpty()
   alias: string;
 
-  @IsOptional()
+  @IsNotEmpty()
   address: string;
 
-  @IsOptional()
+  @IsNotEmpty()
   country: string;
 
-  @IsOptional()
+  @IsNotEmpty()
   state: string;
 
-  @IsOptional()
+  @IsNotEmpty()
   defaultCurrency: string;
 
-  @IsOptional()
+  @IsNotEmpty()
   timeZone: string;
 }

@@ -6,3 +6,30 @@ export enum ChurchRole {
   CELL_LEADER = 'CELL_LEADER',
   FELLOWSHIP_GROUP_LEADER = 'FELLOWSHIP_GROUP_LEADER',
 }
+
+export enum WeeklyServiceDay {
+  SUNDAY = 'SUNDAY',
+  MONDAY = 'MONDAY',
+  TUESDAY = 'TUESDAY',
+  WEDNESDAY = 'WEDNESDAY',
+  THURSDAY = 'THURSDAY',
+  FRIDAY = 'FRIDAY',
+  SATURDAY = 'SATURDAY',
+}
+
+export enum Gender {
+  MALE = 'MALE',
+  FEMALE = 'FEMALE',
+}
+
+export enum MaritalStatus {
+  MARRIED = 'MARRIED',
+  SINGLE = 'SINGLE',
+}
+
+export enum MembershipStatus {
+  VISITOR = 'VISITOR',
+  MEMBER = 'MEMBER',
+  VOLUNTEER = 'VOLUNTEER',
+  LEADER = 'LEADER',
+}
