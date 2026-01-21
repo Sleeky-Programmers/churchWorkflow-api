@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import * as bcrypt from 'bcryptjs';
 import { CreateAdminDto } from './dto/create-admin.dto';
 import { Admin } from '../../schemas/admin.schema';
@@ -32,7 +32,7 @@ export class AdminService {
     return await this.adminModel.findOne({ email }).select('+password');
   }
 
-  async findById(id: string) {
+  async findById(id: Types.ObjectId) {
     return await this.adminModel.findById(id);
   }
 
@@ -42,7 +42,7 @@ export class AdminService {
     });
   }
 
-  async findByIdAndUpdate(id: string, updateData: Partial<Admin>) {
+  async findByIdAndUpdate(id: Types.ObjectId, updateData: Partial<Admin>) {
     return await this.adminModel.findByIdAndUpdate(id, updateData, {
       new: true,
     });

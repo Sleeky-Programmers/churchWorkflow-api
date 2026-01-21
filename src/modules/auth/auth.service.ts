@@ -129,16 +129,14 @@ export class AuthService {
 
     return {
       message: 'Email verified successfully',
-      accessToken: this.generateAccessToken(admin._id as string),
+      accessToken: this.generateAccessToken(admin._id as unknown as string),
     };
   }
 
   async resetPassword(authUser: Admin, resetPasswordDto: ResetPasswordDto) {
     const { newPassword, confirmNewPassword } = resetPasswordDto;
 
-    const isExistingAdmin = await this.adminService.findById(
-      authUser._id as string,
-    );
+    const isExistingAdmin = await this.adminService.findById(authUser._id);
     if (!isExistingAdmin || !isExistingAdmin.isVerified) {
       throw new NotFoundException(
         'Admin with this email does not exist or is not verified',
@@ -150,7 +148,7 @@ export class AuthService {
       throw new BadRequestException('Passwords do not match');
     }
 
-    await this.adminService.findByIdAndUpdate(authUser._id as string, {
+    await this.adminService.findByIdAndUpdate(authUser._id, {
       password: bcrypt.hashSync(newPassword, 10),
     });
     return { message: 'Password reset successful' };
