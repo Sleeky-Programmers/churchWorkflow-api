@@ -12,6 +12,10 @@ import { ChurchModule } from './modules/church/church.module';
 import { OtpModule } from './modules/otp/otp.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { EmailModule } from './modules/email/email.module';
+import { FileUploadModule } from './modules/file-upload/file-upload.module';
+import { EventsModule } from './modules/events/events.module';
+import { WeeklyServicesModule } from './modules/weekly-services/weekly-services.module';
+import { MembersModule } from './modules/members/members.module';
 
 @Module({
   imports: [
@@ -49,6 +53,10 @@ import { EmailModule } from './modules/email/email.module';
       inject: [ConfigService],
     }),
     EmailModule,
+    FileUploadModule,
+    EventsModule,
+    WeeklyServicesModule,
+    MembersModule,
   ],
   controllers: [AppController],
   providers: [AppService],

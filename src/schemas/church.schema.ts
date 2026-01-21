@@ -23,6 +23,12 @@ export class Church extends Document {
 
   @Prop({ default: null })
   timeZone: string;
+
+  @Prop({ default: null })
+  logoUrl: string;
+
+  @Prop({ default: null })
+  logoPublicId: string;
 }
 
 export const ChurchSchema = SchemaFactory.createForClass(Church);
