@@ -18,10 +18,10 @@ jobs:
       - uses: actions/setup-node@v3
         with:
           node-version: 22
-          cache: 'npm'
+          cache: "npm"
 
       # Install dependencies (from cache if possible)
-      - run: npm ci
+      - run: npm install
 
       # Build app
       - run: npm run build
