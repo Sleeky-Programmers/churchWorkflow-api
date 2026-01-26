@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { Admin } from '../../schemas/admin.schema';
 import { Church } from '../../schemas/church.schema';
 import { ChurchIdentityDto } from './dto/church-identity.dto';
@@ -12,6 +12,10 @@ export class ChurchService {
     @InjectModel(Church.name) private churchModel: Model<Church>,
     private fileUploadService: FileUploadService,
   ) {}
+
+  async findById(id: Types.ObjectId) {
+    return await this.churchModel.findById(id);
+  }
 
   async create(createChurchDto: { name: string }) {
     return await this.churchModel.create(createChurchDto);

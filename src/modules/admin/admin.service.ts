@@ -1,10 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import * as bcrypt from 'bcryptjs';
-import { CreateAdminDto } from './dto/create-admin.dto';
+import { CreateSuperAdminDto } from './dto/create-super-admin.dto';
 import { Admin } from '../../schemas/admin.schema';
 import { ChurchService } from '../church/church.service';
+import { CreateAdminDto } from '././dto/create-admin.dto';
 
 @Injectable()
 export class AdminService {
@@ -13,13 +14,35 @@ export class AdminService {
     private churchService: ChurchService,
   ) {}
 
-  async create(createAdminDto: CreateAdminDto) {
+  async createAdmin(
+    adminRegisterDto: CreateAdminDto,
+    churchId: Types.ObjectId,
+    churchRole: Types.ObjectId,
+    title: string | null,
+  ) {
+    const church = await this.churchService.findById(churchId);
+
+    if (!church) {
+      throw new NotFoundException('Church not found');
+    }
+
+    return await this.adminModel.create({
+      ...adminRegisterDto,
+      ...(title && { title }),
+      churchId,
+      churchRole,
+      isVerified: true,
+      password: bcrypt.hashSync(adminRegisterDto.password, 10),
+    });
+  }
+
+  async create(createSuperAdminDto: CreateSuperAdminDto) {
     const church = await this.churchService.create({
-      name: createAdminDto.churchName,
+      name: createSuperAdminDto.churchName,
     });
     return await this.adminModel.create({
-      ...createAdminDto,
-      password: bcrypt.hashSync(createAdminDto.password, 10),
+      ...createSuperAdminDto,
+      password: bcrypt.hashSync(createSuperAdminDto.password, 10),
       churchId: church._id,
     });
   }

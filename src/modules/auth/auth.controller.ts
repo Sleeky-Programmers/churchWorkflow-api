@@ -1,4 +1,12 @@
-import { Body, Controller, HttpCode, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
@@ -6,14 +14,36 @@ import { LocalAuthGuard } from './guard/local-auth.guard';
 import { AuthUser } from '../../common/decorators/auth-user.decorator';
 import { Admin } from '../../schemas/admin.schema';
 import { JwtAuthGuard } from './guard/jwt-auth.guard';
-import { CreateAdminDto } from '../admin/dto/create-admin.dto';
+import { CreateSuperAdminDto } from '../admin/dto/create-super-admin.dto';
+import { decryptInvite } from '../../common/helpers/crypto.helper';
+import { AdminRegisterDto } from './dto/admin-register.dto';
 
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  @Get('preview')
+  preview(@Query('token') token: string) {
+    const { email, firstName, lastName } = decryptInvite(token);
+
+    return {
+      email,
+      firstName,
+      lastName,
+    };
+  }
+
+  @Post('admin-register')
+  adminRegister(
+    @Body()
+    { firstName, lastName, password }: AdminRegisterDto,
+    @Query('token') token: string,
+  ) {
+    return this.authService.adminRegister(token, firstName, lastName, password);
+  }
+
   @Post('register')
-  register(@Body() registerDto: CreateAdminDto) {
+  register(@Body() registerDto: CreateSuperAdminDto) {
     return this.authService.register(registerDto);
   }
 

@@ -16,6 +16,8 @@ import { FileUploadModule } from './modules/file-upload/file-upload.module';
 import { EventsModule } from './modules/events/events.module';
 import { WeeklyServicesModule } from './modules/weekly-services/weekly-services.module';
 import { MembersModule } from './modules/members/members.module';
+import { AdminInviteModule } from './modules/admin-invite/admin-invite.module';
+import { RolesModule } from './modules/roles/roles.module';
 
 @Module({
   imports: [
@@ -57,6 +59,8 @@ import { MembersModule } from './modules/members/members.module';
     EventsModule,
     WeeklyServicesModule,
     MembersModule,
+    AdminInviteModule,
+    RolesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

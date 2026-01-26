@@ -14,7 +14,8 @@ import { Types } from 'mongoose';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { Admin } from '../../schemas/admin.schema';
-import { CreateAdminDto } from '../admin/dto/create-admin.dto';
+import { CreateSuperAdminDto } from '../admin/dto/create-super-admin.dto';
+import { decryptInvite } from '../../common/helpers/crypto.helper';
 
 @Injectable()
 export class AuthService {
@@ -52,7 +53,7 @@ export class AuthService {
     return userWithoutPassword;
   }
 
-  async register(registerDto: CreateAdminDto) {
+  async register(registerDto: CreateSuperAdminDto) {
     const {
       firstName,
       lastName,
@@ -84,6 +85,41 @@ export class AuthService {
 
     return {
       message: 'Registration successful. Please, verify your email.',
+    };
+  }
+
+  async adminRegister(
+    token: string,
+    firstName: string,
+    lastName: string,
+    password: string,
+  ) {
+    const { email, title, churchId, churchRoleId } = decryptInvite(token);
+
+    const isExistingAdmin = await this.adminService.findOne(email);
+
+    if (isExistingAdmin) {
+      throw new ConflictException('Admin with this email already exists');
+    }
+
+    const churchObjectId = new Types.ObjectId(churchId);
+    const churchRoleObjectId = new Types.ObjectId(churchRoleId);
+
+    const admin = await this.adminService.createAdmin(
+      {
+        firstName,
+        lastName,
+        email,
+        password,
+      },
+      churchObjectId,
+      churchRoleObjectId,
+      title || null,
+    );
+
+    return {
+      message: 'Registration successful.',
+      accessToken: this.generateAccessToken(admin._id.toString()),
     };
   }
 
