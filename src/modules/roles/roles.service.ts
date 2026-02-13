@@ -11,8 +11,18 @@ import { RoleStatus, RoleType } from '../../common/utils/enums.utils';
 export class RolesService {
   constructor(@InjectModel(Role.name) private roleModel: Model<Role>) {}
 
+  async findOne(roleName: string) {
+    return await this.roleModel.findOne({ roleName });
+  }
+
   async fetchRoles(authUser: Admin) {
-    return await this.roleModel.find({ churchId: authUser.churchId });
+    const [systemRoles, customRoles] = await Promise.all([
+      this.roleModel.find({ type: RoleType.SYSTEM }),
+      this.roleModel.find({ churchId: authUser.churchId }),
+    ]);
+
+    const roles = [...systemRoles, ...customRoles];
+    return roles;
   }
 
   async getRoleById(id: Types.ObjectId) {

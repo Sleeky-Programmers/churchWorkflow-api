@@ -36,8 +36,19 @@ export enum MembershipStatus {
 
 export enum AdminInviteStatus {
   PENDING = 'PENDING',
-  ACCEPTED = 'ACCEPTED',
   DECLINED = 'DECLINED',
+  ACTIVE = 'ACTIVE',
+  SUSPENDED = 'SUSPENDED',
+}
+
+export enum InviteEmailType {
+  INVITE = 'INVITE',
+  ROLE_CHANGE = 'ROLE_CHANGE',
+}
+
+export enum AdminOptions {
+  SUSPEND = 'SUSPEND',
+  RESTORE = 'RESTORE',
 }
 
 export enum RoleStatus {

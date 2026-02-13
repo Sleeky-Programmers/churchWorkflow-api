@@ -9,7 +9,7 @@ import {
 
 @Schema()
 export class Role extends Document {
-  @Prop({ type: SchemaTypes.ObjectId, ref: Church.name })
+  @Prop({ type: SchemaTypes.ObjectId, ref: Church.name, default: null })
   churchId: Types.ObjectId;
 
   @Prop()
@@ -19,7 +19,7 @@ export class Role extends Document {
   description: string;
 
   @Prop({ default: RoleType.CUSTOM })
-  type: string;
+  type: RoleType;
 
   @Prop({ default: RoleStatus.ACTIVE })
   status: RoleStatus;

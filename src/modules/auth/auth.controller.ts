@@ -44,7 +44,7 @@ export class AuthController {
 
   @Post('register')
   register(@Body() registerDto: CreateSuperAdminDto) {
-    return this.authService.register(registerDto);
+    return this.authService.superAdminRegister(registerDto);
   }
 
   @UseGuards(LocalAuthGuard)

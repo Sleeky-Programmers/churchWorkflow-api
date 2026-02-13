@@ -18,6 +18,7 @@ import { WeeklyServicesModule } from './modules/weekly-services/weekly-services.
 import { MembersModule } from './modules/members/members.module';
 import { AdminInviteModule } from './modules/admin-invite/admin-invite.module';
 import { RolesModule } from './modules/roles/roles.module';
+import { AccountSettingsModule } from './modules/account-settings/account-settings.module';
 
 @Module({
   imports: [
@@ -61,6 +62,7 @@ import { RolesModule } from './modules/roles/roles.module';
     MembersModule,
     AdminInviteModule,
     RolesModule,
+    AccountSettingsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

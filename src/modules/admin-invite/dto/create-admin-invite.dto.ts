@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsOptional } from 'class-validator';
+import { IsEmail, IsOptional } from 'class-validator';
 
 export class CreateAdminInviteDto {
   @IsOptional()
@@ -10,6 +10,6 @@ export class CreateAdminInviteDto {
   @IsOptional()
   lastName: string;
 
-  @IsNotEmpty()
+  @IsEmail()
   email: string;
 }

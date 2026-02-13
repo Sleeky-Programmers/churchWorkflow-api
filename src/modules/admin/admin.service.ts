@@ -6,12 +6,16 @@ import { CreateSuperAdminDto } from './dto/create-super-admin.dto';
 import { Admin } from '../../schemas/admin.schema';
 import { ChurchService } from '../church/church.service';
 import { CreateAdminDto } from '././dto/create-admin.dto';
+import { RolesService } from '../roles/roles.service';
+import { AccountSettingsService } from '../account-settings/account-settings.service';
 
 @Injectable()
 export class AdminService {
   constructor(
     @InjectModel(Admin.name) private adminModel: Model<Admin>,
     private churchService: ChurchService,
+    private rolesService: RolesService,
+    private accountSettingsService: AccountSettingsService,
   ) {}
 
   async createAdmin(
@@ -26,7 +30,7 @@ export class AdminService {
       throw new NotFoundException('Church not found');
     }
 
-    return await this.adminModel.create({
+    const admin = await this.adminModel.create({
       ...adminRegisterDto,
       ...(title && { title }),
       churchId,
@@ -34,17 +38,27 @@ export class AdminService {
       isVerified: true,
       password: bcrypt.hashSync(adminRegisterDto.password, 10),
     });
+
+    await this.accountSettingsService.createDefaultAccountSettings(admin._id);
+
+    return admin;
   }
 
-  async create(createSuperAdminDto: CreateSuperAdminDto) {
-    const church = await this.churchService.create({
-      name: createSuperAdminDto.churchName,
-    });
-    return await this.adminModel.create({
+  async createSuperAdmin(createSuperAdminDto: CreateSuperAdminDto) {
+    const roleName = 'Super Admin';
+    const superAdminRole = await this.rolesService.findOne(roleName);
+
+    const superAdmin = await this.adminModel.create({
       ...createSuperAdminDto,
+      churchRole: superAdminRole._id,
       password: bcrypt.hashSync(createSuperAdminDto.password, 10),
-      churchId: church._id,
     });
+
+    await this.accountSettingsService.createDefaultAccountSettings(
+      superAdmin._id,
+    );
+
+    return superAdmin;
   }
 
   async findAll() {
@@ -69,5 +83,9 @@ export class AdminService {
     return await this.adminModel.findByIdAndUpdate(id, updateData, {
       new: true,
     });
+  }
+
+  async findOneAndDelete(email: string) {
+    return await this.adminModel.findOneAndDelete({ email });
   }
 }

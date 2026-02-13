@@ -1,9 +1,19 @@
-import { Body, Controller, Param, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Post,
+  Put,
+  UseGuards,
+} from '@nestjs/common';
 import { AdminInviteService } from './admin-invite.service';
 import { JwtAuthGuard } from '../auth/guard/jwt-auth.guard';
 import { AuthUser } from '../../common/decorators/auth-user.decorator';
 import { Admin } from '../../schemas/admin.schema';
 import { CreateAdminInviteDto } from './dto/create-admin-invite.dto';
+import { AdminOptions } from '../../common/utils/enums.utils';
 
 @UseGuards(JwtAuthGuard)
 @Controller('admin-invite')
@@ -21,5 +31,38 @@ export class AdminInviteController {
       createAdminInviteDto,
       churchRole,
     );
+  }
+
+  @Get()
+  async fetchAllInvitations(@AuthUser() authUser: Admin) {
+    return await this.adminInviteService.fetchAllInvitations(authUser);
+  }
+
+  @Delete('remove/:inviteId')
+  async removeUser(
+    @Body('key') key: string,
+    @Param('inviteId') inviteId: string,
+  ) {
+    return await this.adminInviteService.removeUser(inviteId, key);
+  }
+
+  @Delete('/:inviteId')
+  async deleteInvitation(@Param('inviteId') inviteId: string) {
+    return await this.adminInviteService.deleteInvitation(inviteId);
+  }
+
+  @Put('update/:inviteId')
+  async suspendOrRestoreUser(
+    @Body('option') option: AdminOptions,
+    @Param('inviteId') inviteId: string,
+  ) {
+    return await this.adminInviteService.suspendOrRestoreUser(inviteId, option);
+  }
+
+  @Put('/:inviteId/:churchRole')
+  async changeRole(
+    @Param() { inviteId, churchRole }: { inviteId: string; churchRole: string },
+  ) {
+    return await this.adminInviteService.changeRole(inviteId, churchRole);
   }
 }

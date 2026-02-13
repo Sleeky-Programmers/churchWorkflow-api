@@ -6,6 +6,7 @@ import { Invite, InviteSchema } from '../../schemas/invite.schema';
 import { ChurchModule } from '../church/church.module';
 import { EmailModule } from '../email/email.module';
 import { RolesModule } from '../roles/roles.module';
+import { AdminModule } from '../admin/admin.module';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { RolesModule } from '../roles/roles.module';
     ChurchModule,
     EmailModule,
     RolesModule,
+    AdminModule,
   ],
   controllers: [AdminInviteController],
   providers: [AdminInviteService],

@@ -1,4 +1,4 @@
-import { IsEmail, IsNotEmpty, IsOptional } from 'class-validator';
+import { IsEmail, IsNotEmpty } from 'class-validator';
 
 export class CreateSuperAdminDto {
   @IsNotEmpty()
@@ -6,15 +6,6 @@ export class CreateSuperAdminDto {
 
   @IsNotEmpty()
   lastName: string;
-
-  @IsNotEmpty()
-  churchRole: string;
-
-  @IsOptional()
-  churchName: string;
-
-  @IsOptional()
-  phoneNumber: string;
 
   @IsNotEmpty()
   @IsEmail()
