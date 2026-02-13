@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { AdminModule } from '../admin/admin.module';
+import { AdminInviteModule } from '../admin-invite/admin-invite.module';
 import { OtpModule } from '../otp/otp.module';
 import { JwtStrategy } from './strategy/jwt.strategy';
 import { LocalStrategy } from './strategy/local.strategy';
@@ -11,6 +12,7 @@ import { LocalStrategy } from './strategy/local.strategy';
 @Module({
   imports: [
     AdminModule,
+    AdminInviteModule,
     OtpModule,
     JwtModule.registerAsync({
       inject: [ConfigService],

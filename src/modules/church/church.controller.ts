@@ -1,7 +1,7 @@
 import {
   Body,
   Controller,
-  Put,
+  Post,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -18,13 +18,13 @@ export class ChurchController {
   constructor(private readonly churchService: ChurchService) {}
 
   @UseGuards(JwtAuthGuard)
-  @Put()
+  @Post()
   @UseInterceptors(FileInterceptor('file'))
-  updateChurch(
+  createChurch(
     @AuthUser() authUser: Admin,
     @Body() churchIdentityDto: ChurchIdentityDto,
     @UploadedFile() file: Express.Multer.File,
   ) {
-    return this.churchService.update(authUser, churchIdentityDto, file);
+    return this.churchService.create(authUser, churchIdentityDto, file);
   }
 }

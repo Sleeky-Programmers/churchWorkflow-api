@@ -9,17 +9,20 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { AdminService } from '../admin/admin.service';
+import { AdminInviteService } from '../admin-invite/admin-invite.service';
 import { OtpService } from '../otp/otp.service';
 import { Types } from 'mongoose';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { Admin } from '../../schemas/admin.schema';
-import { CreateAdminDto } from '../admin/dto/create-admin.dto';
+import { CreateSuperAdminDto } from '../admin/dto/create-super-admin.dto';
+import { decryptInvite } from '../../common/helpers/crypto.helper';
 
 @Injectable()
 export class AuthService {
   constructor(
     private adminService: AdminService,
+    private adminInviteService: AdminInviteService,
     private otpService: OtpService,
     private jwtService: JwtService,
     private configService: ConfigService,
@@ -52,16 +55,8 @@ export class AuthService {
     return userWithoutPassword;
   }
 
-  async register(registerDto: CreateAdminDto) {
-    const {
-      firstName,
-      lastName,
-      churchRole,
-      churchName,
-      phoneNumber,
-      email,
-      password,
-    } = registerDto;
+  async superAdminRegister(registerDto: CreateSuperAdminDto) {
+    const { firstName, lastName, email, password } = registerDto;
 
     const isExistingAdmin = await this.adminService.findOne(email);
 
@@ -70,12 +65,9 @@ export class AuthService {
     }
 
     await Promise.all([
-      this.adminService.create({
+      this.adminService.createSuperAdmin({
         firstName,
         lastName,
-        churchRole,
-        churchName,
-        phoneNumber,
         email,
         password,
       }),
@@ -84,6 +76,44 @@ export class AuthService {
 
     return {
       message: 'Registration successful. Please, verify your email.',
+    };
+  }
+
+  async adminRegister(
+    token: string,
+    firstName: string,
+    lastName: string,
+    password: string,
+  ) {
+    const { email, title, churchId, churchRoleId } = decryptInvite(token);
+
+    const isExistingAdmin = await this.adminService.findOne(email);
+
+    if (isExistingAdmin) {
+      throw new ConflictException('An admin with this email already exists');
+    }
+
+    const churchObjectId = new Types.ObjectId(churchId);
+    const churchRoleObjectId = new Types.ObjectId(churchRoleId);
+
+    const [admin, _] = await Promise.all([
+      this.adminService.createAdmin(
+        {
+          firstName,
+          lastName,
+          email,
+          password,
+        },
+        churchObjectId,
+        churchRoleObjectId,
+        title || null,
+      ),
+      await this.adminInviteService.acceptInvitation(email),
+    ]);
+
+    return {
+      message: 'Registration successful.',
+      accessToken: this.generateAccessToken(admin._id.toString()),
     };
   }
 

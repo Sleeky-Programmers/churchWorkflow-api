@@ -33,3 +33,47 @@ export enum MembershipStatus {
   VOLUNTEER = 'VOLUNTEER',
   LEADER = 'LEADER',
 }
+
+export enum AdminInviteStatus {
+  PENDING = 'PENDING',
+  DECLINED = 'DECLINED',
+  ACTIVE = 'ACTIVE',
+  SUSPENDED = 'SUSPENDED',
+}
+
+export enum InviteEmailType {
+  INVITE = 'INVITE',
+  ROLE_CHANGE = 'ROLE_CHANGE',
+}
+
+export enum AdminOptions {
+  SUSPEND = 'SUSPEND',
+  RESTORE = 'RESTORE',
+}
+
+export enum RoleStatus {
+  ACTIVE = 'ACTIVE',
+  DISABLED = 'DISABLED',
+}
+
+export enum RoleType {
+  SYSTEM = 'SYSTEM',
+  CUSTOM = 'CUSTOM',
+}
+
+export enum AccessLevel {
+  NO_ACCESS = 'NO_ACCESS',
+  VIEW = 'VIEW',
+  MANAGE = 'MANAGE',
+  FULL_ACCESS = 'FULL_ACCESS',
+}
+
+export enum ModuleSections {
+  MEMBERS = 'MEMBERS',
+  GIVING = 'GIVING',
+  GIVING_AND_EXPENSES = 'GIVING_AND_EXPENSES',
+  REQUESTS = 'REQUESTS',
+  EVENTS = 'EVENTS',
+  DEPARTMENTS = 'DEPARTMENTS',
+  ATTENDANCE = 'ATTENDANCE',
+}
