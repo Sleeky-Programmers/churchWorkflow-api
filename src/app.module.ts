@@ -19,6 +19,8 @@ import { MembersModule } from './modules/members/members.module';
 import { AdminInviteModule } from './modules/admin-invite/admin-invite.module';
 import { RolesModule } from './modules/roles/roles.module';
 import { AccountSettingsModule } from './modules/account-settings/account-settings.module';
+import { NotificationModule } from './modules/notification/notification.module';
+import { ActivityLogModule } from './modules/activity-log/activity-log.module';
 
 @Module({
   imports: [
@@ -63,6 +65,8 @@ import { AccountSettingsModule } from './modules/account-settings/account-settin
     AdminInviteModule,
     RolesModule,
     AccountSettingsModule,
+    NotificationModule,
+    ActivityLogModule,
   ],
   controllers: [AppController],
   providers: [AppService],
