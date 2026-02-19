@@ -1,8 +1,9 @@
-import { Controller, Get, Param, Put, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Put, Query, UseGuards } from '@nestjs/common';
 import { NotificationService } from './notification.service';
 import { Admin } from '../../schemas/admin.schema';
 import { AuthUser } from '../../common/decorators/auth-user.decorator';
 import { JwtAuthGuard } from '../auth/guard/jwt-auth.guard';
+import { PaginationBaseDto } from '../../common/helpers/pagination.helper';
 
 @UseGuards(JwtAuthGuard)
 @Controller('notifications')
@@ -10,8 +11,14 @@ export class NotificationController {
   constructor(private readonly notificationService: NotificationService) {}
 
   @Get()
-  async getNotifications(@AuthUser() authUser: Admin) {
-    return this.notificationService.getNotifications(authUser.churchId);
+  async getNotifications(
+    @Query() paginationBaseDto: PaginationBaseDto,
+    @AuthUser() authUser: Admin,
+  ) {
+    return this.notificationService.getNotifications(
+      authUser.churchId,
+      paginationBaseDto,
+    );
   }
 
   @Put('read-all')

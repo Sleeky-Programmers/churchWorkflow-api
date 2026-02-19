@@ -87,3 +87,8 @@ export enum NotificationType {
   MEMBER = 'MEMBER',
   FINANCE = 'FINANCE',
 }
+
+export enum MemberTitle {
+  MR = 'MR.',
+  MRS = 'MRS.',
+}
