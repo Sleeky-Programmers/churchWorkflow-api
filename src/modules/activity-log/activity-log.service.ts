@@ -27,7 +27,7 @@ export class ActivityLogService {
   }
 
   async findAll(authUser: Admin, paginationBaseDto: PaginationBaseDto) {
-    const { page = 1, limit = 20 } = paginationBaseDto;
+    const { page, limit } = paginationBaseDto;
 
     const skip = (page - 1) * limit;
 
