@@ -1,7 +1,13 @@
 import {
   BadRequestException,
+  Body,
   Controller,
+  Delete,
+  Get,
+  Param,
   Post,
+  Put,
+  Query,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -9,6 +15,11 @@ import {
 import { MembersService } from './members.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../auth/guard/jwt-auth.guard';
+import { CreateMemberDto } from './dto/create-member.dto';
+import { PaginationBaseDto } from '../../common/helpers/pagination.helper';
+import { UpdateMemberDto } from './dto/update-member.dto';
+import { AuthUser } from '../../common/decorators/auth-user.decorator';
+import { Admin } from '../../schemas/admin.schema';
 
 @UseGuards(JwtAuthGuard)
 @Controller('members')
@@ -17,11 +28,45 @@ export class MembersController {
 
   @Post('csv/create')
   @UseInterceptors(FileInterceptor('file'))
-  createMembersByCsv(@UploadedFile() file: Express.Multer.File) {
+  createMembersByCsv(
+    @AuthUser() authUser: Admin,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
     if (!file) {
       throw new BadRequestException('CSV file is required');
     }
 
-    return this.membersService.createMembersByCsv(file.buffer);
+    return this.membersService.createMembersByCsv(authUser, file.buffer);
+  }
+
+  @Post('add')
+  addMember(
+    @AuthUser() authUser: Admin,
+    @Body() createMemberDto: CreateMemberDto,
+  ) {
+    return this.membersService.addMember(authUser, createMemberDto);
+  }
+
+  @Get()
+  getAllMembers(@Query() paginationBaseDto: PaginationBaseDto) {
+    return this.membersService.getAllMembers(paginationBaseDto);
+  }
+
+  @Get('/:id')
+  getMemberById(@Param('id') id: string) {
+    return this.membersService.getMemberById(id);
+  }
+
+  @Put('/:id')
+  updateMember(
+    @Param('id') id: string,
+    @Body() updateMemberDto: UpdateMemberDto,
+  ) {
+    return this.membersService.updateMember(id, updateMemberDto);
+  }
+
+  @Delete('/:id')
+  deleteMember(@Param('id') id: string) {
+    return this.membersService.deleteMember(id);
   }
 }

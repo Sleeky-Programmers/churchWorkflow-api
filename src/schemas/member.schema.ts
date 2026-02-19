@@ -1,15 +1,21 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
+import { Document, SchemaTypes } from 'mongoose';
 import {
   Gender,
   MaritalStatus,
   MembershipStatus,
+  MemberTitle,
 } from '../common/utils/enums.utils';
+import { Church } from './church.schema';
+import { Types } from 'mongoose';
 
 @Schema({ timestamps: true })
 export class Member extends Document {
-  @Prop()
-  title: string;
+  @Prop({ type: SchemaTypes.ObjectId, ref: Church.name })
+  churchId: Types.ObjectId;
+
+  @Prop({ default: null })
+  title: MemberTitle;
 
   @Prop()
   fullName: string;
@@ -20,28 +26,28 @@ export class Member extends Document {
   @Prop()
   birthday: Date;
 
-  @Prop()
+  @Prop({ default: null })
   maritalStatus: MaritalStatus;
 
-  @Prop()
+  @Prop({ default: null })
   dateOfMarriage: Date;
 
-  @Prop()
+  @Prop({ default: null })
   spouseFirstName: string;
 
-  @Prop()
+  @Prop({ default: null })
   spouseLastName: string;
 
-  @Prop()
+  @Prop({ default: null })
   phoneNumber: string;
 
-  @Prop()
+  @Prop({ default: null })
   email: string;
 
-  @Prop()
+  @Prop({ default: null })
   occupation: string;
 
-  @Prop()
+  @Prop({ default: null })
   educationalBackground: string;
 
   @Prop({ default: null })
