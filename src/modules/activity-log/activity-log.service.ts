@@ -33,7 +33,7 @@ export class ActivityLogService {
 
     const filter = { churchId: authUser.churchId };
 
-    const [logs, total] = await Promise.all([
+    const [logs, itemCount] = await Promise.all([
       this.activityLogModel
         .find(filter)
         .populate('adminId', 'firstName lastName')
@@ -49,7 +49,7 @@ export class ActivityLogService {
       pagination: paginationMeta({
         page,
         limit,
-        itemCount: total,
+        itemCount,
       }),
     };
   }

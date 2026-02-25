@@ -13,14 +13,14 @@ import { OtpModule } from './modules/otp/otp.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { EmailModule } from './modules/email/email.module';
 import { FileUploadModule } from './modules/file-upload/file-upload.module';
-import { EventsModule } from './modules/events/events.module';
-import { WeeklyServicesModule } from './modules/weekly-services/weekly-services.module';
 import { MembersModule } from './modules/members/members.module';
 import { AdminInviteModule } from './modules/admin-invite/admin-invite.module';
 import { RolesModule } from './modules/roles/roles.module';
 import { AccountSettingsModule } from './modules/account-settings/account-settings.module';
 import { NotificationModule } from './modules/notification/notification.module';
 import { ActivityLogModule } from './modules/activity-log/activity-log.module';
+import { AttendanceModule } from './modules/attendance/attendance.module';
+import { ChurchServicesModule } from './modules/church-services/church-services.module';
 
 @Module({
   imports: [
@@ -59,14 +59,14 @@ import { ActivityLogModule } from './modules/activity-log/activity-log.module';
     }),
     EmailModule,
     FileUploadModule,
-    EventsModule,
-    WeeklyServicesModule,
     MembersModule,
     AdminInviteModule,
     RolesModule,
     AccountSettingsModule,
     NotificationModule,
     ActivityLogModule,
+    AttendanceModule,
+    ChurchServicesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
