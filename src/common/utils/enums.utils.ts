@@ -7,7 +7,7 @@ export enum ChurchRole {
   FELLOWSHIP_GROUP_LEADER = 'FELLOWSHIP_GROUP_LEADER',
 }
 
-export enum WeeklyServiceDay {
+export enum ServiceDay {
   SUNDAY = 'SUNDAY',
   MONDAY = 'MONDAY',
   TUESDAY = 'TUESDAY',
@@ -15,6 +15,11 @@ export enum WeeklyServiceDay {
   THURSDAY = 'THURSDAY',
   FRIDAY = 'FRIDAY',
   SATURDAY = 'SATURDAY',
+}
+
+export enum ServiceType {
+  REGULAR = 'REGULAR',
+  SPECIAL = 'SPECIAL',
 }
 
 export enum Gender {

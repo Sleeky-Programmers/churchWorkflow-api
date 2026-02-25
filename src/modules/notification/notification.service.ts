@@ -35,7 +35,7 @@ export class NotificationService {
 
     const skip = (page - 1) * limit;
 
-    const [notifications, total] = await Promise.all([
+    const [notifications, itemCount] = await Promise.all([
       this.notificationModel
         .find({ churchId })
         .sort({ createdAt: -1 })
@@ -50,7 +50,7 @@ export class NotificationService {
       pagination: paginationMeta({
         page,
         limit,
-        itemCount: total,
+        itemCount,
       }),
     };
   }

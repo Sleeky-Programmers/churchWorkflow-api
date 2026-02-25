@@ -1,12 +1,14 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
 import { Readable } from 'stream';
 import { Member } from '../../schemas/member.schema';
 import {
-  Gender,
   MaritalStatus,
   MembershipStatus,
+  MemberTitle,
   ModuleSections,
   NotificationType,
 } from '../../common/utils/enums.utils';
@@ -42,51 +44,70 @@ export class MembersService {
         rowIndex++;
 
         try {
-          const gender: Gender | undefined = Object.values(Gender).includes(
-            row.gender as Gender,
-          )
-            ? (row.gender as Gender)
-            : undefined;
+          const parsedData: CreateMemberDto = {
+            title: Object.values(MemberTitle).includes(row.title as MemberTitle)
+              ? (row.title as MemberTitle)
+              : null,
 
-          const maritalStatus: MaritalStatus | undefined = Object.values(
-            MaritalStatus,
-          ).includes(row.maritalStatus as MaritalStatus)
-            ? (row.maritalStatus as MaritalStatus)
-            : undefined;
+            fullName: row.fullName?.trim(),
 
-          const membershipStatus: MembershipStatus | undefined = Object.values(
-            MembershipStatus,
-          ).includes(row.membershipStatus as MembershipStatus)
-            ? (row.membershipStatus as MembershipStatus)
-            : undefined;
+            gender: row.gender,
 
-          const birthday = row.birthday ? new Date(row.birthday) : null;
-          const dateOfMarriage = row.dateOfMarriage
-            ? new Date(row.dateOfMarriage)
-            : null;
-          const dateJoined = row.dateJoined ? new Date(row.dateJoined) : null;
+            birthday: row.birthday ? new Date(row.birthday) : null,
 
-          members.push({
-            churchId: authUser.churchId,
-            title: row.title?.trim(),
-            fullName: row.fullName.trim(),
-            gender,
-            birthday,
-            maritalStatus,
-            dateOfMarriage,
+            maritalStatus: Object.values(MaritalStatus).includes(
+              row.maritalStatus as MaritalStatus,
+            )
+              ? (row.maritalStatus as MaritalStatus)
+              : null,
+
+            dateOfMarriage: row.dateOfMarriage
+              ? new Date(row.dateOfMarriage)
+              : null,
+
             spouseFirstName: row.spouseFirstName?.trim(),
             spouseLastName: row.spouseLastName?.trim(),
             phoneNumber: row.phoneNumber?.trim(),
-            email: row.email.toLowerCase().trim(),
+            email: row.email?.toLowerCase().trim(),
             occupation: row.occupation?.trim(),
             educationalBackground: row.educationalBackground?.trim(),
-            membershipStatus,
-            dateJoined,
+
+            membershipStatus: Object.values(MembershipStatus).includes(
+              row.membershipStatus as MembershipStatus,
+            )
+              ? (row.membershipStatus as MembershipStatus)
+              : null,
+
+            dateJoined: row.dateJoined ? new Date(row.dateJoined) : null,
             previousChurchMembership: row.previousChurchMembership?.trim(),
-            isBaptized: row.isBaptized?.toLowerCase() === 'true',
+
+            isBaptized:
+              row.isBaptized?.toLowerCase() === 'true'
+                ? true
+                : row.isBaptized?.toLowerCase() === 'false'
+                  ? false
+                  : null,
+
             ministries: row.ministries?.trim(),
             volunteerPreferences: row.volunteerPreferences?.trim(),
             cellGroupName: row.cellGroupName?.trim(),
+          };
+
+          const dtoInstance = plainToInstance(CreateMemberDto, parsedData);
+          const validationErrors = await validate(dtoInstance);
+
+          if (validationErrors.length > 0) {
+            const messages = validationErrors
+              .map((err) => Object.values(err.constraints || {}).join(', '))
+              .join('; ');
+
+            errors.push({ row: rowIndex, reason: messages });
+            continue;
+          }
+
+          members.push({
+            churchId: authUser.churchId,
+            ...dtoInstance,
           });
         } catch (err: any) {
           errors.push({ row: rowIndex, reason: err.message });
@@ -97,7 +118,9 @@ export class MembersService {
     }
 
     if (!members.length) {
-      throw new BadRequestException('CSV file is empty or invalid');
+      throw new BadRequestException(
+        'CSV file is empty or contains no valid records',
+      );
     }
 
     const insertedDocs = await this.memberModel.insertMany(members, {
@@ -116,7 +139,11 @@ export class MembersService {
       type: NotificationType.MEMBER,
     });
 
-    return { inserted: members.length, skipped: errors.length, errors };
+    return {
+      inserted: insertedDocs.length,
+      skipped: errors.length,
+      errors,
+    };
   }
 
   async addMember(authUser: Admin, createMemberDto: CreateMemberDto) {
@@ -145,7 +172,7 @@ export class MembersService {
 
     const skip = (page - 1) * limit;
 
-    const [members, total] = await Promise.all([
+    const [members, itemCount] = await Promise.all([
       this.memberModel.find().skip(skip).limit(limit).sort({ createdAt: -1 }),
 
       this.memberModel.countDocuments(),
@@ -156,9 +183,13 @@ export class MembersService {
       pagination: paginationMeta({
         page,
         limit,
-        itemCount: total,
+        itemCount,
       }),
     };
+  }
+
+  async findAll() {
+    return await this.memberModel.find().lean();
   }
 
   async getMemberById(id: string) {

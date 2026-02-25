@@ -9,21 +9,21 @@ import {
 export class CreateMemberDto {
   @IsOptional()
   @IsEnum(MemberTitle)
-  title: string;
+  title: MemberTitle;
 
   @IsNotEmpty()
   fullName: string;
 
   @IsNotEmpty()
   @IsEnum(Gender)
-  gender: string;
+  gender: Gender;
 
   @IsNotEmpty()
   birthday: Date;
 
   @IsOptional()
   @IsEnum(MaritalStatus)
-  maritalStatus?: string;
+  maritalStatus?: MaritalStatus;
 
   @IsOptional()
   dateOfMarriage?: Date;
