@@ -17,6 +17,7 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 import { Admin } from '../../schemas/admin.schema';
 import { CreateSuperAdminDto } from '../admin/dto/create-super-admin.dto';
 import { decryptInvite } from '../../common/helpers/crypto.helper';
+import { OAuth2Client } from 'google-auth-library';
 
 @Injectable()
 export class AuthService {
@@ -122,6 +123,102 @@ export class AuthService {
       user: data,
       accessToken: this.generateAccessToken(data._id),
     };
+  }
+
+  async googleLogin(idToken: string, token?: string) {
+    if (!idToken) {
+      throw new BadRequestException('ID token is required');
+    }
+
+    const clientId = this.configService.get<string>('google.clientId');
+    const client = new OAuth2Client(clientId);
+
+    let payload;
+    try {
+      const ticket = await client.verifyIdToken({
+        idToken,
+        audience: clientId,
+      });
+      payload = ticket.getPayload();
+    } catch (error) {
+      throw new BadRequestException('Invalid ID token');
+    }
+
+    if (!payload?.email) {
+      throw new BadRequestException('Email not found in Google token');
+    }
+
+    const email = payload.email;
+    const firstName = payload.given_name;
+    const lastName = payload.family_name;
+
+    const isExistingAdmin = await this.adminService.findOne(email);
+
+    if (isExistingAdmin) {
+      const { password: _, ...userWithoutPassword } =
+        isExistingAdmin.toObject();
+      return {
+        message: 'Login successful',
+        user: userWithoutPassword,
+        accessToken: this.generateAccessToken(isExistingAdmin._id.toString()),
+      };
+    }
+
+    const dummyPassword =
+      Math.random().toString(36).slice(-8) +
+      Math.random().toString(36).slice(-8);
+
+    if (token) {
+      const {
+        email: inviteEmail,
+        title,
+        churchId,
+        churchRoleId,
+      } = decryptInvite(token);
+
+      if (email !== inviteEmail) {
+        throw new BadRequestException(
+          'Google email does not match invite email',
+        );
+      }
+
+      const churchObjectId = new Types.ObjectId(churchId);
+      const churchRoleObjectId = new Types.ObjectId(churchRoleId);
+
+      const [admin, _] = await Promise.all([
+        this.adminService.createAdmin(
+          {
+            firstName,
+            lastName,
+            email,
+            password: dummyPassword,
+          },
+          churchObjectId,
+          churchRoleObjectId,
+          title || null,
+        ),
+        await this.adminInviteService.acceptInvitation(email),
+      ]);
+
+      return {
+        message: 'Registration successful.',
+        accessToken: this.generateAccessToken(admin._id.toString()),
+      };
+    } else {
+      const superAdmin = await this.adminService.createSuperAdmin({
+        firstName,
+        lastName,
+        email,
+        password: dummyPassword,
+      });
+
+      await this.adminService.findOneAndUpdate(email, { isVerified: true });
+
+      return {
+        message: 'Registration successful.',
+        accessToken: this.generateAccessToken(superAdmin._id.toString()),
+      };
+    }
   }
 
   async requestOtp(email: string) {

@@ -13,4 +13,9 @@ export const envConfig = () => ({
     username: process.env.SMTP_USER,
     password: process.env.SMTP_PASS,
   },
+  google: {
+    clientId: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    callbackUrl: process.env.GOOGLE_CALLBACK_URL,
+  },
 });

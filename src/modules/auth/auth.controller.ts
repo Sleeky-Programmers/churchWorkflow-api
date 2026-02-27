@@ -33,6 +33,14 @@ export class AuthController {
     };
   }
 
+  @Post('google')
+  async googleAuth(
+    @Body('idToken') idToken: string,
+    @Query('token') token?: string,
+  ) {
+    return this.authService.googleLogin(idToken, token);
+  }
+
   @Post('admin-register')
   adminRegister(
     @Body()
