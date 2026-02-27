@@ -3,9 +3,9 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { AccountDeletionSchedule } from '../../schemas/account-deletion-schedule.schema';
-import { Admin } from '../../schemas/admin.schema';
-import { AccountSettings } from '../../schemas/account-settings.schema';
-import { ActivityLog } from '../../schemas/activity-log.schema';
+import { AdminService } from '../admin/admin.service';
+import { AccountSettingsService } from '../account-settings/account-settings.service';
+import { ActivityLogService } from '../activity-log/activity-log.service';
 import { ScheduleAccountDeletionDto } from './dto/schedule-account-deletion.dto';
 import { AccountDeletionStatus } from '../../common/utils/enums.utils';
 
@@ -14,11 +14,9 @@ export class AccountDeletionService {
   constructor(
     @InjectModel(AccountDeletionSchedule.name)
     private readonly accountDeletionScheduleModel: Model<AccountDeletionSchedule>,
-    @InjectModel(Admin.name) private readonly adminModel: Model<Admin>,
-    @InjectModel(AccountSettings.name)
-    private readonly accountSettingsModel: Model<AccountSettings>,
-    @InjectModel(ActivityLog.name)
-    private readonly activityLogModel: Model<ActivityLog>,
+    private readonly adminService: AdminService,
+    private readonly accountSettingsService: AccountSettingsService,
+    private readonly activityLogService: ActivityLogService,
   ) {}
 
   async scheduleDeletion(
@@ -34,10 +32,9 @@ export class AccountDeletionService {
       return { message: 'Account deletion is already scheduled' };
     }
 
-    const executeAt = dto.executeAt ? new Date(dto.executeAt) : new Date();
-    if (!dto.executeAt) {
-      executeAt.setDate(executeAt.getDate() + 30);
-    }
+    const waitingPeriod = dto.waitingPeriod || 30;
+    const executeAt = new Date();
+    executeAt.setDate(executeAt.getDate() + waitingPeriod);
 
     const schedule = await this.accountDeletionScheduleModel.create({
       adminId,
@@ -62,10 +59,10 @@ export class AccountDeletionService {
       try {
         const adminId = schedule.adminId;
 
-        await this.activityLogModel.deleteMany({ adminId });
-        await this.accountSettingsModel.deleteMany({ adminId });
+        await this.activityLogService.deleteByAdminId(adminId);
+        await this.accountSettingsService.deleteByAdminId(adminId);
 
-        await this.adminModel.findByIdAndDelete(adminId);
+        await this.adminService.findByIdAndDelete(adminId);
 
         schedule.status = AccountDeletionStatus.COMPLETED;
         await schedule.save();

@@ -6,15 +6,9 @@ import {
   AccountDeletionSchedule,
   AccountDeletionScheduleSchema,
 } from '../../schemas/account-deletion-schedule.schema';
-import { Admin, AdminSchema } from '../../schemas/admin.schema';
-import {
-  AccountSettings,
-  AccountSettingsSchema,
-} from '../../schemas/account-settings.schema';
-import {
-  ActivityLog,
-  ActivityLogSchema,
-} from '../../schemas/activity-log.schema';
+import { AdminModule } from '../admin/admin.module';
+import { AccountSettingsModule } from '../account-settings/account-settings.module';
+import { ActivityLogModule } from '../activity-log/activity-log.module';
 
 @Module({
   imports: [
@@ -23,12 +17,13 @@ import {
         name: AccountDeletionSchedule.name,
         schema: AccountDeletionScheduleSchema,
       },
-      { name: Admin.name, schema: AdminSchema },
-      { name: AccountSettings.name, schema: AccountSettingsSchema },
-      { name: ActivityLog.name, schema: ActivityLogSchema },
     ]),
+    AdminModule,
+    AccountSettingsModule,
+    ActivityLogModule,
   ],
   controllers: [AccountDeletionController],
   providers: [AccountDeletionService],
+  exports: [AccountDeletionService],
 })
 export class AccountDeletionModule {}

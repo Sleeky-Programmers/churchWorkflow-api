@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { Response } from 'express';
 import { Parser } from 'json2csv';
 import { ActivityLog } from '../../schemas/activity-log.schema';
@@ -62,6 +62,10 @@ export class ActivityLogService {
 
   async delete(id: string) {
     return await this.activityLogModel.findByIdAndDelete(id);
+  }
+
+  async deleteByAdminId(adminId: Types.ObjectId) {
+    return await this.activityLogModel.deleteMany({ adminId });
   }
 
   async exportToCSV(authUser: Admin, res: Response) {

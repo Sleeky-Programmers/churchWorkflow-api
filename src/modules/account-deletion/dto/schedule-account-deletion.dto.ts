@@ -1,7 +1,8 @@
-import { IsDateString, IsOptional } from 'class-validator';
+import { IsNotEmpty, IsNumber, Min } from 'class-validator';
 
 export class ScheduleAccountDeletionDto {
-  @IsOptional()
-  @IsDateString()
-  executeAt?: Date;
+  @IsNotEmpty()
+  @IsNumber()
+  @Min(1)
+  waitingPeriod: number;
 }
