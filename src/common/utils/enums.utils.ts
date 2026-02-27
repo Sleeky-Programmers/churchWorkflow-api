@@ -97,3 +97,9 @@ export enum MemberTitle {
   MR = 'MR.',
   MRS = 'MRS.',
 }
+
+export enum AccountDeletionStatus {
+  PENDING = 'PENDING',
+  COMPLETED = 'COMPLETED',
+  FAILED = 'FAILED',
+}
