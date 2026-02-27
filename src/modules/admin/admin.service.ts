@@ -88,4 +88,8 @@ export class AdminService {
   async findOneAndDelete(email: string) {
     return await this.adminModel.findOneAndDelete({ email });
   }
+
+  async findByIdAndDelete(id: Types.ObjectId) {
+    return await this.adminModel.findByIdAndDelete(id);
+  }
 }

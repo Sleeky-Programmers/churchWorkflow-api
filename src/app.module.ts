@@ -21,6 +21,8 @@ import { NotificationModule } from './modules/notification/notification.module';
 import { ActivityLogModule } from './modules/activity-log/activity-log.module';
 import { AttendanceModule } from './modules/attendance/attendance.module';
 import { ChurchServicesModule } from './modules/church-services/church-services.module';
+import { ScheduleModule } from '@nestjs/schedule';
+import { AccountDeletionModule } from './modules/account-deletion/account-deletion.module';
 
 @Module({
   imports: [
@@ -67,6 +69,8 @@ import { ChurchServicesModule } from './modules/church-services/church-services.
     ActivityLogModule,
     AttendanceModule,
     ChurchServicesModule,
+    ScheduleModule.forRoot(),
+    AccountDeletionModule,
   ],
   controllers: [AppController],
   providers: [AppService],

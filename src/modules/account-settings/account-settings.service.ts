@@ -31,4 +31,8 @@ export class AccountSettingsService {
       { new: true },
     );
   }
+
+  async deleteByAdminId(adminId: Types.ObjectId) {
+    return await this.accountSettingsModel.deleteMany({ adminId });
+  }
 }
