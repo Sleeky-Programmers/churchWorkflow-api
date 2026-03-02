@@ -1,16 +1,14 @@
 {
-  "version": 2,
+  "version": 3,
+  "name": "my-nestjs-app",
   "builds": [
     {
-      "src": "src/main.ts",
-      "use": "@vercel/node"
+      "src": "package.json",
+      "use": "@vercel/node",
+      "config": { "zeroConfig": true }
     }
   ],
-  "outputDirectory": "dist",
-  "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/src/main.ts"
-    }
+  "routes": [
+    { "src": "/(.*)", "dest": "/dist/main.js" }
   ]
 }
