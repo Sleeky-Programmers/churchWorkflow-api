@@ -47,9 +47,17 @@ export class MembersController {
     return this.membersService.addMember(authUser, createMemberDto);
   }
 
+  @Get('stats')
+  getMemberStats(@AuthUser() authUser: Admin) {
+    return this.membersService.getMemberStats(authUser);
+  }
+
   @Get()
-  getAllMembers(@Query() paginationBaseDto: PaginationBaseDto) {
-    return this.membersService.getAllMembers(paginationBaseDto);
+  getAllMembers(
+    @AuthUser() authUser: Admin,
+    @Query() paginationBaseDto: PaginationBaseDto,
+  ) {
+    return this.membersService.getAllMembers(authUser, paginationBaseDto);
   }
 
   @Get('/:id')

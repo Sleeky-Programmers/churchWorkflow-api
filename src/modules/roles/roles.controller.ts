@@ -25,6 +25,11 @@ export class RolesController {
     return this.rolesService.fetchRoles(authUser);
   }
 
+  @Get('/:id')
+  async viewRole(@Param('id') id: string) {
+    return await this.rolesService.getRoleById(id as any);
+  }
+
   @Post()
   create(@AuthUser() authUser: Admin, @Body() createRoleDto: CreateRoleDto) {
     return this.rolesService.create(authUser, createRoleDto);

@@ -5,6 +5,7 @@ import { Attendance } from '../../schemas/attendance.schema';
 import { CreateAttendanceDto } from './dto/create-attendance.dto';
 import { MembersService } from '../members/members.service';
 import { Gender } from '../../common/utils/enums.utils';
+import { Admin } from '../../schemas/admin.schema';
 
 @Injectable()
 export class AttendanceService {
@@ -31,7 +32,7 @@ export class AttendanceService {
     );
   }
 
-  async getAttendance(churchServiceId: string, date: string) {
+  async getAttendance(authUser: Admin, churchServiceId: string, date: string) {
     const attendance = await this.attendanceModel
       .findOne({ churchServiceId, date })
       .lean();
@@ -45,7 +46,7 @@ export class AttendanceService {
 
     const presentIds = attendance.attendees.map((id) => id.toString());
 
-    const members = await this.membersService.findAll();
+    const members = await this.membersService.findAll(authUser);
 
     let malePresent = 0;
     let femalePresent = 0;

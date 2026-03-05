@@ -12,7 +12,13 @@ export class AccountSettingsService {
   ) {}
 
   async getAccountSettings(adminId: Types.ObjectId) {
-    return await this.accountSettingsModel.findOne({ adminId });
+    let settings = await this.accountSettingsModel.findOne({ adminId });
+
+    if (!settings) {
+      settings = await this.createDefaultAccountSettings(adminId);
+    }
+
+    return settings;
   }
 
   async createDefaultAccountSettings(adminId: Types.ObjectId) {
@@ -25,10 +31,26 @@ export class AccountSettingsService {
     adminId: Types.ObjectId,
     settings: Partial<AccountSettingsDto>,
   ) {
+    const updatePayload: any = { $set: {} };
+
+    if (settings.personalPreferences) {
+      for (const [key, value] of Object.entries(settings.personalPreferences)) {
+        updatePayload.$set[`personalPreferences.${key}`] = value;
+      }
+    }
+
+    if (settings.personalPrivacy) {
+      for (const [key, value] of Object.entries(settings.personalPrivacy)) {
+        updatePayload.$set[`personalPrivacy.${key}`] = value;
+      }
+    }
+
     return await this.accountSettingsModel.findOneAndUpdate(
       { adminId },
-      settings,
-      { new: true },
+      Object.keys(updatePayload.$set).length > 0
+        ? updatePayload
+        : { $set: { updatedAt: new Date() } },
+      { new: true, upsert: true },
     );
   }
 

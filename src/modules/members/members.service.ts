@@ -167,15 +167,51 @@ export class MembersService {
     return createdMember;
   }
 
-  async getAllMembers(paginationBaseDto: PaginationBaseDto) {
+  async getMemberStats(authUser: Admin) {
+    const churchId = authUser.churchId;
+
+    const totalMembers = await this.memberModel.countDocuments({ churchId });
+
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const previousTotal = await this.memberModel.countDocuments({
+      churchId,
+      createdAt: { $lt: thirtyDaysAgo },
+    });
+
+    let growthValue = 0;
+    if (previousTotal === 0) {
+      growthValue = totalMembers > 0 ? 100 : 0;
+    } else {
+      const difference = totalMembers - previousTotal;
+      growthValue = (difference / previousTotal) * 100;
+    }
+
+    const growthText =
+      growthValue >= 0
+        ? `+${growthValue.toFixed(0)}%`
+        : `${growthValue.toFixed(0)}%`;
+
+    return {
+      totalMembers,
+      growth: growthText,
+    };
+  }
+
+  async getAllMembers(authUser: Admin, paginationBaseDto: PaginationBaseDto) {
     const { page, limit } = paginationBaseDto;
 
     const skip = (page - 1) * limit;
 
     const [members, itemCount] = await Promise.all([
-      this.memberModel.find().skip(skip).limit(limit).sort({ createdAt: -1 }),
+      this.memberModel
+        .find({ churchId: authUser.churchId })
+        .skip(skip)
+        .limit(limit)
+        .sort({ createdAt: -1 }),
 
-      this.memberModel.countDocuments(),
+      this.memberModel.countDocuments({ churchId: authUser.churchId }),
     ]);
 
     return {
@@ -188,8 +224,8 @@ export class MembersService {
     };
   }
 
-  async findAll() {
-    return await this.memberModel.find().lean();
+  async findAll(authUser: Admin) {
+    return await this.memberModel.find({ churchId: authUser.churchId }).lean();
   }
 
   async getMemberById(id: string) {
