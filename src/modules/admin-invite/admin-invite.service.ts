@@ -239,7 +239,7 @@ export class AdminInviteService {
 
   async fetchAllInvitations(authUser: Admin) {
     const { churchId } = authUser;
-    return await this.inviteModel.find({ churchId }).sort({ createdAt: -1 });
+    return await this.inviteModel.find({ churchId }).populate('churchRole').sort({ createdAt: -1 });
   }
 
   async deleteInvitation(inviteId: string) {

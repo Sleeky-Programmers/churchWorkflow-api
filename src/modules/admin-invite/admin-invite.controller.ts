@@ -65,4 +65,12 @@ export class AdminInviteController {
   ) {
     return await this.adminInviteService.changeRole(inviteId, churchRole);
   }
+
+  @Put('resend/:inviteId')
+  async resendInvitation(
+    @AuthUser() authUser: Admin,
+    @Param('inviteId') inviteId: string,
+  ) {
+    return await this.adminInviteService.resendInvitation(authUser, inviteId);
+  }
 }

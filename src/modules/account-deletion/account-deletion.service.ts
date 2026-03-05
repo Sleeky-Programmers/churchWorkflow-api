@@ -28,13 +28,15 @@ export class AccountDeletionService {
       status: AccountDeletionStatus.PENDING,
     });
 
-    if (existingSchedule) {
-      return { message: 'Account deletion is already scheduled' };
-    }
-
-    const waitingPeriod = dto.waitingPeriod || 30;
+    const waitingPeriod = Number(dto.waitingPeriod) || 30;
     const executeAt = new Date();
     executeAt.setDate(executeAt.getDate() + waitingPeriod);
+
+    if (existingSchedule) {
+      existingSchedule.executeAt = executeAt;
+      await existingSchedule.save();
+      return { message: 'Account deletion schedule updated successfully', schedule: existingSchedule };
+    }
 
     const schedule = await this.accountDeletionScheduleModel.create({
       adminId,
@@ -44,6 +46,28 @@ export class AccountDeletionService {
     });
 
     return { message: 'Account deletion successfully scheduled', schedule };
+  }
+
+  async getDeletionSchedule(adminId: Types.ObjectId) {
+    const existingSchedule = await this.accountDeletionScheduleModel.findOne({
+      adminId,
+      status: AccountDeletionStatus.PENDING,
+    });
+    return existingSchedule;
+  }
+
+  async unscheduleDeletion(adminId: Types.ObjectId) {
+    const existingSchedule = await this.accountDeletionScheduleModel.findOne({
+      adminId,
+      status: AccountDeletionStatus.PENDING,
+    });
+
+    if (!existingSchedule) {
+      return { message: 'No pending account deletion found' };
+    }
+
+    await this.accountDeletionScheduleModel.deleteOne({ _id: existingSchedule._id });
+    return { message: 'Account deletion cancelled successfully' };
   }
 
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)

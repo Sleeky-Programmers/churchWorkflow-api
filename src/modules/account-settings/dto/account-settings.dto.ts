@@ -1,4 +1,4 @@
-import { IsBoolean, IsOptional, ValidateNested } from 'class-validator';
+import { IsBoolean, IsOptional, ValidateNested, IsObject } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class PersonalPreferencesDto {
@@ -31,11 +31,13 @@ export class PersonalPrivacyDto {
 
 export class AccountSettingsDto {
   @IsOptional()
+  @IsObject()
   @ValidateNested()
   @Type(() => PersonalPreferencesDto)
   personalPreferences?: PersonalPreferencesDto;
 
   @IsOptional()
+  @IsObject()
   @ValidateNested()
   @Type(() => PersonalPrivacyDto)
   personalPrivacy?: PersonalPrivacyDto;

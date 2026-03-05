@@ -25,9 +25,10 @@ export class AttendanceController {
 
   @Get()
   async getAttendance(
+    @AuthUser() authUser: Admin,
     @Query('serviceId') serviceId: string,
     @Query('date') date: string,
   ) {
-    return this.attendanceService.getAttendance(serviceId, date);
+    return this.attendanceService.getAttendance(authUser, serviceId, date);
   }
 }

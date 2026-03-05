@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards } from '@nestjs/common';
+import { Controller, Post, Get, Delete, Body, UseGuards } from '@nestjs/common';
 import { AccountDeletionService } from './account-deletion.service';
 import { JwtAuthGuard } from '../auth/guard/jwt-auth.guard';
 import { AuthUser } from '../../common/decorators/auth-user.decorator';
@@ -21,5 +21,15 @@ export class AccountDeletionController {
       authUser._id,
       scheduleDto,
     );
+  }
+
+  @Get('schedule')
+  async getDeletionSchedule(@AuthUser() authUser: Admin) {
+    return this.accountDeletionService.getDeletionSchedule(authUser._id);
+  }
+
+  @Delete('unschedule')
+  async unscheduleDeletion(@AuthUser() authUser: Admin) {
+    return this.accountDeletionService.unscheduleDeletion(authUser._id);
   }
 }
