@@ -188,7 +188,10 @@ export class MembersService {
       growthValue = (difference / previousTotal) * 100;
     }
 
-    const growthText = growthValue >= 0 ? `+${growthValue.toFixed(0)}%` : `${growthValue.toFixed(0)}%`;
+    const growthText =
+      growthValue >= 0
+        ? `+${growthValue.toFixed(0)}%`
+        : `${growthValue.toFixed(0)}%`;
 
     return {
       totalMembers,
@@ -202,7 +205,11 @@ export class MembersService {
     const skip = (page - 1) * limit;
 
     const [members, itemCount] = await Promise.all([
-      this.memberModel.find({ churchId: authUser.churchId }).skip(skip).limit(limit).sort({ createdAt: -1 }),
+      this.memberModel
+        .find({ churchId: authUser.churchId })
+        .skip(skip)
+        .limit(limit)
+        .sort({ createdAt: -1 }),
 
       this.memberModel.countDocuments({ churchId: authUser.churchId }),
     ]);

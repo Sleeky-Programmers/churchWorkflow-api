@@ -13,11 +13,11 @@ export class AccountSettingsService {
 
   async getAccountSettings(adminId: Types.ObjectId) {
     let settings = await this.accountSettingsModel.findOne({ adminId });
-    
+
     if (!settings) {
       settings = await this.createDefaultAccountSettings(adminId);
     }
-    
+
     return settings;
   }
 
@@ -38,7 +38,7 @@ export class AccountSettingsService {
         updatePayload.$set[`personalPreferences.${key}`] = value;
       }
     }
-    
+
     if (settings.personalPrivacy) {
       for (const [key, value] of Object.entries(settings.personalPrivacy)) {
         updatePayload.$set[`personalPrivacy.${key}`] = value;
@@ -47,8 +47,10 @@ export class AccountSettingsService {
 
     return await this.accountSettingsModel.findOneAndUpdate(
       { adminId },
-      Object.keys(updatePayload.$set).length > 0 ? updatePayload : { $set: { updatedAt: new Date() } },
-      { new: true, upsert: true }, 
+      Object.keys(updatePayload.$set).length > 0
+        ? updatePayload
+        : { $set: { updatedAt: new Date() } },
+      { new: true, upsert: true },
     );
   }
 

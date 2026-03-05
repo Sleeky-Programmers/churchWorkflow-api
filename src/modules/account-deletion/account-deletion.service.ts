@@ -35,7 +35,10 @@ export class AccountDeletionService {
     if (existingSchedule) {
       existingSchedule.executeAt = executeAt;
       await existingSchedule.save();
-      return { message: 'Account deletion schedule updated successfully', schedule: existingSchedule };
+      return {
+        message: 'Account deletion schedule updated successfully',
+        schedule: existingSchedule,
+      };
     }
 
     const schedule = await this.accountDeletionScheduleModel.create({
@@ -66,7 +69,9 @@ export class AccountDeletionService {
       return { message: 'No pending account deletion found' };
     }
 
-    await this.accountDeletionScheduleModel.deleteOne({ _id: existingSchedule._id });
+    await this.accountDeletionScheduleModel.deleteOne({
+      _id: existingSchedule._id,
+    });
     return { message: 'Account deletion cancelled successfully' };
   }
 

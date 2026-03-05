@@ -1,4 +1,9 @@
-import { IsBoolean, IsOptional, ValidateNested, IsObject } from 'class-validator';
+import {
+  IsBoolean,
+  IsOptional,
+  ValidateNested,
+  IsObject,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class PersonalPreferencesDto {
