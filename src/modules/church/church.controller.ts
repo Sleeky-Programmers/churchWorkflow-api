@@ -23,7 +23,7 @@ export class ChurchController {
   createChurch(
     @AuthUser() authUser: Admin,
     @Body() churchIdentityDto: ChurchIdentityDto,
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFile() file?: Express.Multer.File,
   ) {
     return this.churchService.create(authUser, churchIdentityDto, file);
   }
