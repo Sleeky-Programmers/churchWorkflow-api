@@ -23,9 +23,18 @@ export class ChurchService {
   async create(
     authUser: Admin,
     churchIdentityDto: ChurchIdentityDto,
-    file: Express.Multer.File,
+    file?: Express.Multer.File,
   ) {
-    const { url, publicId } = await this.fileUploadService.uploadFile(file);
+    let url: string;
+    let publicId: string;
+
+    if (file) {
+      const { url: fileUrl, publicId: filePublicId } =
+        await this.fileUploadService.uploadFile(file);
+
+      url = fileUrl;
+      publicId = filePublicId;
+    }
 
     const church = await this.churchModel.create({
       ...churchIdentityDto,
