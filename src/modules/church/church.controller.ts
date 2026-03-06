@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Get,
   Post,
   UploadedFile,
   UseGuards,
@@ -16,6 +17,12 @@ import { JwtAuthGuard } from '../auth/guard/jwt-auth.guard';
 @Controller('church')
 export class ChurchController {
   constructor(private readonly churchService: ChurchService) {}
+
+  @UseGuards(JwtAuthGuard)
+  @Get('me')
+  getMyChurch(@AuthUser() authUser: Admin) {
+    return this.churchService.findCurrentChurch(authUser);
+  }
 
   @UseGuards(JwtAuthGuard)
   @Post()
