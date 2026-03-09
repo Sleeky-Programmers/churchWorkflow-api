@@ -1,4 +1,4 @@
-import { IsInt, Max, Min } from 'class-validator';
+import { IsInt, Max, Min, IsOptional, IsString } from 'class-validator';
 import { Type } from 'class-transformer';
 
 interface PaginationMetaInterface {
@@ -35,4 +35,15 @@ export class PaginationBaseDto {
   @Min(1)
   @Max(100)
   public limit?: number = 20;
+
+
+  @IsOptional()
+  @IsString()
+  search?: string;
+}
+
+export class MembersFilterDto extends PaginationBaseDto {
+  @IsOptional()
+  @IsString()
+  filter?: 'all' | 'male' | 'female' | 'this-month' | 'new-members' | 'isBaptized';
 }

@@ -5,6 +5,7 @@ import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { Readable } from 'stream';
 import { Member } from '../../schemas/member.schema';
+import { MembersFilterDto } from '../../common/helpers/pagination.helper';
 import {
   MaritalStatus,
   MembershipStatus,
@@ -199,31 +200,51 @@ export class MembersService {
     };
   }
 
-  async getAllMembers(authUser: Admin, paginationBaseDto: PaginationBaseDto) {
-    const { page, limit } = paginationBaseDto;
+async getAllMembers(authUser: Admin, dto: MembersFilterDto) {
+  const { page = 1, limit = 20, search, filter } = dto;
 
-    const skip = (page - 1) * limit;
+  const skip = (page - 1) * limit;
 
-    const [members, itemCount] = await Promise.all([
-      this.memberModel
-        .find({ churchId: authUser.churchId })
-        .skip(skip)
-        .limit(limit)
-        .sort({ createdAt: -1 }),
+  const query: any = { churchId: authUser.churchId };
 
-      this.memberModel.countDocuments({ churchId: authUser.churchId }),
-    ]);
-
-    return {
-      data: members,
-      pagination: paginationMeta({
-        page,
-        limit,
-        itemCount,
-      }),
-    };
+  
+  if (search) {
+    query.$or = [
+      { fullName: { $regex: search, $options: 'i' } },
+      { email: { $regex: search, $options: 'i' } },
+    ];
   }
 
+  
+  switch (filter) {
+    case 'male':
+      query.gender = 'MALE';
+      break;
+    case 'female':
+      query.gender = 'FEMALE';
+      break;
+    case 'isBaptized':
+      query.isBaptized = true;
+      break;
+    case 'new-members':
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      query.dateJoined = { $gte: thirtyDaysAgo };
+      break;
+    default:
+      break; 
+  }
+
+  const [members, itemCount] = await Promise.all([
+    this.memberModel.find(query).skip(skip).limit(limit),
+    this.memberModel.countDocuments(query),
+  ]);
+
+  return {
+    data: members,
+    pagination: paginationMeta({ page, limit, itemCount }),
+  };
+}
   async findAll(authUser: Admin) {
     return await this.memberModel.find({ churchId: authUser.churchId }).lean();
   }
