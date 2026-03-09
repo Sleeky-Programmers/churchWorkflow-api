@@ -32,6 +32,6 @@ export class ChurchController {
   @UseGuards(JwtAuthGuard)
   @Get('me')
   getMyChurch(@AuthUser() authUser: Admin) {
-    return this.churchService.getMyChurch(authUser.churchId.toString());
+    return this.churchService.getMyChurch(authUser.churchId);
   }
 }

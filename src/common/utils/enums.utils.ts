@@ -103,3 +103,12 @@ export enum AccountDeletionStatus {
   COMPLETED = 'COMPLETED',
   FAILED = 'FAILED',
 }
+
+export enum MemberFilter {
+  ALL = 'all',
+  MALE = 'male',
+  FEMALE = 'female',
+  THIS_MONTH = 'this-month',
+  NEW_MEMBERS = 'new-members',
+  IS_BAPTIZED = 'isBaptized',
+}

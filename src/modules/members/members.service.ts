@@ -6,6 +6,7 @@ import { validate } from 'class-validator';
 import { Readable } from 'stream';
 import { Member } from '../../schemas/member.schema';
 import { MembersFilterDto } from '../../common/helpers/pagination.helper';
+import { MemberFilter, Gender } from '../../common/utils/enums.utils';
 import {
   MaritalStatus,
   MembershipStatus,
@@ -198,7 +199,7 @@ export class MembersService {
   }
 
   async getAllMembers(authUser: Admin, dto: MembersFilterDto) {
-    const { page , limit , search, filter } = dto;
+    const { page, limit, search, filter } = dto;
 
     const skip = (page - 1) * limit;
 
@@ -212,16 +213,16 @@ export class MembersService {
     }
 
     switch (filter) {
-      case 'male':
-        query.gender = 'MALE';
+      case MemberFilter.MALE:
+        query.gender = Gender.MALE;
         break;
-      case 'female':
-        query.gender = 'FEMALE';
+      case MemberFilter.FEMALE:
+        query.gender = Gender.FEMALE;
         break;
-      case 'isBaptized':
+      case MemberFilter.IS_BAPTIZED:
         query.isBaptized = true;
         break;
-      case 'new-members':
+      case MemberFilter.NEW_MEMBERS:
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
         query.dateJoined = { $gte: thirtyDaysAgo };

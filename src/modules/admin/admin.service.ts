@@ -50,7 +50,7 @@ export class AdminService {
 
     const superAdmin = await this.adminModel.create({
       ...createSuperAdminDto,
-      churchRole: superAdminRole?._id,
+      churchRole: superAdminRole._id,
       password: bcrypt.hashSync(createSuperAdminDto.password, 10),
     });
 
