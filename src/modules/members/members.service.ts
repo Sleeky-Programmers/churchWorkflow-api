@@ -15,10 +15,7 @@ import {
 } from '../../common/utils/enums.utils';
 import { CreateMemberDto } from './dto/create-member.dto';
 import { UpdateMemberDto } from './dto/update-member.dto';
-import {
-  PaginationBaseDto,
-  paginationMeta,
-} from '../../common/helpers/pagination.helper';
+import { paginationMeta } from '../../common/helpers/pagination.helper';
 import { ActivityLogService } from '../activity-log/activity-log.service';
 import { NotificationService } from '../notification/notification.service';
 import { Admin } from '../../schemas/admin.schema';
@@ -200,51 +197,49 @@ export class MembersService {
     };
   }
 
-async getAllMembers(authUser: Admin, dto: MembersFilterDto) {
-  const { page = 1, limit = 20, search, filter } = dto;
+  async getAllMembers(authUser: Admin, dto: MembersFilterDto) {
+    const { page , limit , search, filter } = dto;
 
-  const skip = (page - 1) * limit;
+    const skip = (page - 1) * limit;
 
-  const query: any = { churchId: authUser.churchId };
+    const query: any = { churchId: authUser.churchId };
 
-  
-  if (search) {
-    query.$or = [
-      { fullName: { $regex: search, $options: 'i' } },
-      { email: { $regex: search, $options: 'i' } },
-    ];
+    if (search) {
+      query.$or = [
+        { fullName: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } },
+      ];
+    }
+
+    switch (filter) {
+      case 'male':
+        query.gender = 'MALE';
+        break;
+      case 'female':
+        query.gender = 'FEMALE';
+        break;
+      case 'isBaptized':
+        query.isBaptized = true;
+        break;
+      case 'new-members':
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        query.dateJoined = { $gte: thirtyDaysAgo };
+        break;
+      default:
+        break;
+    }
+
+    const [members, itemCount] = await Promise.all([
+      this.memberModel.find(query).skip(skip).limit(limit),
+      this.memberModel.countDocuments(query),
+    ]);
+
+    return {
+      data: members,
+      pagination: paginationMeta({ page, limit, itemCount }),
+    };
   }
-
-  
-  switch (filter) {
-    case 'male':
-      query.gender = 'MALE';
-      break;
-    case 'female':
-      query.gender = 'FEMALE';
-      break;
-    case 'isBaptized':
-      query.isBaptized = true;
-      break;
-    case 'new-members':
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      query.dateJoined = { $gte: thirtyDaysAgo };
-      break;
-    default:
-      break; 
-  }
-
-  const [members, itemCount] = await Promise.all([
-    this.memberModel.find(query).skip(skip).limit(limit),
-    this.memberModel.countDocuments(query),
-  ]);
-
-  return {
-    data: members,
-    pagination: paginationMeta({ page, limit, itemCount }),
-  };
-}
   async findAll(authUser: Admin) {
     return await this.memberModel.find({ churchId: authUser.churchId }).lean();
   }

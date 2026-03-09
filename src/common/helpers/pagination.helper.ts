@@ -36,7 +36,6 @@ export class PaginationBaseDto {
   @Max(100)
   public limit?: number = 20;
 
-
   @IsOptional()
   @IsString()
   search?: string;
@@ -45,5 +44,11 @@ export class PaginationBaseDto {
 export class MembersFilterDto extends PaginationBaseDto {
   @IsOptional()
   @IsString()
-  filter?: 'all' | 'male' | 'female' | 'this-month' | 'new-members' | 'isBaptized';
+  filter?:
+    | 'all'
+    | 'male'
+    | 'female'
+    | 'this-month'
+    | 'new-members'
+    | 'isBaptized';
 }

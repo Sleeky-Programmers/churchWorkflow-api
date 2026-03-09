@@ -49,10 +49,7 @@ export class ChurchService {
     return church;
   }
 
-   async getMyChurch(id: string) {
+  async getMyChurch(id: string) {
     return await this.churchModel.findById(id);
   }
-
 }
-
-

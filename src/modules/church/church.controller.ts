@@ -29,10 +29,9 @@ export class ChurchController {
     return this.churchService.create(authUser, churchIdentityDto, file);
   }
 
- @UseGuards(JwtAuthGuard)
-    @Get('me')
-    getMyChurch(@AuthUser() authUser: Admin) {
-      return this.churchService.getMyChurch(authUser.churchId.toString());
-    }
-  
+  @UseGuards(JwtAuthGuard)
+  @Get('me')
+  getMyChurch(@AuthUser() authUser: Admin) {
+    return this.churchService.getMyChurch(authUser.churchId.toString());
+  }
 }
