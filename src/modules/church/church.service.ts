@@ -21,7 +21,10 @@ export class ChurchService {
   }
 
   async findCurrentChurch(authUser: Admin) {
-    if (!authUser.churchId) return null;
+    if (!authUser.churchId) {
+      return null;
+    }
+
     return await this.churchModel.findById(authUser.churchId);
   }
 
