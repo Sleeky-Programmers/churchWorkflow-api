@@ -96,6 +96,10 @@ export enum NotificationType {
 export enum MemberTitle {
   MR = 'MR.',
   MRS = 'MRS.',
+  MISS = 'MISS',
+  DR = 'DR.',
+  PASTOR = 'PASTOR',
+  REV = 'REV.',
 }
 
 export enum AccountDeletionStatus {
