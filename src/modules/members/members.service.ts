@@ -6,8 +6,8 @@ import { validate } from 'class-validator';
 import { Readable } from 'stream';
 import { Member } from '../../schemas/member.schema';
 import { MembersFilterDto } from '../../common/helpers/pagination.helper';
-import { MemberFilter, Gender } from '../../common/utils/enums.utils';
 import {
+  MemberFilter,
   Gender,
   MaritalStatus,
   MembershipStatus,
@@ -302,6 +302,7 @@ export class MembersService {
       query.$or = [
         { fullName: { $regex: search, $options: 'i' } },
         { email: { $regex: search, $options: 'i' } },
+        { phoneNumber: { $regex: search, $options: 'i' } },
       ];
     }
 
