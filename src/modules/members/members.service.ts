@@ -8,6 +8,7 @@ import { Member } from '../../schemas/member.schema';
 import { MembersFilterDto } from '../../common/helpers/pagination.helper';
 import { MemberFilter, Gender } from '../../common/utils/enums.utils';
 import {
+  Gender,
   MaritalStatus,
   MembershipStatus,
   MemberTitle,
@@ -33,7 +34,8 @@ export class MembersService {
 
   async createMembersByCsv(authUser: Admin, fileBuffer: Buffer) {
     const members: Partial<Member>[] = [];
-    const errors: { row: number; reason: string }[] = [];
+    const errors: { row: number; column?: string; reason: string }[] = [];
+
     let rowIndex = 1;
 
     const stream = Readable.from(fileBuffer).pipe(csv());
@@ -43,64 +45,154 @@ export class MembersService {
         rowIndex++;
 
         try {
+          const rowErrors: { column?: string; reason: string }[] = [];
+
+          if (!row.fullName?.trim()) {
+            rowErrors.push({
+              column: 'fullName',
+              reason: 'Full name is required',
+            });
+          }
+
+          if (!row.gender) {
+            rowErrors.push({
+              column: 'gender',
+              reason: 'Gender is required',
+            });
+          } else if (!Object.values(Gender).includes(row.gender)) {
+            rowErrors.push({
+              column: 'gender',
+              reason: `Invalid gender "${row.gender}". Allowed values: ${Object.values(Gender).join(', ')}`,
+            });
+          }
+
+          if (!row.birthday) {
+            rowErrors.push({
+              column: 'birthday',
+              reason: 'Birthday is required',
+            });
+          }
+
+          const birthday = row.birthday ? new Date(row.birthday) : null;
+          if (row.birthday && isNaN(birthday.getTime())) {
+            rowErrors.push({
+              column: 'birthday',
+              reason: 'Invalid birthday date format',
+            });
+          }
+
+          const dateOfMarriage = row.dateOfMarriage
+            ? new Date(row.dateOfMarriage)
+            : null;
+
+          if (row.dateOfMarriage && isNaN(dateOfMarriage.getTime())) {
+            rowErrors.push({
+              column: 'dateOfMarriage',
+              reason: 'Invalid dateOfMarriage format',
+            });
+          }
+
+          const dateJoined = row.dateJoined ? new Date(row.dateJoined) : null;
+
+          if (row.dateJoined && isNaN(dateJoined.getTime())) {
+            rowErrors.push({
+              column: 'dateJoined',
+              reason: 'Invalid dateJoined format',
+            });
+          }
+
+          if (
+            row.title &&
+            !Object.values(MemberTitle).includes(row.title as MemberTitle)
+          ) {
+            rowErrors.push({
+              column: 'title',
+              reason: `Invalid title "${row.title}". Allowed values: ${Object.values(MemberTitle).join(', ')}`,
+            });
+          }
+
+          if (
+            row.maritalStatus &&
+            !Object.values(MaritalStatus).includes(row.maritalStatus)
+          ) {
+            rowErrors.push({
+              column: 'maritalStatus',
+              reason: `Invalid maritalStatus "${row.maritalStatus}". Allowed values: ${Object.values(MaritalStatus).join(', ')}`,
+            });
+          }
+
+          if (
+            row.membershipStatus &&
+            !Object.values(MembershipStatus).includes(row.membershipStatus)
+          ) {
+            rowErrors.push({
+              column: 'membershipStatus',
+              reason: `Invalid membershipStatus "${row.membershipStatus}". Allowed values: ${Object.values(MembershipStatus).join(', ')}`,
+            });
+          }
+
+          let isBaptized: boolean | null = null;
+
+          if (row.isBaptized !== undefined) {
+            const value = row.isBaptized?.toLowerCase();
+
+            if (value === 'true') isBaptized = true;
+            else if (value === 'false') isBaptized = false;
+            else {
+              rowErrors.push({
+                column: 'isBaptized',
+                reason: 'isBaptized must be true or false',
+              });
+            }
+          }
+
+          if (rowErrors.length) {
+            rowErrors.forEach((err) =>
+              errors.push({
+                row: rowIndex,
+                ...err,
+              }),
+            );
+            continue;
+          }
+
           const parsedData: CreateMemberDto = {
-            title: Object.values(MemberTitle).includes(row.title as MemberTitle)
-              ? (row.title as MemberTitle)
-              : null,
-
+            title: row.title || null,
             fullName: row.fullName?.trim(),
-
             gender: row.gender,
-
-            birthday: row.birthday ? new Date(row.birthday) : null,
-
-            maritalStatus: Object.values(MaritalStatus).includes(
-              row.maritalStatus as MaritalStatus,
-            )
-              ? (row.maritalStatus as MaritalStatus)
-              : null,
-
-            dateOfMarriage: row.dateOfMarriage
-              ? new Date(row.dateOfMarriage)
-              : null,
-
+            birthday,
+            maritalStatus: row.maritalStatus || null,
+            dateOfMarriage,
             spouseFirstName: row.spouseFirstName?.trim(),
             spouseLastName: row.spouseLastName?.trim(),
             phoneNumber: row.phoneNumber?.trim(),
-            email: row.email?.toLowerCase().trim(),
+            email: row.email?.toLowerCase()?.trim(),
             occupation: row.occupation?.trim(),
             educationalBackground: row.educationalBackground?.trim(),
-
-            membershipStatus: Object.values(MembershipStatus).includes(
-              row.membershipStatus as MembershipStatus,
-            )
-              ? (row.membershipStatus as MembershipStatus)
-              : null,
-
-            dateJoined: row.dateJoined ? new Date(row.dateJoined) : null,
+            membershipStatus: row.membershipStatus || null,
+            dateJoined,
             previousChurchMembership: row.previousChurchMembership?.trim(),
-
-            isBaptized:
-              row.isBaptized?.toLowerCase() === 'true'
-                ? true
-                : row.isBaptized?.toLowerCase() === 'false'
-                  ? false
-                  : null,
-
+            isBaptized,
             ministries: row.ministries?.trim(),
             volunteerPreferences: row.volunteerPreferences?.trim(),
             cellGroupName: row.cellGroupName?.trim(),
           };
 
           const dtoInstance = plainToInstance(CreateMemberDto, parsedData);
+
           const validationErrors = await validate(dtoInstance);
 
           if (validationErrors.length > 0) {
-            const messages = validationErrors
-              .map((err) => Object.values(err.constraints || {}).join(', '))
-              .join('; ');
+            validationErrors.forEach((err) => {
+              const message = Object.values(err.constraints || {}).join(', ');
 
-            errors.push({ row: rowIndex, reason: messages });
+              errors.push({
+                row: rowIndex,
+                column: err.property,
+                reason: message,
+              });
+            });
+
             continue;
           }
 
@@ -109,22 +201,25 @@ export class MembersService {
             ...dtoInstance,
           });
         } catch (err: any) {
-          errors.push({ row: rowIndex, reason: err.message });
+          errors.push({
+            row: rowIndex,
+            reason: err.message || 'Unexpected error',
+          });
         }
       }
-    } catch (err) {
+    } catch {
       throw new BadRequestException('Failed to parse CSV file');
     }
 
-    if (!members.length) {
-      throw new BadRequestException(
-        'CSV file is empty or contains no valid records',
-      );
+    if (errors.length > 0) {
+      throw new BadRequestException({
+        message: 'CSV validation failed. No members were imported.',
+        totalErrors: errors.length,
+        errors,
+      });
     }
 
-    const insertedDocs = await this.memberModel.insertMany(members, {
-      ordered: false,
-    });
+    const insertedDocs = await this.memberModel.insertMany(members);
 
     await this.activityLogService.create(authUser, {
       action: 'Bulk Member Import',
@@ -140,8 +235,6 @@ export class MembersService {
 
     return {
       inserted: insertedDocs.length,
-      skipped: errors.length,
-      errors,
     };
   }
 

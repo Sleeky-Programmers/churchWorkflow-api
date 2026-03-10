@@ -19,6 +19,12 @@ export class ChurchController {
   constructor(private readonly churchService: ChurchService) {}
 
   @UseGuards(JwtAuthGuard)
+  @Get('me')
+  getMyChurch(@AuthUser() authUser: Admin) {
+    return this.churchService.findCurrentChurch(authUser);
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Post()
   @UseInterceptors(FileInterceptor('file'))
   createChurch(

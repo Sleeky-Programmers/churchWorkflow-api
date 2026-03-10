@@ -20,6 +20,14 @@ export class ChurchService {
     return await this.churchModel.findById(id);
   }
 
+  async findCurrentChurch(authUser: Admin) {
+    if (!authUser.churchId) {
+      return null;
+    }
+
+    return await this.churchModel.findById(authUser.churchId);
+  }
+
   async create(
     authUser: Admin,
     churchIdentityDto: ChurchIdentityDto,
