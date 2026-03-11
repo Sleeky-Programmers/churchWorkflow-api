@@ -16,7 +16,7 @@ import { MembersService } from './members.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../auth/guard/jwt-auth.guard';
 import { CreateMemberDto } from './dto/create-member.dto';
-import { PaginationBaseDto } from '../../common/helpers/pagination.helper';
+import { MembersFilterDto } from '../../common/helpers/pagination.helper';
 import { UpdateMemberDto } from './dto/update-member.dto';
 import { AuthUser } from '../../common/decorators/auth-user.decorator';
 import { Admin } from '../../schemas/admin.schema';
@@ -55,7 +55,7 @@ export class MembersController {
   @Get()
   getAllMembers(
     @AuthUser() authUser: Admin,
-    @Query() paginationBaseDto: PaginationBaseDto,
+    @Query() paginationBaseDto: MembersFilterDto,
   ) {
     return this.membersService.getAllMembers(authUser, paginationBaseDto);
   }

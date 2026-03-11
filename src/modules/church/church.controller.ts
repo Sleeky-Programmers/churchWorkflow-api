@@ -34,4 +34,6 @@ export class ChurchController {
   ) {
     return this.churchService.create(authUser, churchIdentityDto, file);
   }
+
+
 }

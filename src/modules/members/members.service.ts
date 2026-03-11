@@ -5,7 +5,9 @@ import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { Readable } from 'stream';
 import { Member } from '../../schemas/member.schema';
+import { MembersFilterDto } from '../../common/helpers/pagination.helper';
 import {
+  MemberFilter,
   Gender,
   MaritalStatus,
   MembershipStatus,
@@ -15,10 +17,7 @@ import {
 } from '../../common/utils/enums.utils';
 import { CreateMemberDto } from './dto/create-member.dto';
 import { UpdateMemberDto } from './dto/update-member.dto';
-import {
-  PaginationBaseDto,
-  paginationMeta,
-} from '../../common/helpers/pagination.helper';
+import { paginationMeta } from '../../common/helpers/pagination.helper';
 import { ActivityLogService } from '../activity-log/activity-log.service';
 import { NotificationService } from '../notification/notification.service';
 import { Admin } from '../../schemas/admin.schema';
@@ -292,31 +291,50 @@ export class MembersService {
     };
   }
 
-  async getAllMembers(authUser: Admin, paginationBaseDto: PaginationBaseDto) {
-    const { page, limit } = paginationBaseDto;
+  async getAllMembers(authUser: Admin, dto: MembersFilterDto) {
+    const { page, limit, search, filter } = dto;
 
     const skip = (page - 1) * limit;
 
-    const [members, itemCount] = await Promise.all([
-      this.memberModel
-        .find({ churchId: authUser.churchId })
-        .skip(skip)
-        .limit(limit)
-        .sort({ createdAt: -1 }),
+    const query: any = { churchId: authUser.churchId };
 
-      this.memberModel.countDocuments({ churchId: authUser.churchId }),
+    if (search) {
+      query.$or = [
+        { fullName: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } },
+        { phoneNumber: { $regex: search, $options: 'i' } },
+      ];
+    }
+
+    switch (filter) {
+      case MemberFilter.MALE:
+        query.gender = Gender.MALE;
+        break;
+      case MemberFilter.FEMALE:
+        query.gender = Gender.FEMALE;
+        break;
+      case MemberFilter.IS_BAPTIZED:
+        query.isBaptized = true;
+        break;
+      case MemberFilter.NEW_MEMBERS:
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        query.dateJoined = { $gte: thirtyDaysAgo };
+        break;
+      default:
+        break;
+    }
+
+    const [members, itemCount] = await Promise.all([
+      this.memberModel.find(query).skip(skip).limit(limit),
+      this.memberModel.countDocuments(query),
     ]);
 
     return {
       data: members,
-      pagination: paginationMeta({
-        page,
-        limit,
-        itemCount,
-      }),
+      pagination: paginationMeta({ page, limit, itemCount }),
     };
   }
-
   async findAll(authUser: Admin) {
     return await this.memberModel.find({ churchId: authUser.churchId }).lean();
   }
