@@ -31,7 +31,7 @@ export class AttendanceService {
 
     return {
       message: 'Attendance marked successfully',
-    }
+    };
   }
 
   async getAttendance(authUser: Admin, churchServiceId: string, date: string) {

@@ -44,5 +44,5 @@ export class PaginationBaseDto {
 export class MembersFilterDto extends PaginationBaseDto {
   @IsOptional()
   @IsString()
-    filter?: MemberFilter;
+  filter?: MemberFilter;
 }
