@@ -12,7 +12,7 @@ export class CreateAttendanceDto {
   date: string;
 
   @IsArray()
-  @ArrayMinSize(1, { message: 'At least one attendee must be selected' })
+  @ArrayMinSize(1, { message: 'At least one member must be selected' })
   @IsMongoId({ each: true })
-  attendees: string[];
+  memberIds: string[];
 }
