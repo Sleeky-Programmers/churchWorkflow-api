@@ -4,7 +4,7 @@ import { Model, Types } from 'mongoose';
 import { Attendance } from '../../schemas/attendance.schema';
 import { CreateAttendanceDto } from './dto/create-attendance.dto';
 import { MembersService } from '../members/members.service';
-import { Gender } from '../../common/utils/enums.utils';
+import { AttendanceStatus, Gender } from '../../common/utils/enums.utils';
 import { Admin } from '../../schemas/admin.schema';
 
 @Injectable()
@@ -19,32 +19,34 @@ export class AttendanceService {
     serviceId: string,
     createAttendanceDto: CreateAttendanceDto,
   ) {
-    return this.attendanceModel.findOneAndUpdate(
-      {
+    createAttendanceDto.memberIds.forEach(async (memberId) => {
+      await this.attendanceModel.create({
         churchServiceId: serviceId,
         date: createAttendanceDto.date,
-      },
-      {
-        attendees: createAttendanceDto.attendees,
+        memberId,
         recordedBy: adminId,
-      },
-      { upsert: true, new: true },
-    );
+        status: AttendanceStatus.PRESENT,
+      });
+    });
+
+    return {
+      message: 'Attendance marked successfully',
+    };
   }
 
   async getAttendance(authUser: Admin, churchServiceId: string, date: string) {
     const attendance = await this.attendanceModel
-      .findOne({ churchServiceId, date })
+      .find({ churchServiceId, date })
       .lean();
 
-    if (!attendance) {
+    if (!attendance || attendance.length === 0) {
       return {
         attendance: null,
         stats: null,
       };
     }
 
-    const presentIds = attendance.attendees.map((id) => id.toString());
+    const presentIds = attendance.map((record) => record.memberId.toString());
 
     const members = await this.membersService.findAll(authUser);
 

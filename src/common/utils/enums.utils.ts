@@ -116,3 +116,8 @@ export enum MemberFilter {
   NEW_MEMBERS = 'new-members',
   IS_BAPTIZED = 'isBaptized',
 }
+
+export enum AttendanceStatus {
+  PRESENT = 'PRESENT',
+  ABSENT = 'ABSENT',
+}
