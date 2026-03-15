@@ -54,6 +54,7 @@ export class AdminInviteService {
     }
 
     const FRONTEND_URL = process.env.FRONTEND_URL;
+    const baseUrl = FRONTEND_URL?.replace(/\/$/, '');
 
     const hasName = Boolean(title || firstName || lastName);
     const name = [title, firstName, lastName].filter(Boolean).join(' ');
@@ -68,8 +69,8 @@ export class AdminInviteService {
       ...(title && { title }),
     });
 
-    const inviteUrl = `${FRONTEND_URL}?token=${token}`;
-    const accountUrl = FRONTEND_URL;
+    const inviteUrl = `${baseUrl}/auth/signup?invite=${token}`;
+    const accountUrl = baseUrl;
 
     const isRoleChange = type === InviteEmailType.ROLE_CHANGE;
 
