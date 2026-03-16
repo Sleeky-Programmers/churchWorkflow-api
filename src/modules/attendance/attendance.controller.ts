@@ -31,4 +31,9 @@ export class AttendanceController {
   ) {
     return this.attendanceService.getAttendance(authUser, serviceId, date);
   }
+
+  @Get('stats')
+  async getAttendanceStats(@AuthUser() authUser: Admin) {
+    return this.attendanceService.getAttendanceStats(authUser);
+  }
 }

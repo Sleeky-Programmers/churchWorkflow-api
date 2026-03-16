@@ -15,6 +15,22 @@ export class RolesService {
     return await this.roleModel.findOne({ roleName });
   }
 
+  async ensureSystemRole(roleName: string, description?: string) {
+    const existing = await this.findOne(roleName);
+    if (existing) {
+      return existing;
+    }
+
+    return await this.roleModel.create({
+      roleName,
+      description: description || null,
+      type: RoleType.SYSTEM,
+      status: RoleStatus.ACTIVE,
+      churchId: null,
+      permissions: [],
+    });
+  }
+
   async fetchRoles(authUser: Admin) {
     const [systemRoles, customRoles] = await Promise.all([
       this.roleModel.find({ type: RoleType.SYSTEM }),

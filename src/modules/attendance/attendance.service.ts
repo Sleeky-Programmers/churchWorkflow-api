@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Attendance } from '../../schemas/attendance.schema';
+import { ChurchService } from '../../schemas/church-service.schema';
 import { CreateAttendanceDto } from './dto/create-attendance.dto';
 import { MembersService } from '../members/members.service';
 import { AttendanceStatus, Gender } from '../../common/utils/enums.utils';
@@ -11,6 +12,8 @@ import { Admin } from '../../schemas/admin.schema';
 export class AttendanceService {
   constructor(
     @InjectModel(Attendance.name) private attendanceModel: Model<Attendance>,
+    @InjectModel(ChurchService.name)
+    private churchServiceModel: Model<ChurchService>,
     private membersService: MembersService,
   ) {}
 
@@ -82,5 +85,25 @@ export class AttendanceService {
         },
       },
     };
+  }
+
+  async getAttendanceStats(authUser: Admin) {
+    const services = await this.churchServiceModel
+      .find({ churchId: authUser.churchId })
+      .select('_id')
+      .lean();
+
+    if (!services.length) {
+      return { totalAttendance: 0 };
+    }
+
+    const serviceIds = services.map((service) => service._id);
+
+    const totalAttendance = await this.attendanceModel.countDocuments({
+      churchServiceId: { $in: serviceIds },
+      status: AttendanceStatus.PRESENT,
+    });
+
+    return { totalAttendance };
   }
 }
