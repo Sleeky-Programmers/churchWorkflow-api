@@ -33,12 +33,6 @@ export class Member extends Document {
   dateOfMarriage: Date;
 
   @Prop({ default: null })
-  spouseFirstName: string;
-
-  @Prop({ default: null })
-  spouseLastName: string;
-
-  @Prop({ default: null })
   phoneNumber: string;
 
   @Prop({ default: null })

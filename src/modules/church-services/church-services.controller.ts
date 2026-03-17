@@ -16,13 +16,20 @@ import { Admin } from '../../schemas/admin.schema';
 import { JwtAuthGuard } from '../auth/guard/jwt-auth.guard';
 import { PaginationBaseDto } from '../../common/helpers/pagination.helper';
 import { UpdateChurchServiceDto } from './dto/update-church-service.dto';
+import { PermissionsGuard } from '../../common/guards/permissions.guard';
+import { RequirePermissions } from '../../common/decorators/permissions.decorator';
+import { ModuleSections, AccessLevel } from '../../common/utils/enums.utils';
 
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('church-services')
 export class ChurchServicesController {
   constructor(private readonly churchServicesService: ChurchServicesService) {}
 
   @Post()
+  @RequirePermissions({
+    section: ModuleSections.EVENTS,
+    level: AccessLevel.MANAGE,
+  })
   createChurchService(
     @Body() createChurchServiceDto: CreateChurchServiceDto,
     @AuthUser() authUser: Admin,
@@ -31,6 +38,10 @@ export class ChurchServicesController {
   }
 
   @Get()
+  @RequirePermissions({
+    section: ModuleSections.EVENTS,
+    level: AccessLevel.VIEW,
+  })
   getAllChurchServices(
     @AuthUser() authUser: Admin,
     @Query() paginationBaseDto: PaginationBaseDto,
@@ -39,11 +50,19 @@ export class ChurchServicesController {
   }
 
   @Get(':id')
+  @RequirePermissions({
+    section: ModuleSections.EVENTS,
+    level: AccessLevel.VIEW,
+  })
   getChurchServiceById(@Param('id') id: string) {
     return this.churchServicesService.findById(id);
   }
 
   @Put(':id')
+  @RequirePermissions({
+    section: ModuleSections.EVENTS,
+    level: AccessLevel.MANAGE,
+  })
   updateChurchService(
     @Param('id') id: string,
     @Body() updateChurchServiceDto: UpdateChurchServiceDto,
@@ -52,6 +71,10 @@ export class ChurchServicesController {
   }
 
   @Delete(':id')
+  @RequirePermissions({
+    section: ModuleSections.EVENTS,
+    level: AccessLevel.MANAGE,
+  })
   deleteChurchService(@Param('id') id: string) {
     return this.churchServicesService.delete(id);
   }

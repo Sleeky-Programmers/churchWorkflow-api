@@ -66,4 +66,19 @@ export class ChurchServicesService {
   async delete(id: string) {
     return await this.churchServiceModel.findByIdAndDelete(id);
   }
+  async getServiceIdsByType(type: string) {
+    const services = await this.churchServiceModel
+      .find({ type })
+      .select('_id')
+      .lean();
+    return services.map((s) => s._id);
+  }
+
+  async getServiceIdsByChurchId(churchId: any) {
+    const services = await this.churchServiceModel
+      .find({ churchId })
+      .select('_id')
+      .lean();
+    return services.map((s) => s._id);
+  }
 }

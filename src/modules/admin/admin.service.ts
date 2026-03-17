@@ -46,8 +46,7 @@ export class AdminService {
 
   async createSuperAdmin(createSuperAdminDto: CreateSuperAdminDto) {
     const roleName = 'Super Admin';
-    const superAdminRole =
-      await this.rolesService.ensureSystemRole(roleName);
+    const superAdminRole = await this.rolesService.ensureSystemRole(roleName);
 
     if (!superAdminRole) {
       throw new NotFoundException('Super Admin role not found');
@@ -75,7 +74,7 @@ export class AdminService {
   }
 
   async findById(id: Types.ObjectId) {
-    return await this.adminModel.findById(id);
+    return await this.adminModel.findById(id).populate('churchRole');
   }
 
   async findOneAndUpdate(email: string, updateData: Partial<Admin>) {
