@@ -84,7 +84,6 @@ export class AttendanceService {
       };
     }
 
-    // Only members whose status is PRESENT
     const presentIds = attendance
       .filter((record) => record.status === AttendanceStatus.PRESENT)
       .map((record) => record.memberId.toString());
