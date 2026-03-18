@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Attendance } from '../../schemas/attendance.schema';
@@ -247,7 +251,9 @@ export class AttendanceService {
 
     const admins = recordedByIds.length
       ? await this.adminModel
-          .find({ _id: { $in: recordedByIds.map((id) => new Types.ObjectId(id)) } })
+          .find({
+            _id: { $in: recordedByIds.map((id) => new Types.ObjectId(id)) },
+          })
           .select('firstName lastName')
           .lean()
       : [];
@@ -304,7 +310,9 @@ export class AttendanceService {
         month,
         attended: value.attended,
         total: value.total,
-        rate: value.total ? Math.round((value.attended / value.total) * 100) : 0,
+        rate: value.total
+          ? Math.round((value.attended / value.total) * 100)
+          : 0,
       }))
       .sort((a, b) => a.month.localeCompare(b.month));
 

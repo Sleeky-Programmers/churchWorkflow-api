@@ -82,4 +82,3 @@ export class SmallTeamsController {
     return this.smallTeamsService.delete(authUser, id);
   }
 }
-

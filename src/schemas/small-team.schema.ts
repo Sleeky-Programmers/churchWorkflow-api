@@ -34,4 +34,3 @@ export class SmallTeam extends Document {
 }
 
 export const SmallTeamSchema = SchemaFactory.createForClass(SmallTeam);
-

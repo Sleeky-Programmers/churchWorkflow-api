@@ -31,4 +31,3 @@ export class CreateSmallTeamDto {
   @MaxLength(2000)
   description?: string;
 }
-

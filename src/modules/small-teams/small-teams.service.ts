@@ -1,7 +1,14 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model, Types } from 'mongoose';
-import { PaginationBaseDto, paginationMeta } from '../../common/helpers/pagination.helper';
+import {
+  PaginationBaseDto,
+  paginationMeta,
+} from '../../common/helpers/pagination.helper';
 import { Admin } from '../../schemas/admin.schema';
 import { Member } from '../../schemas/member.schema';
 import { SmallTeam, SmallTeamStatus } from '../../schemas/small-team.schema';
@@ -118,7 +125,9 @@ export class SmallTeamsService {
     if (dto.memberIds) {
       const memberIds = this.toUniqueIds(dto.memberIds);
       await this.assertMembersInChurch(authUser, memberIds);
-      updatePayload.memberIds = memberIds.map((memberId) => new Types.ObjectId(memberId));
+      updatePayload.memberIds = memberIds.map(
+        (memberId) => new Types.ObjectId(memberId),
+      );
     }
 
     await this.smallTeamModel.updateOne(
@@ -129,7 +138,11 @@ export class SmallTeamsService {
     return this.findById(authUser, id);
   }
 
-  async updateMembers(authUser: Admin, id: string, dto: UpdateSmallTeamMembersDto) {
+  async updateMembers(
+    authUser: Admin,
+    id: string,
+    dto: UpdateSmallTeamMembersDto,
+  ) {
     const team = await this.smallTeamModel.findOne({
       _id: id,
       churchId: authUser.churchId,
@@ -187,7 +200,9 @@ export class SmallTeamsService {
       (memberId) => !teamMemberIds.includes(memberId),
     );
     if (invalidSelections.length > 0) {
-      throw new BadRequestException('One or more selected members are not part of this team');
+      throw new BadRequestException(
+        'One or more selected members are not part of this team',
+      );
     }
 
     const attendanceDate = new Date(dto.date);
@@ -248,15 +263,18 @@ export class SmallTeamsService {
 
     const attendance = await this.attendanceModel
       .find({
-        memberId: { $in: memberIds.map((memberId) => new Types.ObjectId(memberId)) },
+        memberId: {
+          $in: memberIds.map((memberId) => new Types.ObjectId(memberId)),
+        },
         status: AttendanceStatus.PRESENT,
         ...dateFilter,
       })
       .lean();
 
     const sessionKeySet = new Set(
-      attendance.map((record) =>
-        `${record.churchServiceId.toString()}_${new Date(record.date).toISOString().split('T')[0]}`,
+      attendance.map(
+        (record) =>
+          `${record.churchServiceId.toString()}_${new Date(record.date).toISOString().split('T')[0]}`,
       ),
     );
     const sessions = sessionKeySet.size;
@@ -276,7 +294,8 @@ export class SmallTeamsService {
       .map((member) => {
         const id = member._id.toString();
         const present = presentCountByMember.get(id) || 0;
-        const percentage = sessions > 0 ? Math.round((present / sessions) * 100) : 0;
+        const percentage =
+          sessions > 0 ? Math.round((present / sessions) * 100) : 0;
         return {
           id,
           fullName: member.fullName,
@@ -310,7 +329,9 @@ export class SmallTeamsService {
     });
 
     if (count !== memberIds.length) {
-      throw new BadRequestException('One or more members were not found in this church');
+      throw new BadRequestException(
+        'One or more members were not found in this church',
+      );
     }
   }
 
@@ -353,4 +374,3 @@ export class SmallTeamsService {
     };
   }
 }
-
