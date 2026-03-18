@@ -8,12 +8,16 @@ import {
   ChurchServiceSchema,
 } from '../../schemas/church-service.schema';
 import { MembersModule } from '../members/members.module';
+import { Member, MemberSchema } from '../../schemas/member.schema';
+import { Admin, AdminSchema } from '../../schemas/admin.schema';
 
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: Attendance.name, schema: AttendanceSchema },
       { name: ChurchService.name, schema: ChurchServiceSchema },
+      { name: Member.name, schema: MemberSchema },
+      { name: Admin.name, schema: AdminSchema },
     ]),
     MembersModule,
   ],
