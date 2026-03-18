@@ -13,19 +13,22 @@ import { AuthUser } from '../../common/decorators/auth-user.decorator';
 import { Admin } from '../../schemas/admin.schema';
 import { ChurchIdentityDto } from './dto/church-identity.dto';
 import { JwtAuthGuard } from '../auth/guard/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
 
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('church')
 export class ChurchController {
   constructor(private readonly churchService: ChurchService) {}
 
-  @UseGuards(JwtAuthGuard)
   @Get('me')
+  @Roles('Super Admin')
   getMyChurch(@AuthUser() authUser: Admin) {
     return this.churchService.findCurrentChurch(authUser);
   }
 
-  @UseGuards(JwtAuthGuard)
   @Post()
+  @Roles('Super Admin')
   @UseInterceptors(FileInterceptor('file'))
   createChurch(
     @AuthUser() authUser: Admin,

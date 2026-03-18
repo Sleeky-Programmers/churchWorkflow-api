@@ -29,12 +29,6 @@ export class CreateMemberDto {
   dateOfMarriage?: Date;
 
   @IsOptional()
-  spouseFirstName?: string;
-
-  @IsOptional()
-  spouseLastName?: string;
-
-  @IsOptional()
   phoneNumber?: string;
 
   @IsOptional()
