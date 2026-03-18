@@ -1,6 +1,17 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  Inject,
+  forwardRef,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { AttendanceService } from '../attendance/attendance.service';
+import { ChurchServicesService } from '../church-services/church-services.service';
+import { Model, Types } from 'mongoose';
+import {
+  MemberAttendanceFilterDto,
+  MemberAttendanceStatsFilterDto,
+} from './dto/member-attendance-filter.dto';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { Readable } from 'stream';
@@ -28,9 +39,60 @@ export class MembersService {
   constructor(
     @InjectModel(Member.name)
     private memberModel: Model<Member>,
+    @Inject(forwardRef(() => AttendanceService))
+    private readonly attendanceService: AttendanceService,
+    @Inject(forwardRef(() => ChurchServicesService))
+    private readonly churchServicesService: ChurchServicesService,
     private readonly activityLogService: ActivityLogService,
     private readonly notificationService: NotificationService,
   ) {}
+
+  async getMemberAttendanceStats(
+    id: string,
+    dto: MemberAttendanceStatsFilterDto,
+  ) {
+    return await this.attendanceService.getMemberAttendanceStatsFilter(
+      id,
+      dto.days,
+    );
+  }
+
+  async getMemberAttendance(id: string, dto: MemberAttendanceFilterDto) {
+    const { page, limit, serviceType, serviceId } = dto;
+    const skip = (page! - 1) * limit!;
+
+    let serviceIds: any = undefined;
+
+    if (serviceId) {
+      serviceIds = [new Types.ObjectId(serviceId)];
+    } else if (serviceType) {
+      serviceIds =
+        await this.churchServicesService.getServiceIdsByType(serviceType);
+    }
+
+    const { attendances, itemCount } =
+      await this.attendanceService.getMemberAttendanceFilter(
+        id,
+        limit!,
+        skip,
+        serviceIds,
+      );
+
+    const formattedData = attendances.map((record: any) => ({
+      _id: record._id,
+      date: record.date,
+      status: record.status,
+      serviceName: record.churchServiceId?.serviceName,
+      serviceType: record.churchServiceId?.type,
+      recordedBy: `${record.recordedBy.firstName} ${record.recordedBy.lastName}`,
+      timestamp: record.createdAt,
+    }));
+
+    return {
+      data: formattedData,
+      pagination: paginationMeta({ page: page!, limit: limit!, itemCount }),
+    };
+  }
 
   async createMembersByCsv(authUser: Admin, fileBuffer: Buffer) {
     const members: Partial<Member>[] = [];
@@ -163,8 +225,6 @@ export class MembersService {
             birthday,
             maritalStatus: row.maritalStatus || null,
             dateOfMarriage,
-            spouseFirstName: row.spouseFirstName?.trim(),
-            spouseLastName: row.spouseLastName?.trim(),
             phoneNumber: row.phoneNumber?.trim(),
             email: row.email?.toLowerCase()?.trim(),
             occupation: row.occupation?.trim(),
@@ -335,12 +395,34 @@ export class MembersService {
       pagination: paginationMeta({ page, limit, itemCount }),
     };
   }
+
   async findAll(authUser: Admin) {
-    return await this.memberModel.find({ churchId: authUser.churchId }).lean();
+    return await this.memberModel.find({ churchId: authUser.churchId });
   }
 
-  async getMemberById(id: string) {
-    return await this.memberModel.findById(id);
+  async getMemberById(
+    id: string,
+    dto?: MemberAttendanceFilterDto,
+  ): Promise<any> {
+    const page = dto?.page || 1;
+    const limit = dto?.limit || 10;
+
+    const [member, attendanceStats, attendance] = await Promise.all([
+      this.memberModel.findById(id).lean(),
+      this.attendanceService.getMemberAttendanceStatsFilter(id),
+      this.getMemberAttendance(id, { ...dto, page, limit }),
+    ]);
+
+    if (!member) {
+      return null;
+    }
+
+    return {
+      ...member,
+      attendanceStats,
+      attendanceList: attendance.data,
+      attendancePagination: attendance.pagination,
+    };
   }
 
   async updateMember(id: string, updateMemberDto: UpdateMemberDto) {

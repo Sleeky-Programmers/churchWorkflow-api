@@ -74,7 +74,7 @@ export class AdminService {
   }
 
   async findById(id: Types.ObjectId) {
-    return await this.adminModel.findById(id);
+    return await this.adminModel.findById(id).populate('churchRole');
   }
 
   async findOneAndUpdate(email: string, updateData: Partial<Admin>) {
