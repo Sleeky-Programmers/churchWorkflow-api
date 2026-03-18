@@ -15,7 +15,11 @@ import { ActivateOrDisableRoleDto, UpdateRoleDto } from './dto/update-role.dto';
 import { Admin } from '../../schemas/admin.schema';
 import { AuthUser } from '../../common/decorators/auth-user.decorator';
 
-@UseGuards(JwtAuthGuard)
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
+
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('Super Admin')
 @Controller('roles')
 export class RolesController {
   constructor(private readonly rolesService: RolesService) {}
