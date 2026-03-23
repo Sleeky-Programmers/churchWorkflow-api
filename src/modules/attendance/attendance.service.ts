@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject, forwardRef } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Attendance } from '../../schemas/attendance.schema';
@@ -14,6 +14,7 @@ export class AttendanceService {
     @InjectModel(Attendance.name) private attendanceModel: Model<Attendance>,
     @InjectModel(ChurchService.name)
     private churchServiceModel: Model<ChurchService>,
+    @Inject(forwardRef(() => MembersService))
     private membersService: MembersService,
   ) {}
 
@@ -22,33 +23,38 @@ export class AttendanceService {
     serviceId: string,
     createAttendanceDto: CreateAttendanceDto,
   ) {
-    const attendanceDate = new Date(createAttendanceDto.date);
-
-    await this.attendanceModel.deleteMany({
-      churchServiceId: new Types.ObjectId(serviceId),
-      date: attendanceDate,
-    });
-
-    if (createAttendanceDto.memberIds.length > 0) {
-      await this.attendanceModel.insertMany(
-        createAttendanceDto.memberIds.map((memberId) => ({
-          churchServiceId: new Types.ObjectId(serviceId),
-          date: attendanceDate,
-          memberId: new Types.ObjectId(memberId),
-          recordedBy: adminId,
-          status: AttendanceStatus.PRESENT,
-        })),
-      );
-    }
+    await this.replaceAttendanceByStatus(
+      adminId,
+      serviceId,
+      createAttendanceDto,
+      AttendanceStatus.PRESENT,
+    );
 
     return {
       message: 'Attendance marked successfully',
     };
   }
 
+  async markAsAbsent(
+    adminId: Types.ObjectId,
+    serviceId: string,
+    createAttendanceDto: CreateAttendanceDto,
+  ) {
+    await this.replaceAttendanceByStatus(
+      adminId,
+      serviceId,
+      createAttendanceDto,
+      AttendanceStatus.ABSENT,
+    );
+
+    return {
+      message: 'Members marked as absent successfully',
+    };
+  }
+
   async getAttendance(authUser: Admin, churchServiceId: string, date: string) {
     const attendance = await this.attendanceModel
-      .find({ churchServiceId, date })
+      .find({ churchServiceId, date, status: AttendanceStatus.PRESENT })
       .lean();
 
     if (!attendance || attendance.length === 0) {
@@ -189,5 +195,93 @@ export class AttendanceService {
       attendanceGrowth,
       monthlyAttendanceTrends,
     };
+  }
+
+  async getMemberAttendanceFilter(
+    memberId: string,
+    limit: number,
+    skip: number,
+    serviceIds?: Types.ObjectId[],
+  ) {
+    const query: any = {
+      memberId: new Types.ObjectId(memberId),
+    };
+
+    if (serviceIds?.length) {
+      query.churchServiceId = { $in: serviceIds };
+    }
+
+    const [attendances, itemCount] = await Promise.all([
+      this.attendanceModel
+        .find(query)
+        .populate('churchServiceId', 'serviceName type')
+        .populate('recordedBy', 'firstName lastName')
+        .sort({ date: -1, createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      this.attendanceModel.countDocuments(query),
+    ]);
+
+    return { attendances, itemCount };
+  }
+
+  async getMemberAttendanceStatsFilter(memberId: string, days?: number) {
+    const query: any = {
+      memberId: new Types.ObjectId(memberId),
+    };
+
+    if (days) {
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - days);
+      query.date = { $gte: startDate };
+    }
+
+    const [present, absent] = await Promise.all([
+      this.attendanceModel.countDocuments({
+        ...query,
+        status: AttendanceStatus.PRESENT,
+      }),
+      this.attendanceModel.countDocuments({
+        ...query,
+        status: AttendanceStatus.ABSENT,
+      }),
+    ]);
+
+    const total = present + absent;
+    const attendanceRate = total ? Math.round((present / total) * 100) : 0;
+
+    return {
+      total,
+      present,
+      absent,
+      attendanceRate,
+    };
+  }
+
+  private async replaceAttendanceByStatus(
+    adminId: Types.ObjectId,
+    serviceId: string,
+    createAttendanceDto: CreateAttendanceDto,
+    status: AttendanceStatus,
+  ) {
+    const attendanceDate = new Date(createAttendanceDto.date);
+
+    await this.attendanceModel.deleteMany({
+      churchServiceId: new Types.ObjectId(serviceId),
+      date: attendanceDate,
+    });
+
+    if (createAttendanceDto.memberIds.length === 0) return;
+
+    await this.attendanceModel.insertMany(
+      createAttendanceDto.memberIds.map((memberId) => ({
+        churchServiceId: new Types.ObjectId(serviceId),
+        date: attendanceDate,
+        memberId: new Types.ObjectId(memberId),
+        recordedBy: adminId,
+        status,
+      })),
+    );
   }
 }

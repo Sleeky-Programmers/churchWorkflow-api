@@ -5,8 +5,10 @@ import { AttendanceController } from './attendance.controller';
 import { Attendance, AttendanceSchema } from '../../schemas/attendance.schema';
 import { MembersModule } from '../members/members.module';
 import { ChurchServicesModule } from '../church-services/church-services.module';
-import { ChurchService } from '../church/church.service';
-import { ChurchServiceSchema } from '../../schemas/church-service.schema';
+import {
+  ChurchService,
+  ChurchServiceSchema,
+} from '../../schemas/church-service.schema';
 
 @Module({
   imports: [
