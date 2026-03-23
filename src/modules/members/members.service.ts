@@ -314,7 +314,10 @@ export class MembersService {
           };
 
           const emailKey = normalizeText(parsedData.email);
-          if (emailKey && (existingEmailSet.has(emailKey) || batchEmailSet.has(emailKey))) {
+          if (
+            emailKey &&
+            (existingEmailSet.has(emailKey) || batchEmailSet.has(emailKey))
+          ) {
             rowErrors.push({
               column: 'email',
               reason: 'Member with this email already exists',
@@ -329,7 +332,8 @@ export class MembersService {
 
           if (
             identityKey !== '||' &&
-            (existingIdentitySet.has(identityKey) || batchIdentitySet.has(identityKey))
+            (existingIdentitySet.has(identityKey) ||
+              batchIdentitySet.has(identityKey))
           ) {
             rowErrors.push({
               column: 'fullName',
