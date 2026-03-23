@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { ChurchService } from '../../schemas/church-service.schema';
@@ -9,6 +9,9 @@ import {
   paginationMeta,
 } from '../../common/helpers/pagination.helper';
 import { UpdateChurchServiceDto } from './dto/update-church-service.dto';
+
+const escapeRegExp = (value: string) =>
+  value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 @Injectable()
 export class ChurchServicesService {
@@ -21,8 +24,53 @@ export class ChurchServicesService {
     authUser: Admin,
     createChurchServiceDto: CreateChurchServiceDto,
   ) {
+    const normalizedName = createChurchServiceDto.serviceName.trim();
+    const normalizedLocation = (createChurchServiceDto.location || '').trim();
+    const normalizedStartTime = createChurchServiceDto.startTime
+      ?.trim()
+      .toUpperCase();
+
+    if (normalizedStartTime) {
+      const duplicateFilter: any = {
+        churchId: authUser.churchId,
+        serviceName: {
+          $regex: `^${escapeRegExp(normalizedName)}$`,
+          $options: 'i',
+        },
+        startTime: normalizedStartTime,
+      };
+      duplicateFilter.location = normalizedLocation
+        ? {
+            $regex: `^${escapeRegExp(normalizedLocation)}$`,
+            $options: 'i',
+          }
+        : { $in: [null, ''] };
+
+      if (createChurchServiceDto.type) {
+        duplicateFilter.type = createChurchServiceDto.type;
+      }
+
+      if (createChurchServiceDto.day) {
+        duplicateFilter.day = createChurchServiceDto.day;
+      }
+
+      if (createChurchServiceDto.startDate) {
+        duplicateFilter.startDate = new Date(createChurchServiceDto.startDate);
+      }
+
+      const existing = await this.churchServiceModel.findOne(duplicateFilter);
+      if (existing) {
+        throw new BadRequestException(
+          'Event with same name and time already exists',
+        );
+      }
+    }
+
     return await this.churchServiceModel.create({
       ...createChurchServiceDto,
+      serviceName: normalizedName,
+      startTime: normalizedStartTime,
+      location: normalizedLocation || undefined,
       churchId: authUser.churchId,
     });
   }

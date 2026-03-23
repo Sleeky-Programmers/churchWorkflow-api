@@ -18,8 +18,8 @@ export class CreateMemberDto {
   @IsEnum(Gender)
   gender: Gender;
 
-  @IsNotEmpty()
-  birthday: Date;
+  @IsOptional()
+  birthday?: Date;
 
   @IsOptional()
   @IsEnum(MaritalStatus)
