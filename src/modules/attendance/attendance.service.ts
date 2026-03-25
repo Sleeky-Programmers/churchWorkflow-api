@@ -57,7 +57,7 @@ export class AttendanceService {
     if (!createAttendanceDto.memberIds) {
       throw new NotFoundException('Members not found');
     }
-     const recordedBy = `${authUser.firstName} ${authUser.lastName}`;
+    const recordedBy = `${authUser.firstName} ${authUser.lastName}`;
     createAttendanceDto.memberIds.forEach(async (memberId) => {
       await this.attendanceModel.create({
         churchServiceId: serviceId,

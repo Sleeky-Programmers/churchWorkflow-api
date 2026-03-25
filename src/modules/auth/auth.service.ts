@@ -49,14 +49,6 @@ export class AuthService {
     return { accessToken, refreshToken };
   }
 
-  async saveRefreshToken(userId: Types.ObjectId, refreshToken: string) {
-    const hashed = await bcrypt.hash(refreshToken, 10);
-
-    await this.adminService.findByIdAndUpdate(userId, {
-      refreshToken: hashed,
-    });
-  }
-
   async validateUser(email: string, password: string) {
     const user = await this.adminService.findOne(email);
 
@@ -78,7 +70,7 @@ export class AuthService {
 
     const isExistingAdmin = await this.adminService.findOne(email);
     if (isExistingAdmin) {
-      throw new ConflictException('Admin already exists');
+      throw new ConflictException('Admin with this email already exists');
     }
 
     await Promise.all([
@@ -123,7 +115,6 @@ export class AuthService {
     ]);
 
     const tokens = this.generateTokens(admin._id.toString());
-    await this.saveRefreshToken(admin._id, tokens.refreshToken);
 
     return {
       message: 'Registration successful',
@@ -133,8 +124,6 @@ export class AuthService {
 
   async login(data: any) {
     const tokens = this.generateTokens(data._id);
-
-    await this.saveRefreshToken(data._id, tokens.refreshToken);
 
     return {
       user: data,
@@ -171,7 +160,6 @@ export class AuthService {
 
     if (existing) {
       const tokens = this.generateTokens(existing._id.toString());
-      await this.saveRefreshToken(existing._id, tokens.refreshToken);
 
       const { password: _, ...userWithoutPassword } = existing.toObject();
 
@@ -220,7 +208,6 @@ export class AuthService {
     }
 
     const tokens = this.generateTokens(admin._id.toString());
-    await this.saveRefreshToken(admin._id.toString(), tokens.refreshToken);
 
     return {
       message: 'Registration successful',
@@ -233,30 +220,23 @@ export class AuthService {
       throw new UnauthorizedException('Refresh token missing');
     }
 
-    let payload;
+    let payload: any;
+
     try {
       payload = this.jwtService.verify(refreshToken, {
-        secret: this.configService.getOrThrow('jwt.refreshSecret'),
+        secret: this.configService.getOrThrow('JWT_REFRESH_SECRET'),
       });
     } catch {
-      throw new UnauthorizedException('Invalid refresh token');
+      throw new UnauthorizedException('Invalid or expired refresh token');
     }
 
-    const user = await this.adminService.findByIdForRefreshToken(payload.sub);
+    const user = await this.adminService.findById(payload.sub);
 
-    if (!user || !user.refreshToken) {
-      throw new UnauthorizedException('Access denied');
-    }
-
-    const isMatch = await bcrypt.compare(refreshToken, user.refreshToken);
-
-    if (!isMatch) {
-      throw new UnauthorizedException('Invalid refresh token');
+    if (!user) {
+      throw new UnauthorizedException('User no longer exists');
     }
 
     const tokens = this.generateTokens(user._id.toString());
-
-    await this.saveRefreshToken(user._id, tokens.refreshToken);
 
     return tokens;
   }
@@ -295,7 +275,6 @@ export class AuthService {
     ]);
 
     const tokens = this.generateTokens(admin._id.toString());
-    await this.saveRefreshToken(admin._id, tokens.refreshToken);
 
     return {
       message: 'Email verified',
@@ -315,11 +294,5 @@ export class AuthService {
     });
 
     return { message: 'Password reset successful' };
-  }
-
-  async logout(data: any) {
-    return this.adminService.findByIdAndUpdate(data._id, {
-      refreshToken: null,
-    });
   }
 }

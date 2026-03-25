@@ -77,9 +77,7 @@ export class AdminService {
     return await this.adminModel.findById(id).populate('churchRole');
   }
 
-  async findByIdForRefreshToken(id: Types.ObjectId) {
-    return await this.adminModel.findById(id).select('+refreshToken');
-  }
+ 
   async findOneAndUpdate(email: string, updateData: Partial<Admin>) {
     return await this.adminModel.findOneAndUpdate({ email }, updateData, {
       new: true,

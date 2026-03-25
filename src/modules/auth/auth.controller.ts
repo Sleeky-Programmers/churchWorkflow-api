@@ -85,11 +85,6 @@ export class AuthController {
     return this.authService.resetPassword(authUser, resetPasswordDto);
   }
 
-  @Post('logout')
-  @UseGuards(JwtAuthGuard)
-  logout(@AuthUser() authUser: Admin) {
-    return this.authService.logout(authUser);
-  }
 
   @Post('refresh-token')
   refresh(@Body() dto: RefreshTokenDto) {
