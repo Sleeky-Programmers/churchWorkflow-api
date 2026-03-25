@@ -8,7 +8,6 @@ import {
 } from 'class-validator';
 import { SmallTeamStatus } from '../../../common/utils/enums.utils';
 
-
 export class CreateSmallTeamDto {
   @IsString()
   @MaxLength(120)
@@ -32,4 +31,3 @@ export class CreateSmallTeamDto {
   @MaxLength(2000)
   description?: string;
 }
-

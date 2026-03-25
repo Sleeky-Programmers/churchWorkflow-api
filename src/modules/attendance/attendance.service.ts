@@ -317,7 +317,9 @@ export class AttendanceService {
         month,
         attended: value.attended,
         total: value.total,
-        rate: value.total ? Math.round((value.attended / value.total) * 100) : 0,
+        rate: value.total
+          ? Math.round((value.attended / value.total) * 100)
+          : 0,
       }))
       .sort((a, b) => a.month.localeCompare(b.month));
 

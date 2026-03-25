@@ -4,7 +4,6 @@ import { Church } from './church.schema';
 import { Member } from './member.schema';
 import { SmallTeamStatus } from '../common/utils/enums.utils';
 
-
 @Schema({ timestamps: true })
 export class SmallTeam extends Document {
   @Prop({ type: SchemaTypes.ObjectId, ref: Church.name, required: true })
@@ -31,4 +30,3 @@ export class SmallTeam extends Document {
 }
 
 export const SmallTeamSchema = SchemaFactory.createForClass(SmallTeam);
-

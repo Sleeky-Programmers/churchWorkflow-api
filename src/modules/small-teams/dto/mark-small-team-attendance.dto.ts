@@ -9,4 +9,3 @@ export class MarkSmallTeamAttendanceDto {
   @IsMongoId({ each: true })
   memberIds: string[];
 }
-

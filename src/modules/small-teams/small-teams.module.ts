@@ -18,4 +18,3 @@ import { ChurchServicesModule } from '../church-services/church-services.module'
   providers: [SmallTeamsService],
 })
 export class SmallTeamsModule {}
-

@@ -17,4 +17,3 @@ export class SmallTeamReportQueryDto {
   @Max(100)
   lowAttendanceThreshold?: number = 50;
 }
-

@@ -6,4 +6,3 @@ export class UpdateSmallTeamMembersDto {
   @IsMongoId({ each: true })
   memberIds: string[];
 }
-
