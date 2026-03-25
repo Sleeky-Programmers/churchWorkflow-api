@@ -3,25 +3,24 @@ import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model, Types } from 'mongoose';
 import { PaginationBaseDto, paginationMeta } from '../../common/helpers/pagination.helper';
 import { Admin } from '../../schemas/admin.schema';
-import { Member } from '../../schemas/member.schema';
-import { SmallTeam, SmallTeamStatus } from '../../schemas/small-team.schema';
 import { CreateSmallTeamDto } from './dto/create-small-team.dto';
 import { UpdateSmallTeamDto } from './dto/update-small-team.dto';
 import { UpdateSmallTeamMembersDto } from './dto/update-small-team-members.dto';
-import { Attendance } from '../../schemas/attendance.schema';
-import { ChurchService } from '../../schemas/church-service.schema';
-import { AttendanceStatus } from '../../common/utils/enums.utils';
+import { SmallTeamStatus } from '../../common/utils/enums.utils';
 import { MarkSmallTeamAttendanceDto } from './dto/mark-small-team-attendance.dto';
 import { SmallTeamReportQueryDto } from './dto/small-team-report-query.dto';
+import { SmallTeam } from '../../schemas/small-team.schema';
+import { MembersService } from '../members/members.service';
+import { AttendanceService } from '../attendance/attendance.service';
+import { ChurchServicesService } from '../church-services/church-services.service';
 
 @Injectable()
 export class SmallTeamsService {
   constructor(
     @InjectModel(SmallTeam.name) private smallTeamModel: Model<SmallTeam>,
-    @InjectModel(Member.name) private memberModel: Model<Member>,
-    @InjectModel(Attendance.name) private attendanceModel: Model<Attendance>,
-    @InjectModel(ChurchService.name)
-    private churchServiceModel: Model<ChurchService>,
+    private membersService: MembersService,
+    private attendanceService: AttendanceService,
+    private churchServicesService: ChurchServicesService,
   ) {}
 
   async create(authUser: Admin, dto: CreateSmallTeamDto) {
@@ -173,10 +172,10 @@ export class SmallTeamsService {
       throw new NotFoundException('Small team not found');
     }
 
-    const service = await this.churchServiceModel.findOne({
-      _id: serviceId,
-      churchId: authUser.churchId,
-    });
+    const service = await this.churchServicesService.findOneInChurch(
+      serviceId,
+      authUser.churchId,
+    );
     if (!service) {
       throw new BadRequestException('Service not found');
     }
@@ -192,23 +191,13 @@ export class SmallTeamsService {
 
     const attendanceDate = new Date(dto.date);
 
-    await this.attendanceModel.deleteMany({
-      churchServiceId: new Types.ObjectId(serviceId),
-      date: attendanceDate,
-      memberId: { $in: team.memberIds },
-    });
-
-    if (memberIds.length > 0) {
-      await this.attendanceModel.insertMany(
-        memberIds.map((memberId) => ({
-          churchServiceId: new Types.ObjectId(serviceId),
-          date: attendanceDate,
-          memberId: new Types.ObjectId(memberId),
-          recordedBy: authUser._id,
-          status: AttendanceStatus.PRESENT,
-        })),
-      );
-    }
+    await this.attendanceService.replaceTeamAttendanceForServiceDate(
+      serviceId,
+      attendanceDate,
+      team.memberIds as Types.ObjectId[],
+      memberIds,
+      authUser._id,
+    );
 
     return {
       message: 'Team attendance saved successfully',
@@ -239,20 +228,11 @@ export class SmallTeamsService {
       };
     }
 
-    const dateFilter: any = {};
-    if (query.from || query.to) {
-      dateFilter.date = {};
-      if (query.from) dateFilter.date.$gte = new Date(query.from);
-      if (query.to) dateFilter.date.$lte = new Date(query.to);
-    }
-
-    const attendance = await this.attendanceModel
-      .find({
-        memberId: { $in: memberIds.map((memberId) => new Types.ObjectId(memberId)) },
-        status: AttendanceStatus.PRESENT,
-        ...dateFilter,
-      })
-      .lean();
+    const attendance = await this.attendanceService.getPresentAttendanceByMemberIds(
+      memberIds,
+      query.from,
+      query.to,
+    );
 
     const sessionKeySet = new Set(
       attendance.map((record) =>
@@ -302,12 +282,14 @@ export class SmallTeamsService {
   }
 
   private async assertMembersInChurch(authUser: Admin, memberIds: string[]) {
-    if (!memberIds.length) return;
+    if (!memberIds.length) {
+      return;
+    }
 
-    const count = await this.memberModel.countDocuments({
-      _id: { $in: memberIds.map((id) => new Types.ObjectId(id)) },
-      churchId: authUser.churchId,
-    });
+    const count = await this.membersService.countMembersInChurch(
+      memberIds,
+      authUser.churchId,
+    );
 
     if (count !== memberIds.length) {
       throw new BadRequestException('One or more members were not found in this church');
@@ -315,11 +297,13 @@ export class SmallTeamsService {
   }
 
   private async assertLeaderInChurch(authUser: Admin, leaderId?: string) {
-    if (!leaderId) return;
-    const leader = await this.memberModel.exists({
-      _id: new Types.ObjectId(leaderId),
-      churchId: authUser.churchId,
-    });
+    if (!leaderId) {
+      return;
+    }
+    const leader = await this.membersService.existsInChurch(
+      leaderId,
+      authUser.churchId,
+    );
     if (!leader) {
       throw new BadRequestException('Team leader was not found in this church');
     }

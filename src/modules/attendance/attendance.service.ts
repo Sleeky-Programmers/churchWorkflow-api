@@ -1,5 +1,5 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import {
+  BadRequestException,
   Injectable,
   Inject,
   forwardRef,
@@ -13,19 +13,16 @@ import { MembersService } from '../members/members.service';
 import { ChurchServicesService } from '../church-services/church-services.service';
 import { AttendanceStatus, Gender } from '../../common/utils/enums.utils';
 import { Admin } from '../../schemas/admin.schema';
-import { Member } from '../../schemas/member.schema';
+import { AdminService } from '../admin/admin.service';
 
 @Injectable()
 export class AttendanceService {
   constructor(
     @InjectModel(Attendance.name) private attendanceModel: Model<Attendance>,
-    @InjectModel(ChurchService.name)
-    private churchServiceModel: Model<ChurchService>,
-    @InjectModel(Member.name) private memberModel: Model<Member>,
-    @InjectModel(Admin.name) private adminModel: Model<Admin>,
     @Inject(forwardRef(() => MembersService))
     private membersService: MembersService,
     private churchServicesService: ChurchServicesService,
+    private adminService: AdminService,
   ) {}
 
   async markAttendance(
@@ -33,38 +30,12 @@ export class AttendanceService {
     serviceId: string,
     createAttendanceDto: CreateAttendanceDto,
   ) {
-    const attendanceDate = new Date(createAttendanceDto.date);
-
-    await this.attendanceModel.deleteMany({
-      churchServiceId: new Types.ObjectId(serviceId),
-      date: attendanceDate,
-    if (createAttendanceDto.isAllPresent) {
-      const members = await this.membersService.findAll(authUser);
-      const memberIds = members.map((member) => member._id.toString());
-      createAttendanceDto.memberIds = memberIds;
-    }
-
-    createAttendanceDto.memberIds.forEach(async (memberId) => {
-      await this.attendanceModel.create({
-        churchServiceId: serviceId,
-        date: createAttendanceDto.date,
-        memberId,
-        recordedBy: authUser._id,
-        status: AttendanceStatus.PRESENT,
-      });
-    });
-
-    if (createAttendanceDto.memberIds.length > 0) {
-      await this.attendanceModel.insertMany(
-        createAttendanceDto.memberIds.map((memberId) => ({
-          churchServiceId: new Types.ObjectId(serviceId),
-          date: attendanceDate,
-          memberId: new Types.ObjectId(memberId),
-          recordedBy: adminId,
-          status: AttendanceStatus.PRESENT,
-        })),
-      );
-    }
+    await this.replaceAttendanceByStatus(
+      authUser,
+      serviceId,
+      createAttendanceDto,
+      AttendanceStatus.PRESENT,
+    );
 
     return {
       message: 'Attendance marked successfully',
@@ -76,19 +47,12 @@ export class AttendanceService {
     serviceId: string,
     createAttendanceDto: CreateAttendanceDto,
   ) {
-    if (!createAttendanceDto.memberIds) {
-      throw new NotFoundException('Members not found');
-    }
-
-    createAttendanceDto.memberIds.forEach(async (memberId) => {
-      await this.attendanceModel.create({
-        churchServiceId: serviceId,
-        date: createAttendanceDto.date,
-        memberId,
-        recordedBy: authUser._id,
-        status: AttendanceStatus.ABSENT,
-      });
-    });
+    await this.replaceAttendanceByStatus(
+      authUser,
+      serviceId,
+      createAttendanceDto,
+      AttendanceStatus.ABSENT,
+    );
 
     return {
       message: 'Attendance marked as absent successfully',
@@ -174,24 +138,23 @@ export class AttendanceService {
       throw new BadRequestException('Invalid member id');
     }
 
-    const member = await this.memberModel
-      .findOne({ _id: memberId, churchId: authUser.churchId })
-      .select('_id fullName')
-      .lean();
+    const member = await this.membersService.findByIdInChurch(
+      memberId,
+      authUser.churchId,
+    );
 
     if (!member) {
       throw new NotFoundException('Member not found');
     }
 
-    const services = await this.churchServiceModel
-      .find({ churchId: authUser.churchId })
-      .select('_id serviceName')
-      .lean();
+    const services = await this.churchServicesService.findByChurchId(
+      authUser.churchId,
+    );
 
     const serviceMap = new Map(
-      services.map((service) => [service._id.toString(), service.serviceName]),
+      services.map((service: any) => [service._id.toString(), service.serviceName]),
     );
-    const serviceIds = services.map((service) => service._id);
+    const serviceIds = services.map((service: any) => service._id);
 
     if (!serviceIds.length) {
       return {
@@ -210,8 +173,12 @@ export class AttendanceService {
     const dateQuery: any = {};
     if (from || to) {
       dateQuery.date = {};
-      if (from) dateQuery.date.$gte = new Date(from);
-      if (to) dateQuery.date.$lte = new Date(to);
+      if (from) {
+        dateQuery.date.$gte = new Date(from);
+      }
+      if (to) {
+        dateQuery.date.$lte = new Date(to);
+      }
     }
 
     const [allChurchAttendance, memberAttendance] = await Promise.all([
@@ -291,14 +258,11 @@ export class AttendanceService {
     );
 
     const admins = recordedByIds.length
-      ? await this.adminModel
-          .find({ _id: { $in: recordedByIds.map((id) => new Types.ObjectId(id)) } })
-          .select('firstName lastName')
-          .lean()
+      ? await this.adminService.findNamesByIds(recordedByIds)
       : [];
 
     const adminNameMap = new Map(
-      admins.map((admin) => [
+      admins.map((admin: any) => [
         admin._id.toString(),
         `${admin.firstName || ''} ${admin.lastName || ''}`.trim(),
       ]),
@@ -323,7 +287,9 @@ export class AttendanceService {
         };
       })
       .sort((a, b) => {
-        if (a.date === b.date) return a.service.localeCompare(b.service);
+        if (a.date === b.date) {
+          return a.service.localeCompare(b.service);
+        }
         return b.date.localeCompare(a.date);
       });
 
@@ -340,7 +306,9 @@ export class AttendanceService {
       const month = record.date.slice(0, 7);
       const current = trendMap.get(month) || { attended: 0, total: 0 };
       current.total += 1;
-      if (record.status === 'Present') current.attended += 1;
+      if (record.status === 'Present') {
+        current.attended += 1;
+      }
       trendMap.set(month, current);
     }
 
@@ -364,6 +332,8 @@ export class AttendanceService {
       },
       trends,
     };
+  }
+
   async getMemberAttendanceStatsFilter(memberId: string, days?: number) {
     const query: any = { memberId: new Types.ObjectId(memberId) };
 
@@ -373,24 +343,27 @@ export class AttendanceService {
       query.date = { $gte: pastDate };
     }
 
-    const attendances = await this.attendanceModel.find(query).lean();
+    const [present, absent] = await Promise.all([
+      this.attendanceModel.countDocuments({
+        ...query,
+        status: AttendanceStatus.PRESENT,
+      }),
+      this.attendanceModel.countDocuments({
+        ...query,
+        status: AttendanceStatus.ABSENT,
+      }),
+    ]);
 
-    const totalServicesAttended = attendances.filter(
-      (attendance) => attendance.status === AttendanceStatus.PRESENT,
-    ).length;
-    const totalServicesMissed = attendances.filter(
-      (attendance) => attendance.status === AttendanceStatus.ABSENT,
-    ).length;
-    const totalServices = attendances.length;
+    const totalServices = present + absent;
 
     let percentage = 0;
     if (totalServices > 0) {
-      percentage = Math.round((totalServicesAttended / totalServices) * 100);
+      percentage = Math.round((present / totalServices) * 100);
     }
 
     return {
-      totalServicesAttended,
-      totalServicesMissed,
+      totalServicesAttended: present,
+      totalServicesMissed: absent,
       attendanceRate: percentage,
       totalEvaluated: totalServices,
     };
@@ -400,11 +373,11 @@ export class AttendanceService {
     memberId: string,
     limit: number,
     skip: number,
-    serviceIds?: any,
+    serviceIds?: Types.ObjectId[],
   ) {
     const query: any = { memberId: new Types.ObjectId(memberId) };
 
-    if (serviceIds) {
+    if (serviceIds?.length) {
       query.churchServiceId = { $in: serviceIds };
     }
 
@@ -420,5 +393,102 @@ export class AttendanceService {
     ]);
 
     return { attendances, itemCount };
+  }
+
+  async replaceTeamAttendanceForServiceDate(
+    serviceId: string,
+    attendanceDate: Date,
+    teamMemberIds: Types.ObjectId[],
+    presentMemberIds: string[],
+    recordedBy: Types.ObjectId,
+  ) {
+    await this.attendanceModel.deleteMany({
+      churchServiceId: new Types.ObjectId(serviceId),
+      date: attendanceDate,
+      memberId: { $in: teamMemberIds },
+    });
+
+    if (presentMemberIds.length === 0) {
+      return;
+    }
+
+    await this.attendanceModel.insertMany(
+      presentMemberIds.map((memberId) => ({
+        churchServiceId: new Types.ObjectId(serviceId),
+        date: attendanceDate,
+        memberId: new Types.ObjectId(memberId),
+        recordedBy,
+        status: AttendanceStatus.PRESENT,
+      })),
+    );
+  }
+
+  async getPresentAttendanceByMemberIds(
+    memberIds: string[],
+    from?: string,
+    to?: string,
+  ) {
+    const dateFilter: any = {};
+    if (from || to) {
+      dateFilter.date = {};
+      if (from) {
+        dateFilter.date.$gte = new Date(from);
+      }
+      if (to) {
+        dateFilter.date.$lte = new Date(to);
+      }
+    }
+
+    return await this.attendanceModel
+      .find({
+        memberId: { $in: memberIds.map((memberId) => new Types.ObjectId(memberId)) },
+        status: AttendanceStatus.PRESENT,
+        ...dateFilter,
+      })
+      .lean();
+  }
+
+  private async replaceAttendanceByStatus(
+    authUser: Admin,
+    serviceId: string,
+    createAttendanceDto: CreateAttendanceDto,
+    status: AttendanceStatus,
+  ) {
+    const service = await this.churchServicesService.findOneInChurch(
+      serviceId,
+      authUser.churchId,
+    );
+
+    if (!service) {
+      throw new NotFoundException('Service not found');
+    }
+
+    const attendanceDate = new Date(createAttendanceDto.date);
+    let memberIds = createAttendanceDto.memberIds || [];
+
+    if (createAttendanceDto.isAllPresent) {
+      const members = await this.membersService.findAll(authUser);
+      memberIds = members.map((member) => member._id.toString());
+    }
+
+    await this.attendanceModel.deleteMany({
+      churchServiceId: new Types.ObjectId(serviceId),
+      date: attendanceDate,
+      status,
+    });
+
+    if (memberIds.length === 0) {
+      return;
+    }
+
+    await this.attendanceModel.insertMany(
+      memberIds.map((memberId) => ({
+        churchServiceId: new Types.ObjectId(serviceId),
+        date: attendanceDate,
+        memberId: new Types.ObjectId(memberId),
+        recordedBy: authUser._id,
+        status,
+      })),
+    );
   }
 }
