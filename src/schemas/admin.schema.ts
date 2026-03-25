@@ -31,6 +31,10 @@ export class Admin extends Document {
 
   @Prop({ default: false })
   isVerified: boolean;
+
+  @Prop({ select: false, default: null })
+  refreshToken?: string;
+
 }
 
 export const AdminSchema = SchemaFactory.createForClass(Admin);

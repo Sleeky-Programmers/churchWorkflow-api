@@ -33,11 +33,16 @@ export enum MaritalStatus {
 }
 
 export enum MembershipStatus {
-  VISITOR = 'VISITOR',
-  MEMBER = 'MEMBER',
-  VOLUNTEER = 'VOLUNTEER',
-  LEADER = 'LEADER',
+  VISITOR = "VISITOR",
+  MEMBER = "MEMBER",
+  VOLUNTEER = "VOLUNTEER",
+  WORKER= "WORKER",
+  LEADER = "LEADER",
+  CONVERT = "NEW CONVERT",
 }
+
+
+
 
 export enum AdminInviteStatus {
   PENDING = 'PENDING',
@@ -94,6 +99,7 @@ export enum NotificationType {
 }
 
 export enum MemberTitle {
+  NONE = 'NONE',
   MR = 'MR.',
   MRS = 'MRS.',
   MISS = 'MISS',
