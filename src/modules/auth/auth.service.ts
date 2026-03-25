@@ -60,8 +60,9 @@ export class AuthService {
   async validateUser(email: string, password: string) {
     const user = await this.adminService.findOne(email);
 
-    if (!user) throw new UnauthorizedException('User not found');
-
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
     const isPasswordCorrect = bcrypt.compareSync(password, user.password);
 
     if (!isPasswordCorrect) {
@@ -261,7 +262,7 @@ export class AuthService {
   }
 
   async requestOtp(email: string) {
-    const  isExistingAdmin = await this.adminService.findOne(email);
+    const isExistingAdmin = await this.adminService.findOne(email);
 
     if (!isExistingAdmin) {
       throw new NotFoundException('Admin with this email does not exist');
@@ -289,7 +290,7 @@ export class AuthService {
     }
 
     const [, admin] = await Promise.all([
-      this.otpService.markAsUsed(latestOtp._id as any),
+      this.otpService.markAsUsed(latestOtp._id  as unknown as Types.ObjectId),
       this.adminService.findOneAndUpdate(email, { isVerified: true }),
     ]);
 
