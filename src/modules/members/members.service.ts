@@ -81,18 +81,28 @@ function normalizeKey(value?: string) {
 
 function parseOptionalDate(value?: string): Date | null {
   const normalized = (value || '').trim();
-  if (!normalized) return null;
+  if (!normalized) {
+    return null;
+  }
   const parsed = new Date(normalized);
-  if (Number.isNaN(parsed.getTime())) return null;
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
   return parsed;
 }
 
 function parseBoolean(value?: string): boolean | null {
   const normalized = normalizeKey(value);
-  if (!normalized) return null;
+  if (!normalized) {
+    return null;
+  }
 
-  if (['TRUE', 'YES', '1'].includes(normalized)) return true;
-  if (['FALSE', 'NO', '0'].includes(normalized)) return false;
+  if (['TRUE', 'YES', '1'].includes(normalized)) {
+    return true;
+  }
+  if (['FALSE', 'NO', '0'].includes(normalized)) {
+    return false;
+  }
 
   return null;
 }
@@ -102,9 +112,13 @@ function normalizeText(value?: string): string {
 }
 
 function normalizeDateKey(value?: Date | string | null): string {
-  if (!value) return '';
+  if (!value) {
+    return '';
+  }
   const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
   return date.toISOString().split('T')[0];
 }
 
@@ -185,7 +199,9 @@ export class MembersService {
 
     for (const member of existingMembers) {
       const emailKey = normalizeText(member.email);
-      if (emailKey) existingEmailSet.add(emailKey);
+      if (emailKey) {
+        existingEmailSet.add(emailKey);
+      }
 
       const identityKey = [
         normalizeText(member.fullName),
@@ -374,8 +390,12 @@ export class MembersService {
             ...dtoInstance,
           });
 
-          if (emailKey) batchEmailSet.add(emailKey);
-          if (identityKey !== '||') batchIdentitySet.add(identityKey);
+          if (emailKey) {
+            batchEmailSet.add(emailKey);
+          }
+          if (identityKey !== '||') {
+            batchIdentitySet.add(identityKey);
+          }
         } catch (err: any) {
           errors.push({
             row: rowIndex,

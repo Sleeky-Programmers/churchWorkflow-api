@@ -2,9 +2,9 @@ import { Injectable, Inject, forwardRef } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Attendance } from '../../schemas/attendance.schema';
-import { ChurchService } from '../../schemas/church-service.schema';
 import { CreateAttendanceDto } from './dto/create-attendance.dto';
 import { MembersService } from '../members/members.service';
+import { ChurchServicesService } from '../church-services/church-services.service';
 import { AttendanceStatus, Gender } from '../../common/utils/enums.utils';
 import { Admin } from '../../schemas/admin.schema';
 
@@ -12,8 +12,7 @@ import { Admin } from '../../schemas/admin.schema';
 export class AttendanceService {
   constructor(
     @InjectModel(Attendance.name) private attendanceModel: Model<Attendance>,
-    @InjectModel(ChurchService.name)
-    private churchServiceModel: Model<ChurchService>,
+    private churchServicesService: ChurchServicesService,
     @Inject(forwardRef(() => MembersService))
     private membersService: MembersService,
   ) {}
@@ -103,16 +102,12 @@ export class AttendanceService {
   }
 
   async getAttendanceStats(authUser: Admin) {
-    const services = await this.churchServiceModel
-      .find({ churchId: authUser.churchId })
-      .select('_id')
-      .lean();
-
-    if (!services.length) {
+    const serviceIds = await this.churchServicesService.getServiceIdsByChurchId(
+      authUser.churchId,
+    );
+    if (!serviceIds.length) {
       return { totalAttendance: 0 };
     }
-
-    const serviceIds = services.map((service) => service._id);
 
     const totalAttendance = await this.attendanceModel.countDocuments({
       churchServiceId: { $in: serviceIds },
@@ -272,7 +267,9 @@ export class AttendanceService {
       date: attendanceDate,
     });
 
-    if (createAttendanceDto.memberIds.length === 0) return;
+    if (createAttendanceDto.memberIds.length === 0) {
+      return;
+    }
 
     await this.attendanceModel.insertMany(
       createAttendanceDto.memberIds.map((memberId) => ({

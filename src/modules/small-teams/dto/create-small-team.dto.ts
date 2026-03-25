@@ -6,7 +6,8 @@ import {
   IsString,
   MaxLength,
 } from 'class-validator';
-import { SmallTeamStatus } from '../../../schemas/small-team.schema';
+import { SmallTeamStatus } from '../../../common/utils/enums.utils';
+
 
 export class CreateSmallTeamDto {
   @IsString()

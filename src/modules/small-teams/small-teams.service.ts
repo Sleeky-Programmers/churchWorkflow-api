@@ -11,15 +11,15 @@ import {
 } from '../../common/helpers/pagination.helper';
 import { Admin } from '../../schemas/admin.schema';
 import { Member } from '../../schemas/member.schema';
-import { SmallTeam, SmallTeamStatus } from '../../schemas/small-team.schema';
 import { CreateSmallTeamDto } from './dto/create-small-team.dto';
 import { UpdateSmallTeamDto } from './dto/update-small-team.dto';
 import { UpdateSmallTeamMembersDto } from './dto/update-small-team-members.dto';
 import { Attendance } from '../../schemas/attendance.schema';
 import { ChurchService } from '../../schemas/church-service.schema';
-import { AttendanceStatus } from '../../common/utils/enums.utils';
+import { AttendanceStatus, SmallTeamStatus } from '../../common/utils/enums.utils';
 import { MarkSmallTeamAttendanceDto } from './dto/mark-small-team-attendance.dto';
 import { SmallTeamReportQueryDto } from './dto/small-team-report-query.dto';
+import { SmallTeam } from '../../schemas/small-team.schema';
 
 @Injectable()
 export class SmallTeamsService {

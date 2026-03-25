@@ -2,11 +2,7 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, SchemaTypes, Types } from 'mongoose';
 import { Church } from './church.schema';
 import { Member } from './member.schema';
-
-export enum SmallTeamStatus {
-  ACTIVE = 'ACTIVE',
-  INACTIVE = 'INACTIVE',
-}
+import { SmallTeamStatus } from '../common/utils/enums.utils';
 
 @Schema({ timestamps: true })
 export class SmallTeam extends Document {
