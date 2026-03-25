@@ -43,10 +43,10 @@ export class Member extends Document {
 
   @Prop({ default: null })
   educationalBackground: string;
-   
+
   @Prop({ default: null })
   address: string;
-  
+
   @Prop({ default: null })
   membershipStatus: MembershipStatus;
 

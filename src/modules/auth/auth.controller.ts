@@ -86,16 +86,13 @@ export class AuthController {
   }
 
   @Post('logout')
-@UseGuards(JwtAuthGuard)
-logout(@AuthUser() authUser: Admin) {
-  return this.authService.logout(authUser);
+  @UseGuards(JwtAuthGuard)
+  logout(@AuthUser() authUser: Admin) {
+    return this.authService.logout(authUser);
+  }
+
+  @Post('refresh-token')
+  refresh(@Body() dto: RefreshTokenDto) {
+    return this.authService.refreshToken(dto.refreshToken);
+  }
 }
-
-
-
-@Post('refresh-token')
-refresh(@Body() dto: RefreshTokenDto) {
-  return this.authService.refreshToken(dto.refreshToken);
-}
-}
-

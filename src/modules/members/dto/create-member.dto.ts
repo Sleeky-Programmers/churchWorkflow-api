@@ -37,7 +37,6 @@ export class CreateMemberDto {
   @IsOptional()
   occupation?: string;
 
-  
   @IsOptional()
   address?: string;
 

@@ -29,29 +29,26 @@ export class AuthService {
     private configService: ConfigService,
   ) {}
 
-generateTokens(userId: string) {
-  const accessToken = this.jwtService.sign(
-    { sub: userId },
-    {
-      expiresIn: this.configService.getOrThrow('JWT_EXPIRES_IN'),
-      secret: this.configService.getOrThrow('JWT_SECRET'),
-    },
-  );
+  generateTokens(userId: string) {
+    const accessToken = this.jwtService.sign(
+      { sub: userId },
+      {
+        expiresIn: this.configService.getOrThrow('JWT_EXPIRES_IN'),
+        secret: this.configService.getOrThrow('JWT_SECRET'),
+      },
+    );
 
-  const refreshToken = this.jwtService.sign(
-    { sub: userId },
-    {
-      secret: this.configService.getOrThrow('JWT_REFRESH_SECRET'),
-      expiresIn: this.configService.getOrThrow(
-        'JWT_REFRESH_EXPIRES_IN',
-      ),
-    },
-  );
+    const refreshToken = this.jwtService.sign(
+      { sub: userId },
+      {
+        secret: this.configService.getOrThrow('JWT_REFRESH_SECRET'),
+        expiresIn: this.configService.getOrThrow('JWT_REFRESH_EXPIRES_IN'),
+      },
+    );
 
-  return { accessToken, refreshToken };
-}
+    return { accessToken, refreshToken };
+  }
 
-  
   async saveRefreshToken(userId: Types.ObjectId, refreshToken: string) {
     const hashed = await bcrypt.hash(refreshToken, 10);
 
@@ -108,7 +105,7 @@ generateTokens(userId: string) {
 
     const isExistingAdmin = await this.adminService.findOne(email);
     if (isExistingAdmin) {
-      throw new ConflictException('Admin already exists');
+      throw new ConflictException('An admin with this email already exists');
     }
 
     const churchObjectId = new Types.ObjectId(churchId);
@@ -164,7 +161,7 @@ generateTokens(userId: string) {
     }
 
     if (!payload?.email) {
-      throw new BadRequestException('Email not found');
+      throw new BadRequestException('Email not found in Google token');
     }
 
     const { email, given_name: firstName, family_name: lastName } = payload;
@@ -230,50 +227,44 @@ generateTokens(userId: string) {
     };
   }
 
- async refreshToken(refreshToken: string) {
-  if (!refreshToken) {
-    throw new UnauthorizedException('Refresh token missing');
+  async refreshToken(refreshToken: string) {
+    if (!refreshToken) {
+      throw new UnauthorizedException('Refresh token missing');
+    }
+
+    let payload;
+    try {
+      payload = this.jwtService.verify(refreshToken, {
+        secret: this.configService.getOrThrow('jwt.refreshSecret'),
+      });
+    } catch {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    const user = await this.adminService.findByIdForRefreshToken(payload.sub);
+
+    if (!user || !user.refreshToken) {
+      throw new UnauthorizedException('Access denied');
+    }
+
+    const isMatch = await bcrypt.compare(refreshToken, user.refreshToken);
+
+    if (!isMatch) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    const tokens = this.generateTokens(user._id.toString());
+
+    await this.saveRefreshToken(user._id, tokens.refreshToken);
+
+    return tokens;
   }
-
-  let payload;
-  try {
-    payload = this.jwtService.verify(refreshToken, {
-      secret: this.configService.getOrThrow('jwt.refreshSecret'),
-    });
-  } catch {
-    throw new UnauthorizedException('Invalid refresh token');
-  }
-
-  
-  const user = await this.adminService.findByIdForRefreshToken(
-    payload.sub,
-  );
-
-  if (!user || !user.refreshToken) {
-    throw new UnauthorizedException('Access denied');
-  }
-
-  const isMatch = await bcrypt.compare(
-    refreshToken,
-    user.refreshToken,
-  );
-
-  if (!isMatch) {
-    throw new UnauthorizedException('Invalid refresh token');
-  }
-
-  const tokens = this.generateTokens(user._id.toString());
-
-  await this.saveRefreshToken(user._id, tokens.refreshToken);
-
-  return tokens;
-}
 
   async requestOtp(email: string) {
-    const user = await this.adminService.findOne(email);
+    const  isExistingAdmin = await this.adminService.findOne(email);
 
-    if (!user) {
-      throw new NotFoundException('Admin not found');
+    if (!isExistingAdmin) {
+      throw new NotFoundException('Admin with this email does not exist');
     }
 
     await Promise.all([
@@ -281,7 +272,7 @@ generateTokens(userId: string) {
       this.otpService.create(email),
     ]);
 
-    return { message: 'OTP sent' };
+    return { message: 'OTP sent successfully' };
   }
 
   async verifyOtp(verifyOtpDto: VerifyOtpDto) {
@@ -327,9 +318,7 @@ generateTokens(userId: string) {
 
   async logout(data: any) {
     return this.adminService.findByIdAndUpdate(data._id, {
-    refreshToken: null,
-  });
+      refreshToken: null,
+    });
+  }
 }
-}
-
-

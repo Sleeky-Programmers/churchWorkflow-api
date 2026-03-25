@@ -77,7 +77,6 @@ export class AdminService {
     return await this.adminModel.findById(id).populate('churchRole');
   }
 
-  
   async findByIdForRefreshToken(id: Types.ObjectId) {
     return await this.adminModel.findById(id).select('+refreshToken');
   }
