@@ -290,7 +290,7 @@ export class AuthService {
     }
 
     const [, admin] = await Promise.all([
-      this.otpService.markAsUsed(latestOtp._id  as unknown as Types.ObjectId),
+      this.otpService.markAsUsed(latestOtp._id as unknown as Types.ObjectId),
       this.adminService.findOneAndUpdate(email, { isVerified: true }),
     ]);
 

@@ -32,13 +32,14 @@ export class AttendanceService {
       const memberIds = members.map((member) => member._id.toString());
       createAttendanceDto.memberIds = memberIds;
     }
+    const recordedBy = `${authUser.firstName} ${authUser.lastName}`;
 
     createAttendanceDto.memberIds.forEach(async (memberId) => {
       await this.attendanceModel.create({
         churchServiceId: serviceId,
         date: createAttendanceDto.date,
         memberId,
-        recordedBy: authUser._id,
+        recordedBy: recordedBy,
         status: AttendanceStatus.PRESENT,
       });
     });
@@ -56,13 +57,13 @@ export class AttendanceService {
     if (!createAttendanceDto.memberIds) {
       throw new NotFoundException('Members not found');
     }
-
+     const recordedBy = `${authUser.firstName} ${authUser.lastName}`;
     createAttendanceDto.memberIds.forEach(async (memberId) => {
       await this.attendanceModel.create({
         churchServiceId: serviceId,
         date: createAttendanceDto.date,
         memberId,
-        recordedBy: authUser._id,
+        recordedBy: recordedBy,
         status: AttendanceStatus.ABSENT,
       });
     });
