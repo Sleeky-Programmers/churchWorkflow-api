@@ -18,7 +18,9 @@ export class CloudinaryProvider implements UploadProvider {
     return new Promise((resolve, reject) => {
       cloudinary.uploader
         .upload_stream({ resource_type: 'auto' }, (error, result) => {
-          if (error) return reject(error);
+          if (error) {
+            return reject(error);
+          }
 
           resolve({
             url: result.secure_url,

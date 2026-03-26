@@ -43,7 +43,9 @@ export class PermissionsGuard implements CanActivate {
         (p) => p.moduleSection === requiredPerm.section,
       );
 
-      if (!userPerm) return false;
+      if (!userPerm) {
+        return false;
+      }
 
       return this.hasSufficientAccess(userPerm.accessLevel, requiredPerm.level);
     });

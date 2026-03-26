@@ -9,7 +9,9 @@ import { AdminModule } from '../admin/admin.module';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([{ name: Attendance.name, schema: AttendanceSchema }]),
+    MongooseModule.forFeature([
+      { name: Attendance.name, schema: AttendanceSchema },
+    ]),
     ChurchServicesModule,
     AdminModule,
     forwardRef(() => MembersModule),

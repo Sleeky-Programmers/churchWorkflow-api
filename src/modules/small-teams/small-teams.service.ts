@@ -244,11 +244,12 @@ export class SmallTeamsService {
       };
     }
 
-    const attendance = await this.attendanceService.getPresentAttendanceByMemberIds(
-      memberIds,
-      query.from,
-      query.to,
-    );
+    const attendance =
+      await this.attendanceService.getPresentAttendanceByMemberIds(
+        memberIds,
+        query.from,
+        query.to,
+      );
 
     const sessionKeySet = new Set(
       attendance.map(

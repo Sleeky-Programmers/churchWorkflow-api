@@ -9,7 +9,9 @@ import { ChurchServicesModule } from '../church-services/church-services.module'
 
 @Module({
   imports: [
-    MongooseModule.forFeature([{ name: SmallTeam.name, schema: SmallTeamSchema }]),
+    MongooseModule.forFeature([
+      { name: SmallTeam.name, schema: SmallTeamSchema },
+    ]),
     MembersModule,
     AttendanceModule,
     ChurchServicesModule,
