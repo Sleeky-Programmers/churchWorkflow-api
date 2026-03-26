@@ -32,7 +32,7 @@ export class AttendanceController {
     @Body() createAttendanceDto: CreateAttendanceDto,
   ) {
     return this.attendanceService.markAttendance(
-      authUser,
+      authUser._id,
       serviceId,
       createAttendanceDto,
     );
@@ -49,7 +49,7 @@ export class AttendanceController {
     @Body() createAttendanceDto: CreateAttendanceDto,
   ) {
     return this.attendanceService.markAsAbsent(
-      authUser,
+      authUser._id,
       serviceId,
       createAttendanceDto,
     );

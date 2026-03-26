@@ -34,6 +34,94 @@ import { NotificationService } from '../notification/notification.service';
 import { Admin } from '../../schemas/admin.schema';
 const csv = require('csv-parser');
 
+const TITLE_MAP: Record<string, MemberTitle> = {
+  MR: MemberTitle.MR,
+  'MR.': MemberTitle.MR,
+  MRS: MemberTitle.MRS,
+  'MRS.': MemberTitle.MRS,
+  MISS: MemberTitle.MISS,
+  'MISS.': MemberTitle.MISS,
+  MS: MemberTitle.MISS,
+  'MS.': MemberTitle.MISS,
+  DR: MemberTitle.DR,
+  'DR.': MemberTitle.DR,
+  PASTOR: MemberTitle.PASTOR,
+  'PASTOR.': MemberTitle.PASTOR,
+  REV: MemberTitle.REV,
+  'REV.': MemberTitle.REV,
+};
+
+const GENDER_MAP: Record<string, Gender> = {
+  MALE: Gender.MALE,
+  M: Gender.MALE,
+  FEMALE: Gender.FEMALE,
+  F: Gender.FEMALE,
+};
+
+const MARITAL_STATUS_MAP: Record<string, MaritalStatus | null> = {
+  MARRIED: MaritalStatus.MARRIED,
+  SINGLE: MaritalStatus.SINGLE,
+  DIVORCED: null,
+  WIDOWED: null,
+};
+
+const MEMBERSHIP_STATUS_MAP: Record<string, MembershipStatus> = {
+  MEMBER: MembershipStatus.MEMBER,
+  ACTIVE: MembershipStatus.MEMBER,
+  'NEW MEMBER': MembershipStatus.MEMBER,
+  VOLUNTEER: MembershipStatus.VOLUNTEER,
+  LEADER: MembershipStatus.LEADER,
+  VISITOR: MembershipStatus.VISITOR,
+  INACTIVE: MembershipStatus.VISITOR,
+};
+
+function normalizeKey(value?: string) {
+  return (value || '').trim().toUpperCase();
+}
+
+function parseOptionalDate(value?: string): Date | null {
+  const normalized = (value || '').trim();
+  if (!normalized) {
+    return null;
+  }
+  const parsed = new Date(normalized);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+  return parsed;
+}
+
+function parseBoolean(value?: string): boolean | null {
+  const normalized = normalizeKey(value);
+  if (!normalized) {
+    return null;
+  }
+
+  if (['TRUE', 'YES', '1'].includes(normalized)) {
+    return true;
+  }
+  if (['FALSE', 'NO', '0'].includes(normalized)) {
+    return false;
+  }
+
+  return null;
+}
+
+function normalizeText(value?: string): string {
+  return (value || '').trim().toLowerCase();
+}
+
+function normalizeDateKey(value?: Date | string | null): string {
+  if (!value) {
+    return '';
+  }
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+  return date.toISOString().split('T')[0];
+}
+
 @Injectable()
 export class MembersService {
   constructor(
@@ -97,8 +185,34 @@ export class MembersService {
   async createMembersByCsv(authUser: Admin, fileBuffer: Buffer) {
     const members: Partial<Member>[] = [];
     const errors: { row: number; column?: string; reason: string }[] = [];
+    const existingEmailSet = new Set<string>();
+    const existingIdentitySet = new Set<string>();
+    const batchEmailSet = new Set<string>();
+    const batchIdentitySet = new Set<string>();
 
     let rowIndex = 1;
+
+    const existingMembers = await this.memberModel
+      .find({ churchId: authUser.churchId })
+      .select('email fullName phoneNumber birthday')
+      .lean();
+
+    for (const member of existingMembers) {
+      const emailKey = normalizeText(member.email);
+      if (emailKey) {
+        existingEmailSet.add(emailKey);
+      }
+
+      const identityKey = [
+        normalizeText(member.fullName),
+        normalizeDateKey(member.birthday),
+        normalizeText(member.phoneNumber),
+      ].join('|');
+
+      if (identityKey !== '||') {
+        existingIdentitySet.add(identityKey);
+      }
+    }
 
     const stream = Readable.from(fileBuffer).pipe(csv());
 
@@ -116,96 +230,73 @@ export class MembersService {
             });
           }
 
-          if (!row.gender) {
+          const normalizedGender = GENDER_MAP[normalizeKey(row.gender)];
+          if (!row.gender?.trim()) {
             rowErrors.push({
               column: 'gender',
               reason: 'Gender is required',
             });
-          } else if (!Object.values(Gender).includes(row.gender)) {
+          } else if (!normalizedGender) {
             rowErrors.push({
               column: 'gender',
-              reason: `Invalid gender "${row.gender}". Allowed values: ${Object.values(Gender).join(', ')}`,
+              reason: `Invalid gender "${row.gender}". Allowed values: MALE or FEMALE`,
             });
           }
 
-          if (!row.birthday) {
-            rowErrors.push({
-              column: 'birthday',
-              reason: 'Birthday is required',
-            });
-          }
-
-          const birthday = row.birthday ? new Date(row.birthday) : null;
-          if (row.birthday && isNaN(birthday.getTime())) {
+          const birthday = parseOptionalDate(row.birthday);
+          if (row.birthday?.trim() && !birthday) {
             rowErrors.push({
               column: 'birthday',
               reason: 'Invalid birthday date format',
             });
           }
 
-          const dateOfMarriage = row.dateOfMarriage
-            ? new Date(row.dateOfMarriage)
-            : null;
-
-          if (row.dateOfMarriage && isNaN(dateOfMarriage.getTime())) {
+          const dateOfMarriage = parseOptionalDate(row.dateOfMarriage);
+          if (row.dateOfMarriage?.trim() && !dateOfMarriage) {
             rowErrors.push({
               column: 'dateOfMarriage',
               reason: 'Invalid dateOfMarriage format',
             });
           }
 
-          const dateJoined = row.dateJoined ? new Date(row.dateJoined) : null;
-
-          if (row.dateJoined && isNaN(dateJoined.getTime())) {
+          const dateJoined = parseOptionalDate(row.dateJoined);
+          if (row.dateJoined?.trim() && !dateJoined) {
             rowErrors.push({
               column: 'dateJoined',
               reason: 'Invalid dateJoined format',
             });
           }
 
-          if (
-            row.title &&
-            !Object.values(MemberTitle).includes(row.title as MemberTitle)
-          ) {
+          const normalizedTitle = TITLE_MAP[normalizeKey(row.title)] || null;
+          if (row.title?.trim() && !normalizedTitle) {
             rowErrors.push({
               column: 'title',
-              reason: `Invalid title "${row.title}". Allowed values: ${Object.values(MemberTitle).join(', ')}`,
+              reason: `Invalid title "${row.title}"`,
             });
           }
 
+          const normalizedMaritalStatus =
+            MARITAL_STATUS_MAP[normalizeKey(row.maritalStatus)];
           if (
-            row.maritalStatus &&
-            !Object.values(MaritalStatus).includes(row.maritalStatus)
+            row.maritalStatus?.trim() &&
+            normalizedMaritalStatus === undefined
           ) {
             rowErrors.push({
               column: 'maritalStatus',
-              reason: `Invalid maritalStatus "${row.maritalStatus}". Allowed values: ${Object.values(MaritalStatus).join(', ')}`,
+              reason: `Invalid maritalStatus "${row.maritalStatus}"`,
             });
           }
 
-          if (
-            row.membershipStatus &&
-            !Object.values(MembershipStatus).includes(row.membershipStatus)
-          ) {
+          const normalizedMembershipStatus =
+            MEMBERSHIP_STATUS_MAP[normalizeKey(row.membershipStatus)] ||
+            MembershipStatus.MEMBER;
+
+          const isBaptized = parseBoolean(row.isBaptized);
+          if (row.isBaptized?.trim() && isBaptized === null) {
             rowErrors.push({
-              column: 'membershipStatus',
-              reason: `Invalid membershipStatus "${row.membershipStatus}". Allowed values: ${Object.values(MembershipStatus).join(', ')}`,
+              column: 'isBaptized',
+              reason: 'isBaptized must be true/false, yes/no, or 1/0',
             });
-          }
-
-          let isBaptized: boolean | null = null;
-
-          if (row.isBaptized !== undefined) {
-            const value = row.isBaptized?.toLowerCase();
-
-            if (value === 'true') isBaptized = true;
-            else if (value === 'false') isBaptized = false;
-            else {
-              rowErrors.push({
-                column: 'isBaptized',
-                reason: 'isBaptized must be true or false',
-              });
-            }
           }
 
           if (rowErrors.length) {
@@ -219,17 +310,17 @@ export class MembersService {
           }
 
           const parsedData: CreateMemberDto = {
-            title: row.title || null,
+            title: normalizedTitle,
             fullName: row.fullName?.trim(),
-            gender: row.gender,
+            gender: normalizedGender as Gender,
             birthday,
-            maritalStatus: row.maritalStatus || null,
+            maritalStatus: normalizedMaritalStatus,
             dateOfMarriage,
             phoneNumber: row.phoneNumber?.trim(),
             email: row.email?.toLowerCase()?.trim(),
             occupation: row.occupation?.trim(),
             educationalBackground: row.educationalBackground?.trim(),
-            membershipStatus: row.membershipStatus || null,
+            membershipStatus: normalizedMembershipStatus,
             dateJoined,
             previousChurchMembership: row.previousChurchMembership?.trim(),
             isBaptized,
@@ -237,6 +328,44 @@ export class MembersService {
             volunteerPreferences: row.volunteerPreferences?.trim(),
             cellGroupName: row.cellGroupName?.trim(),
           };
+
+          const emailKey = normalizeText(parsedData.email);
+          if (
+            emailKey &&
+            (existingEmailSet.has(emailKey) || batchEmailSet.has(emailKey))
+          ) {
+            rowErrors.push({
+              column: 'email',
+              reason: 'Member with this email already exists',
+            });
+          }
+
+          const identityKey = [
+            normalizeText(parsedData.fullName),
+            normalizeDateKey(parsedData.birthday),
+            normalizeText(parsedData.phoneNumber),
+          ].join('|');
+
+          if (
+            identityKey !== '||' &&
+            (existingIdentitySet.has(identityKey) ||
+              batchIdentitySet.has(identityKey))
+          ) {
+            rowErrors.push({
+              column: 'fullName',
+              reason: 'Duplicate member record already exists',
+            });
+          }
+
+          if (rowErrors.length) {
+            rowErrors.forEach((err) =>
+              errors.push({
+                row: rowIndex,
+                ...err,
+              }),
+            );
+            continue;
+          }
 
           const dtoInstance = plainToInstance(CreateMemberDto, parsedData);
 
@@ -260,6 +389,13 @@ export class MembersService {
             churchId: authUser.churchId,
             ...dtoInstance,
           });
+
+          if (emailKey) {
+            batchEmailSet.add(emailKey);
+          }
+          if (identityKey !== '||') {
+            batchIdentitySet.add(identityKey);
+          }
         } catch (err: any) {
           errors.push({
             row: rowIndex,
@@ -299,9 +435,15 @@ export class MembersService {
   }
 
   async addMember(authUser: Admin, createMemberDto: CreateMemberDto) {
+    const payload = {
+      ...createMemberDto,
+      membershipStatus:
+        createMemberDto.membershipStatus || MembershipStatus.MEMBER,
+    };
+
     const createdMember = await this.memberModel.create({
       churchId: authUser.churchId,
-      ...createMemberDto,
+      ...payload,
     });
 
     await this.activityLogService.create(authUser, {

@@ -189,6 +189,7 @@ export class SmallTeamsService {
       serviceId,
       authUser.churchId,
     );
+
     if (!service) {
       throw new BadRequestException('Service not found');
     }
@@ -319,10 +320,12 @@ export class SmallTeamsService {
     if (!leaderId) {
       return;
     }
+
     const leader = await this.membersService.existsInChurch(
       leaderId,
       authUser.churchId,
     );
+
     if (!leader) {
       throw new BadRequestException('Team leader was not found in this church');
     }
