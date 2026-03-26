@@ -26,7 +26,7 @@ export class AttendanceService {
   ) {}
 
   async markAttendance(
-    adminId: Types.ObjectId,
+    authUser: Admin,
     serviceId: string,
     createAttendanceDto: CreateAttendanceDto,
   ) {
@@ -43,7 +43,7 @@ export class AttendanceService {
   }
 
   async markAsAbsent(
-    adminId: Types.ObjectId,
+    authUser: Admin,
     serviceId: string,
     createAttendanceDto: CreateAttendanceDto,
   ) {
@@ -55,13 +55,13 @@ export class AttendanceService {
     );
 
     return {
-      message: 'Members marked as absent successfully',
+      message: 'Attendance marked as absent successfully',
     };
   }
 
   async getAttendance(authUser: Admin, churchServiceId: string, date: string) {
     const attendance = await this.attendanceModel
-      .find({ churchServiceId, date, status: AttendanceStatus.PRESENT })
+      .find({ churchServiceId, date })
       .lean();
 
     if (!attendance || attendance.length === 0) {
@@ -71,7 +71,9 @@ export class AttendanceService {
       };
     }
 
-    const presentIds = attendance.map((record) => record.memberId.toString());
+    const presentIds = attendance
+      .filter((record) => record.status === AttendanceStatus.PRESENT)
+      .map((record) => record.memberId.toString());
 
     const members = await this.membersService.findAll(authUser);
 
@@ -113,6 +115,7 @@ export class AttendanceService {
     const serviceIds = await this.churchServicesService.getServiceIdsByChurchId(
       authUser.churchId,
     );
+
     if (!serviceIds.length) {
       return { totalAttendance: 0 };
     }
@@ -122,8 +125,8 @@ export class AttendanceService {
       status: AttendanceStatus.PRESENT,
     });
 
-    const now = new Date();
-    const rangeStart = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+    return { totalAttendance };
+  }
 
   async getMemberAttendanceHistory(
     authUser: Admin,
@@ -336,9 +339,11 @@ export class AttendanceService {
   async getMemberAttendanceStatsFilter(memberId: string, days?: number) {
     const query: any = { memberId: new Types.ObjectId(memberId) };
 
-    const monthlyCountMap = new Map<string, number>(
-      monthlyAttendance.map((entry) => [entry._id, entry.total]),
-    );
+    if (days) {
+      const pastDate = new Date();
+      pastDate.setDate(pastDate.getDate() - days);
+      query.date = { $gte: pastDate };
+    }
 
     const [present, absent] = await Promise.all([
       this.attendanceModel.countDocuments({
@@ -372,9 +377,7 @@ export class AttendanceService {
     skip: number,
     serviceIds?: Types.ObjectId[],
   ) {
-    const query: any = {
-      memberId: new Types.ObjectId(memberId),
-    };
+    const query: any = { memberId: new Types.ObjectId(memberId) };
 
     if (serviceIds?.length) {
       query.churchServiceId = { $in: serviceIds };
@@ -385,10 +388,9 @@ export class AttendanceService {
         .find(query)
         .populate('churchServiceId', 'serviceName type')
         .populate('recordedBy', 'firstName lastName')
-        .sort({ date: -1, createdAt: -1 })
+        .sort({ date: -1 })
         .skip(skip)
-        .limit(limit)
-        .lean(),
+        .limit(limit),
       this.attendanceModel.countDocuments(query),
     ]);
 
