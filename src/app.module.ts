@@ -23,6 +23,7 @@ import { AttendanceModule } from './modules/attendance/attendance.module';
 import { ChurchServicesModule } from './modules/church-services/church-services.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { AccountDeletionModule } from './modules/account-deletion/account-deletion.module';
+import { SmallTeamsModule } from './modules/small-teams/small-teams.module';
 
 @Module({
   imports: [
@@ -69,6 +70,7 @@ import { AccountDeletionModule } from './modules/account-deletion/account-deleti
     ActivityLogModule,
     AttendanceModule,
     ChurchServicesModule,
+    SmallTeamsModule,
     ScheduleModule.forRoot(),
     AccountDeletionModule,
   ],

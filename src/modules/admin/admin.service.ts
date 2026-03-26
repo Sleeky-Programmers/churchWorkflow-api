@@ -9,6 +9,14 @@ import { CreateAdminDto } from '././dto/create-admin.dto';
 import { RolesService } from '../roles/roles.service';
 import { AccountSettingsService } from '../account-settings/account-settings.service';
 
+const emailMatcher = (email: string) => ({
+  $regex: `^${email
+    .toLowerCase()
+    .trim()
+    .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`,
+  $options: 'i',
+});
+
 @Injectable()
 export class AdminService {
   constructor(
@@ -32,6 +40,7 @@ export class AdminService {
 
     const admin = await this.adminModel.create({
       ...adminRegisterDto,
+      email: adminRegisterDto.email.toLowerCase().trim(),
       ...(title && { title }),
       churchId,
       churchRole,
@@ -54,6 +63,7 @@ export class AdminService {
 
     const superAdmin = await this.adminModel.create({
       ...createSuperAdminDto,
+      email: createSuperAdminDto.email.toLowerCase().trim(),
       churchRole: superAdminRole._id,
       password: bcrypt.hashSync(createSuperAdminDto.password, 10),
     });
@@ -70,7 +80,9 @@ export class AdminService {
   }
 
   async findOne(email: string) {
-    return await this.adminModel.findOne({ email }).select('+password');
+    return await this.adminModel
+      .findOne({ email: emailMatcher(email) })
+      .select('+password');
   }
 
   async findById(id: Types.ObjectId) {
@@ -78,10 +90,21 @@ export class AdminService {
   }
 
  
+  async findNamesByIds(ids: string[]) {
+    return await this.adminModel
+      .find({ _id: { $in: ids.map((id) => new Types.ObjectId(id)) } })
+      .select('firstName lastName')
+      .lean();
+  }
+
   async findOneAndUpdate(email: string, updateData: Partial<Admin>) {
-    return await this.adminModel.findOneAndUpdate({ email }, updateData, {
-      new: true,
-    });
+    return await this.adminModel.findOneAndUpdate(
+      { email: emailMatcher(email) },
+      updateData,
+      {
+        new: true,
+      },
+    );
   }
 
   async findByIdAndUpdate(id: Types.ObjectId, updateData: Partial<Admin>) {
@@ -91,7 +114,9 @@ export class AdminService {
   }
 
   async findOneAndDelete(email: string) {
-    return await this.adminModel.findOneAndDelete({ email });
+    return await this.adminModel.findOneAndDelete({
+      email: emailMatcher(email),
+    });
   }
 
   async findByIdAndDelete(id: Types.ObjectId) {

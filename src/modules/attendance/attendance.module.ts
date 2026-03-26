@@ -5,6 +5,7 @@ import { AttendanceController } from './attendance.controller';
 import { Attendance, AttendanceSchema } from '../../schemas/attendance.schema';
 import { MembersModule } from '../members/members.module';
 import { ChurchServicesModule } from '../church-services/church-services.module';
+import { AdminModule } from '../admin/admin.module';
 
 @Module({
   imports: [
@@ -12,6 +13,7 @@ import { ChurchServicesModule } from '../church-services/church-services.module'
       { name: Attendance.name, schema: AttendanceSchema },
     ]),
     ChurchServicesModule,
+    AdminModule,
     forwardRef(() => MembersModule),
   ],
   controllers: [AttendanceController],
