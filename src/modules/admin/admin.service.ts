@@ -89,6 +89,7 @@ export class AdminService {
     return await this.adminModel.findById(id).populate('churchRole');
   }
 
+ 
   async findNamesByIds(ids: string[]) {
     return await this.adminModel
       .find({ _id: { $in: ids.map((id) => new Types.ObjectId(id)) } })
