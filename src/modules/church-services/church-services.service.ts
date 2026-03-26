@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { ChurchService } from '../../schemas/church-service.schema';
 import { Admin } from '../../schemas/admin.schema';
 import { CreateChurchServiceDto } from './dto/create-church-service.dto';
@@ -9,6 +9,9 @@ import {
   paginationMeta,
 } from '../../common/helpers/pagination.helper';
 import { UpdateChurchServiceDto } from './dto/update-church-service.dto';
+
+const escapeRegExp = (value: string) =>
+  value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 @Injectable()
 export class ChurchServicesService {
@@ -21,8 +24,53 @@ export class ChurchServicesService {
     authUser: Admin,
     createChurchServiceDto: CreateChurchServiceDto,
   ) {
+    const normalizedName = createChurchServiceDto.serviceName.trim();
+    const normalizedLocation = (createChurchServiceDto.location || '').trim();
+    const normalizedStartTime = createChurchServiceDto.startTime
+      ?.trim()
+      .toUpperCase();
+
+    if (normalizedStartTime) {
+      const duplicateFilter: any = {
+        churchId: authUser.churchId,
+        serviceName: {
+          $regex: `^${escapeRegExp(normalizedName)}$`,
+          $options: 'i',
+        },
+        startTime: normalizedStartTime,
+      };
+      duplicateFilter.location = normalizedLocation
+        ? {
+            $regex: `^${escapeRegExp(normalizedLocation)}$`,
+            $options: 'i',
+          }
+        : { $in: [null, ''] };
+
+      if (createChurchServiceDto.type) {
+        duplicateFilter.type = createChurchServiceDto.type;
+      }
+
+      if (createChurchServiceDto.day) {
+        duplicateFilter.day = createChurchServiceDto.day;
+      }
+
+      if (createChurchServiceDto.startDate) {
+        duplicateFilter.startDate = new Date(createChurchServiceDto.startDate);
+      }
+
+      const existing = await this.churchServiceModel.findOne(duplicateFilter);
+      if (existing) {
+        throw new BadRequestException(
+          'Event with same name and time already exists',
+        );
+      }
+    }
+
     return await this.churchServiceModel.create({
       ...createChurchServiceDto,
+      serviceName: normalizedName,
+      startTime: normalizedStartTime,
+      location: normalizedLocation || undefined,
       churchId: authUser.churchId,
     });
   }
@@ -53,6 +101,30 @@ export class ChurchServicesService {
     return await this.churchServiceModel.findById(id);
   }
 
+  async findOneInChurch(serviceId: string, churchId: Types.ObjectId) {
+    return await this.churchServiceModel
+      .findOne({
+        _id: serviceId,
+        churchId,
+      })
+      .lean();
+  }
+
+  async findByChurchId(churchId: Types.ObjectId) {
+    return await this.churchServiceModel
+      .find({ churchId })
+      .select('_id serviceName')
+      .lean();
+  }
+
+  async getServiceIdsByChurchId(churchId: Types.ObjectId) {
+    const services = await this.churchServiceModel
+      .find({ churchId })
+      .select('_id')
+      .lean();
+    return services.map((service) => service._id);
+  }
+
   async update(id: string, updateChurchServiceDto: UpdateChurchServiceDto) {
     return await this.churchServiceModel.findByIdAndUpdate(
       id,
@@ -69,14 +141,6 @@ export class ChurchServicesService {
   async getServiceIdsByType(type: string) {
     const services = await this.churchServiceModel
       .find({ type })
-      .select('_id')
-      .lean();
-    return services.map((s) => s._id);
-  }
-
-  async getServiceIdsByChurchId(churchId: any) {
-    const services = await this.churchServiceModel
-      .find({ churchId })
       .select('_id')
       .lean();
     return services.map((s) => s._id);

@@ -61,6 +61,10 @@ export class AuthService {
       throw new UnauthorizedException('Invalid password');
     }
 
+    if (!user.isVerified) {
+      throw new UnauthorizedException('Email not verified');
+    }
+
     const { password: _, ...userWithoutPassword } = user.toObject();
     return userWithoutPassword;
   }
@@ -73,18 +77,25 @@ export class AuthService {
       throw new ConflictException('Admin with this email already exists');
     }
 
-    await Promise.all([
-      this.adminService.createSuperAdmin({
-        firstName,
-        lastName,
-        email,
-        password,
-      }),
-      this.otpService.create(email),
-    ]);
+    await this.adminService.createSuperAdmin({
+      firstName,
+      lastName,
+      email,
+      password,
+    });
+
+    let otpSent = true;
+    try {
+      await this.otpService.create(email);
+    } catch {
+      otpSent = false;
+    }
 
     return {
-      message: 'Registration successful. Please verify your email.',
+      message: otpSent
+        ? 'Registration successful. Please, verify your email.'
+        : 'Registration successful. Unable to send OTP. Please request a new code.',
+      otpSent,
     };
   }
 
