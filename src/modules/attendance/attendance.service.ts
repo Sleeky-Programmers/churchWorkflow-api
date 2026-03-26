@@ -152,7 +152,10 @@ export class AttendanceService {
     );
 
     const serviceMap = new Map(
-      services.map((service: any) => [service._id.toString(), service.serviceName]),
+      services.map((service: any) => [
+        service._id.toString(),
+        service.serviceName,
+      ]),
     );
     const serviceIds = services.map((service: any) => service._id);
 
@@ -443,7 +446,9 @@ export class AttendanceService {
 
     return await this.attendanceModel
       .find({
-        memberId: { $in: memberIds.map((memberId) => new Types.ObjectId(memberId)) },
+        memberId: {
+          $in: memberIds.map((memberId) => new Types.ObjectId(memberId)),
+        },
         status: AttendanceStatus.PRESENT,
         ...dateFilter,
       })
