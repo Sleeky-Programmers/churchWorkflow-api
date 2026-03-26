@@ -36,5 +36,23 @@ module.exports = {
       },
     ],
     'no-console': 'error',
+    curly: ['error', 'all'],
+    'no-lonely-if': 'error',
+    'brace-style': ['error', '1tbs'],
+		'no-warning-comments': [
+			'warn',
+			{
+				'terms': ['todo', 'fixme'],
+				'location': 'start'
+			}
+		],
+		'capitalized-comments': ['error', 'always'],
+    '@typescript-eslint/ban-ts-comment': [
+      'error',
+      {
+        'ts-ignore': 'allow-with-description',
+        'minimumDescriptionLength': 10
+      }
+    ],
   },
 };

@@ -1,4 +1,10 @@
-import { Injectable, Inject, forwardRef } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Inject,
+  forwardRef,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Attendance } from '../../schemas/attendance.schema';
@@ -7,14 +13,16 @@ import { MembersService } from '../members/members.service';
 import { ChurchServicesService } from '../church-services/church-services.service';
 import { AttendanceStatus, Gender } from '../../common/utils/enums.utils';
 import { Admin } from '../../schemas/admin.schema';
+import { AdminService } from '../admin/admin.service';
 
 @Injectable()
 export class AttendanceService {
   constructor(
     @InjectModel(Attendance.name) private attendanceModel: Model<Attendance>,
-    private churchServicesService: ChurchServicesService,
     @Inject(forwardRef(() => MembersService))
     private membersService: MembersService,
+    private churchServicesService: ChurchServicesService,
+    private adminService: AdminService,
   ) {}
 
   async markAttendance(
@@ -23,7 +31,7 @@ export class AttendanceService {
     createAttendanceDto: CreateAttendanceDto,
   ) {
     await this.replaceAttendanceByStatus(
-      adminId,
+      authUser,
       serviceId,
       createAttendanceDto,
       AttendanceStatus.PRESENT,
@@ -40,7 +48,7 @@ export class AttendanceService {
     createAttendanceDto: CreateAttendanceDto,
   ) {
     await this.replaceAttendanceByStatus(
-      adminId,
+      authUser,
       serviceId,
       createAttendanceDto,
       AttendanceStatus.ABSENT,
@@ -117,78 +125,244 @@ export class AttendanceService {
     const now = new Date();
     const rangeStart = new Date(now.getFullYear(), now.getMonth() - 5, 1);
 
-    const monthlyAttendance = await this.attendanceModel.aggregate([
-      {
-        $match: {
+  async getMemberAttendanceHistory(
+    authUser: Admin,
+    memberId: string,
+    from?: string,
+    to?: string,
+  ) {
+    if (!Types.ObjectId.isValid(memberId)) {
+      throw new BadRequestException('Invalid member id');
+    }
+
+    const member = await this.membersService.findByIdInChurch(
+      memberId,
+      authUser.churchId,
+    );
+
+    if (!member) {
+      throw new NotFoundException('Member not found');
+    }
+
+    const services = await this.churchServicesService.findByChurchId(
+      authUser.churchId,
+    );
+
+    const serviceMap = new Map(
+      services.map((service: any) => [service._id.toString(), service.serviceName]),
+    );
+    const serviceIds = services.map((service: any) => service._id);
+
+    if (!serviceIds.length) {
+      return {
+        memberId,
+        records: [],
+        stats: {
+          attended: 0,
+          missed: 0,
+          total: 0,
+          rate: 0,
+        },
+        trends: [],
+      };
+    }
+
+    const dateQuery: any = {};
+    if (from || to) {
+      dateQuery.date = {};
+      if (from) {
+        dateQuery.date.$gte = new Date(from);
+      }
+      if (to) {
+        dateQuery.date.$lte = new Date(to);
+      }
+    }
+
+    const [allChurchAttendance, memberAttendance] = await Promise.all([
+      this.attendanceModel
+        .find({
           churchServiceId: { $in: serviceIds },
           status: AttendanceStatus.PRESENT,
-          date: { $gte: rangeStart },
-        },
-      },
-      {
-        $group: {
-          _id: { $dateToString: { format: '%Y-%m', date: '$date' } },
-          total: { $sum: 1 },
-        },
-      },
-      { $sort: { _id: 1 } },
+          ...dateQuery,
+        })
+        .select('churchServiceId date recordedBy createdAt')
+        .sort({ date: -1, createdAt: -1 })
+        .lean(),
+      this.attendanceModel
+        .find({
+          churchServiceId: { $in: serviceIds },
+          memberId: new Types.ObjectId(memberId),
+          status: AttendanceStatus.PRESENT,
+          ...dateQuery,
+        })
+        .select('churchServiceId date recordedBy createdAt')
+        .sort({ date: -1, createdAt: -1 })
+        .lean<(Attendance & { createdAt: Date })[]>(),
     ]);
+
+    const sessionMap = new Map<
+      string,
+      { serviceId: string; date: Date; recordedBy: string | null }
+    >();
+
+    for (const record of allChurchAttendance) {
+      const serviceId = record.churchServiceId.toString();
+      const day = new Date(record.date).toISOString().split('T')[0];
+      const key = `${serviceId}|${day}`;
+      if (!sessionMap.has(key)) {
+        sessionMap.set(key, {
+          serviceId,
+          date: new Date(record.date),
+          recordedBy: record.recordedBy?.toString?.() || null,
+        });
+      }
+    }
+
+    const memberAttendanceBySession = new Map<
+      string,
+      { createdAt: Date; recordedBy: string | null }
+    >();
+
+    for (const record of memberAttendance) {
+      const serviceId = record.churchServiceId.toString();
+      const day = new Date(record.date).toISOString().split('T')[0];
+      const key = `${serviceId}|${day}`;
+      memberAttendanceBySession.set(key, {
+        createdAt: new Date(record.createdAt),
+        recordedBy: record.recordedBy?.toString?.() || null,
+      });
+    }
+
+    const records = Array.from(sessionMap.entries()).map(
+      ([sessionKey, session]) => {
+        const memberRecord = memberAttendanceBySession.get(sessionKey);
+        return {
+          sessionKey,
+          session,
+          memberRecord,
+          recordedById: memberRecord?.recordedBy || session.recordedBy || null,
+        };
+      },
+    );
+
+    const recordedByIds = Array.from(
+      new Set(
+        records
+          .map((record) => record.recordedById)
+          .filter(Boolean)
+          .map((id) => id as string),
+      ),
+    );
+
+    const admins = recordedByIds.length
+      ? await this.adminService.findNamesByIds(recordedByIds)
+      : [];
+
+    const adminNameMap = new Map(
+      admins.map((admin: any) => [
+        admin._id.toString(),
+        `${admin.firstName || ''} ${admin.lastName || ''}`.trim(),
+      ]),
+    );
+
+    const normalizedRecords = records
+      .map((record, index) => {
+        const status = record.memberRecord ? 'Present' : 'Absent';
+        const recordedAt = record.memberRecord
+          ? record.memberRecord.createdAt
+          : record.session.date;
+
+        return {
+          id: `${record.sessionKey}-${index}`,
+          service: serviceMap.get(record.session.serviceId) || 'Service',
+          date: new Date(record.session.date).toISOString().split('T')[0],
+          status,
+          recordedBy:
+            (record.recordedById && adminNameMap.get(record.recordedById)) ||
+            'System',
+          time: recordedAt.toISOString(),
+        };
+      })
+      .sort((a, b) => {
+        if (a.date === b.date) {
+          return a.service.localeCompare(b.service);
+        }
+        return b.date.localeCompare(a.date);
+      });
+
+    const attended = normalizedRecords.filter(
+      (record) => record.status === 'Present',
+    ).length;
+    const missed = normalizedRecords.length - attended;
+    const rate = normalizedRecords.length
+      ? Math.round((attended / normalizedRecords.length) * 100)
+      : 0;
+
+    const trendMap = new Map<string, { attended: number; total: number }>();
+    for (const record of normalizedRecords) {
+      const month = record.date.slice(0, 7);
+      const current = trendMap.get(month) || { attended: 0, total: 0 };
+      current.total += 1;
+      if (record.status === 'Present') {
+        current.attended += 1;
+      }
+      trendMap.set(month, current);
+    }
+
+    const trends = Array.from(trendMap.entries())
+      .map(([month, value]) => ({
+        month,
+        attended: value.attended,
+        total: value.total,
+        rate: value.total
+          ? Math.round((value.attended / value.total) * 100)
+          : 0,
+      }))
+      .sort((a, b) => a.month.localeCompare(b.month));
+
+    return {
+      memberId: member._id.toString(),
+      records: normalizedRecords,
+      stats: {
+        attended,
+        missed,
+        total: normalizedRecords.length,
+        rate,
+      },
+      trends,
+    };
+  }
+
+  async getMemberAttendanceStatsFilter(memberId: string, days?: number) {
+    const query: any = { memberId: new Types.ObjectId(memberId) };
 
     const monthlyCountMap = new Map<string, number>(
       monthlyAttendance.map((entry) => [entry._id, entry.total]),
     );
 
-    const toMonthKey = (date: Date) => {
-      const month = `${date.getMonth() + 1}`.padStart(2, '0');
-      return `${date.getFullYear()}-${month}`;
-    };
+    const [present, absent] = await Promise.all([
+      this.attendanceModel.countDocuments({
+        ...query,
+        status: AttendanceStatus.PRESENT,
+      }),
+      this.attendanceModel.countDocuments({
+        ...query,
+        status: AttendanceStatus.ABSENT,
+      }),
+    ]);
 
-    const monthlyAttendanceTrends = Array.from({ length: 6 }, (_, index) => {
-      const targetDate = new Date(
-        now.getFullYear(),
-        now.getMonth() - (5 - index),
-        1,
-      );
-      const previousDate = new Date(
-        targetDate.getFullYear(),
-        targetDate.getMonth() - 1,
-        1,
-      );
-      const monthKey = toMonthKey(targetDate);
-      const previousMonthKey = toMonthKey(previousDate);
+    const totalServices = present + absent;
 
-      return {
-        month: targetDate.toLocaleDateString('en-US', { month: 'short' }),
-        thisMonth: monthlyCountMap.get(monthKey) || 0,
-        lastMonth: monthlyCountMap.get(previousMonthKey) || 0,
-      };
-    });
-
-    const currentMonthKey = toMonthKey(
-      new Date(now.getFullYear(), now.getMonth(), 1),
-    );
-    const previousMonthKey = toMonthKey(
-      new Date(now.getFullYear(), now.getMonth() - 1, 1),
-    );
-    const currentMonthCount = monthlyCountMap.get(currentMonthKey) || 0;
-    const previousMonthCount = monthlyCountMap.get(previousMonthKey) || 0;
-
-    const growthValue =
-      previousMonthCount === 0
-        ? currentMonthCount > 0
-          ? 100
-          : 0
-        : ((currentMonthCount - previousMonthCount) / previousMonthCount) * 100;
-
-    const attendanceGrowth =
-      growthValue >= 0
-        ? `+${growthValue.toFixed(0)}%`
-        : `${growthValue.toFixed(0)}%`;
+    let percentage = 0;
+    if (totalServices > 0) {
+      percentage = Math.round((present / totalServices) * 100);
+    }
 
     return {
-      totalAttendance,
-      attendanceGrowth,
-      monthlyAttendanceTrends,
+      totalServicesAttended: present,
+      totalServicesMissed: absent,
+      attendanceRate: percentage,
+      totalEvaluated: totalServices,
     };
   }
 
@@ -221,62 +395,98 @@ export class AttendanceService {
     return { attendances, itemCount };
   }
 
-  async getMemberAttendanceStatsFilter(memberId: string, days?: number) {
-    const query: any = {
-      memberId: new Types.ObjectId(memberId),
-    };
-
-    if (days) {
-      const startDate = new Date();
-      startDate.setDate(startDate.getDate() - days);
-      query.date = { $gte: startDate };
-    }
-
-    const [present, absent] = await Promise.all([
-      this.attendanceModel.countDocuments({
-        ...query,
-        status: AttendanceStatus.PRESENT,
-      }),
-      this.attendanceModel.countDocuments({
-        ...query,
-        status: AttendanceStatus.ABSENT,
-      }),
-    ]);
-
-    const total = present + absent;
-    const attendanceRate = total ? Math.round((present / total) * 100) : 0;
-
-    return {
-      total,
-      present,
-      absent,
-      attendanceRate,
-    };
-  }
-
-  private async replaceAttendanceByStatus(
-    adminId: Types.ObjectId,
+  async replaceTeamAttendanceForServiceDate(
     serviceId: string,
-    createAttendanceDto: CreateAttendanceDto,
-    status: AttendanceStatus,
+    attendanceDate: Date,
+    teamMemberIds: Types.ObjectId[],
+    presentMemberIds: string[],
+    recordedBy: Types.ObjectId,
   ) {
-    const attendanceDate = new Date(createAttendanceDto.date);
-
     await this.attendanceModel.deleteMany({
       churchServiceId: new Types.ObjectId(serviceId),
       date: attendanceDate,
+      memberId: { $in: teamMemberIds },
     });
 
-    if (createAttendanceDto.memberIds.length === 0) {
+    if (presentMemberIds.length === 0) {
       return;
     }
 
     await this.attendanceModel.insertMany(
-      createAttendanceDto.memberIds.map((memberId) => ({
+      presentMemberIds.map((memberId) => ({
         churchServiceId: new Types.ObjectId(serviceId),
         date: attendanceDate,
         memberId: new Types.ObjectId(memberId),
-        recordedBy: adminId,
+        recordedBy,
+        status: AttendanceStatus.PRESENT,
+      })),
+    );
+  }
+
+  async getPresentAttendanceByMemberIds(
+    memberIds: string[],
+    from?: string,
+    to?: string,
+  ) {
+    const dateFilter: any = {};
+    if (from || to) {
+      dateFilter.date = {};
+      if (from) {
+        dateFilter.date.$gte = new Date(from);
+      }
+      if (to) {
+        dateFilter.date.$lte = new Date(to);
+      }
+    }
+
+    return await this.attendanceModel
+      .find({
+        memberId: { $in: memberIds.map((memberId) => new Types.ObjectId(memberId)) },
+        status: AttendanceStatus.PRESENT,
+        ...dateFilter,
+      })
+      .lean();
+  }
+
+  private async replaceAttendanceByStatus(
+    authUser: Admin,
+    serviceId: string,
+    createAttendanceDto: CreateAttendanceDto,
+    status: AttendanceStatus,
+  ) {
+    const service = await this.churchServicesService.findOneInChurch(
+      serviceId,
+      authUser.churchId,
+    );
+
+    if (!service) {
+      throw new NotFoundException('Service not found');
+    }
+
+    const attendanceDate = new Date(createAttendanceDto.date);
+    let memberIds = createAttendanceDto.memberIds || [];
+
+    if (createAttendanceDto.isAllPresent) {
+      const members = await this.membersService.findAll(authUser);
+      memberIds = members.map((member) => member._id.toString());
+    }
+
+    await this.attendanceModel.deleteMany({
+      churchServiceId: new Types.ObjectId(serviceId),
+      date: attendanceDate,
+      status,
+    });
+
+    if (memberIds.length === 0) {
+      return;
+    }
+
+    await this.attendanceModel.insertMany(
+      memberIds.map((memberId) => ({
+        churchServiceId: new Types.ObjectId(serviceId),
+        date: attendanceDate,
+        memberId: new Types.ObjectId(memberId),
+        recordedBy: authUser._id,
         status,
       })),
     );

@@ -542,6 +542,30 @@ export class MembersService {
     return await this.memberModel.find({ churchId: authUser.churchId });
   }
 
+  async findByIdInChurch(memberId: string, churchId: Types.ObjectId) {
+    return await this.memberModel
+      .findOne({
+        _id: memberId,
+        churchId,
+      })
+      .select('_id fullName')
+      .lean();
+  }
+
+  async countMembersInChurch(memberIds: string[], churchId: Types.ObjectId) {
+    return await this.memberModel.countDocuments({
+      _id: { $in: memberIds.map((id) => new Types.ObjectId(id)) },
+      churchId,
+    });
+  }
+
+  async existsInChurch(memberId: string, churchId: Types.ObjectId) {
+    return await this.memberModel.exists({
+      _id: new Types.ObjectId(memberId),
+      churchId,
+    });
+  }
+
   async getMemberById(
     id: string,
     dto?: MemberAttendanceFilterDto,

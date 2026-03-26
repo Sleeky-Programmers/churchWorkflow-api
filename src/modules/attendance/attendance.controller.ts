@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { AttendanceService } from './attendance.service';
 import { JwtAuthGuard } from '../auth/guard/jwt-auth.guard';
 import { AuthUser } from '../../common/decorators/auth-user.decorator';
@@ -58,6 +66,21 @@ export class AttendanceController {
     @Query('date') date: string,
   ) {
     return this.attendanceService.getAttendance(authUser, serviceId, date);
+  }
+
+  @Get('member/:memberId')
+  async getMemberAttendanceHistory(
+    @AuthUser() authUser: Admin,
+    @Param('memberId') memberId: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.attendanceService.getMemberAttendanceHistory(
+      authUser,
+      memberId,
+      from,
+      to,
+    );
   }
 
   @Get('stats')
