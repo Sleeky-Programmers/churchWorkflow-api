@@ -30,22 +30,6 @@ export class AttendanceService {
     serviceId: string,
     createAttendanceDto: CreateAttendanceDto,
   ) {
-    if (createAttendanceDto.isAllPresent) {
-      const members = await this.membersService.findAll(authUser);
-      const memberIds = members.map((member) => member._id.toString());
-      createAttendanceDto.memberIds = memberIds;
-    }
-    const recordedBy = `${authUser.firstName} ${authUser.lastName}`;
-
-    createAttendanceDto.memberIds.forEach(async (memberId) => {
-      await this.attendanceModel.create({
-        churchServiceId: serviceId,
-        date: createAttendanceDto.date,
-        memberId,
-        recordedBy: recordedBy,
-        status: AttendanceStatus.PRESENT,
-      });
-    });
     await this.replaceAttendanceByStatus(
       authUser,
       serviceId,
@@ -63,19 +47,6 @@ export class AttendanceService {
     serviceId: string,
     createAttendanceDto: CreateAttendanceDto,
   ) {
-    if (!createAttendanceDto.memberIds) {
-      throw new NotFoundException('Members not found');
-    }
-    const recordedBy = `${authUser.firstName} ${authUser.lastName}`;
-    createAttendanceDto.memberIds.forEach(async (memberId) => {
-      await this.attendanceModel.create({
-        churchServiceId: serviceId,
-        date: createAttendanceDto.date,
-        memberId,
-        recordedBy: recordedBy,
-        status: AttendanceStatus.ABSENT,
-      });
-    });
     await this.replaceAttendanceByStatus(
       authUser,
       serviceId,

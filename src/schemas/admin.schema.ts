@@ -31,7 +31,6 @@ export class Admin extends Document {
 
   @Prop({ default: false })
   isVerified: boolean;
-
 }
 
 export const AdminSchema = SchemaFactory.createForClass(Admin);
