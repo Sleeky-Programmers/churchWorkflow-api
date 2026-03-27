@@ -141,7 +141,6 @@ export class AuthService {
       ...tokens,
     };
   }
-
   async googleLogin(idToken: string, token?: string) {
     if (!idToken) {
       throw new BadRequestException('ID token is required');
@@ -167,12 +166,12 @@ export class AuthService {
 
     const { email, given_name: firstName, family_name: lastName } = payload;
 
-    const  isExistingAdmin = await this.adminService.findOne(email);
+    const existingAdmin = await this.adminService.findOne(email);
 
-    if (isExistingAdmin) {
-      const tokens = this.generateTokens(isExistingAdmin._id.toString());
+    if (existingAdmin) {
+      const tokens = this.generateTokens(existingAdmin._id.toString());
 
-      const { password: _, ...userWithoutPassword } = isExistingAdmin.toObject();
+      const { password: _, ...userWithoutPassword } = existingAdmin.toObject();
 
       return {
         message: 'Login successful',
@@ -181,32 +180,42 @@ export class AuthService {
       };
     }
 
-    const dummyPassword = Math.random().toString(36).slice(-16);
+    const dummyPassword =
+      Math.random().toString(36).slice(-8) +
+      Math.random().toString(36).slice(-8);
 
-    let superAdmin;
+    let admin;
 
     if (token) {
       const invite = decryptInvite(token);
 
       if (email !== invite.email) {
-        throw new BadRequestException('Email mismatch');
+        throw new BadRequestException(
+          'Google email does not match invite email',
+        );
       }
 
-      superAdmin = await this.adminService.createAdmin(
-        {
-          firstName,
-          lastName,
-          email,
-          password: dummyPassword,
-        },
-        new Types.ObjectId(invite.churchId),
-        new Types.ObjectId(invite.churchRoleId),
-        invite.title || null,
-      );
+      const churchObjectId = new Types.ObjectId(invite.churchId);
+      const churchRoleObjectId = new Types.ObjectId(invite.churchRoleId);
 
-      await this.adminInviteService.acceptInvitation(email);
+      const results = await Promise.all([
+        this.adminService.createAdmin(
+          {
+            firstName,
+            lastName,
+            email,
+            password: dummyPassword,
+          },
+          churchObjectId,
+          churchRoleObjectId,
+          invite.title || null,
+        ),
+        this.adminInviteService.acceptInvitation(email),
+      ]);
+
+      admin = results[0];
     } else {
-      superAdmin = await this.adminService.createSuperAdmin({
+      admin = await this.adminService.createSuperAdmin({
         firstName,
         lastName,
         email,
@@ -218,10 +227,11 @@ export class AuthService {
       });
     }
 
-    const tokens = this.generateTokens(superAdmin._id.toString());
+    const tokens = this.generateTokens(admin._id.toString());
 
     return {
       message: 'Registration successful',
+      user: admin,
       ...tokens,
     };
   }
