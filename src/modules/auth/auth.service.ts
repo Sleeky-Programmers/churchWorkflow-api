@@ -167,12 +167,12 @@ export class AuthService {
 
     const { email, given_name: firstName, family_name: lastName } = payload;
 
-    const existing = await this.adminService.findOne(email);
+    const  isExistingAdmin = await this.adminService.findOne(email);
 
-    if (existing) {
-      const tokens = this.generateTokens(existing._id.toString());
+    if (isExistingAdmin) {
+      const tokens = this.generateTokens(isExistingAdmin._id.toString());
 
-      const { password: _, ...userWithoutPassword } = existing.toObject();
+      const { password: _, ...userWithoutPassword } = isExistingAdmin.toObject();
 
       return {
         message: 'Login successful',
@@ -183,7 +183,7 @@ export class AuthService {
 
     const dummyPassword = Math.random().toString(36).slice(-16);
 
-    let admin;
+    let superAdmin;
 
     if (token) {
       const invite = decryptInvite(token);
@@ -192,7 +192,7 @@ export class AuthService {
         throw new BadRequestException('Email mismatch');
       }
 
-      admin = await this.adminService.createAdmin(
+      superAdmin = await this.adminService.createAdmin(
         {
           firstName,
           lastName,
@@ -206,7 +206,7 @@ export class AuthService {
 
       await this.adminInviteService.acceptInvitation(email);
     } else {
-      admin = await this.adminService.createSuperAdmin({
+      superAdmin = await this.adminService.createSuperAdmin({
         firstName,
         lastName,
         email,
@@ -218,7 +218,7 @@ export class AuthService {
       });
     }
 
-    const tokens = this.generateTokens(admin._id.toString());
+    const tokens = this.generateTokens(superAdmin._id.toString());
 
     return {
       message: 'Registration successful',
