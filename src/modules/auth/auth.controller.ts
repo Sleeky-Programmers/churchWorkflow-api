@@ -17,6 +17,7 @@ import { JwtAuthGuard } from './guard/jwt-auth.guard';
 import { CreateSuperAdminDto } from '../admin/dto/create-super-admin.dto';
 import { decryptInvite } from '../../common/helpers/crypto.helper';
 import { AdminRegisterDto } from './dto/admin-register.dto';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -82,5 +83,10 @@ export class AuthController {
     @Body() resetPasswordDto: ResetPasswordDto,
   ) {
     return this.authService.resetPassword(authUser, resetPasswordDto);
+  }
+
+  @Post('refresh-token')
+  refresh(@Body() dto: RefreshTokenDto) {
+    return this.authService.refreshToken(dto.refreshToken);
   }
 }

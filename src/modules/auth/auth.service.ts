@@ -29,13 +29,24 @@ export class AuthService {
     private configService: ConfigService,
   ) {}
 
-  generateAccessToken(userId: string) {
-    return this.jwtService.sign(
+  generateTokens(userId: string) {
+    const accessToken = this.jwtService.sign(
       { sub: userId },
       {
-        expiresIn: this.configService.getOrThrow('jwt.expiresIn'),
+        expiresIn: this.configService.getOrThrow('JWT_EXPIRES_IN'),
+        secret: this.configService.getOrThrow('JWT_SECRET'),
       },
     );
+
+    const refreshToken = this.jwtService.sign(
+      { sub: userId },
+      {
+        secret: this.configService.getOrThrow('JWT_REFRESH_SECRET'),
+        expiresIn: this.configService.getOrThrow('JWT_REFRESH_EXPIRES_IN'),
+      },
+    );
+
+    return { accessToken, refreshToken };
   }
 
   async validateUser(email: string, password: string) {
@@ -44,7 +55,6 @@ export class AuthService {
     if (!user) {
       throw new UnauthorizedException('User not found');
     }
-
     const isPasswordCorrect = bcrypt.compareSync(password, user.password);
 
     if (!isPasswordCorrect) {
@@ -56,7 +66,6 @@ export class AuthService {
     }
 
     const { password: _, ...userWithoutPassword } = user.toObject();
-
     return userWithoutPassword;
   }
 
@@ -64,7 +73,6 @@ export class AuthService {
     const { firstName, lastName, email, password } = registerDto;
 
     const isExistingAdmin = await this.adminService.findOne(email);
-
     if (isExistingAdmin) {
       throw new ConflictException('Admin with this email already exists');
     }
@@ -100,7 +108,6 @@ export class AuthService {
     const { email, title, churchId, churchRoleId } = decryptInvite(token);
 
     const isExistingAdmin = await this.adminService.findOne(email);
-
     if (isExistingAdmin) {
       throw new ConflictException('An admin with this email already exists');
     }
@@ -108,34 +115,32 @@ export class AuthService {
     const churchObjectId = new Types.ObjectId(churchId);
     const churchRoleObjectId = new Types.ObjectId(churchRoleId);
 
-    const [admin, _] = await Promise.all([
+    const [admin] = await Promise.all([
       this.adminService.createAdmin(
-        {
-          firstName,
-          lastName,
-          email,
-          password,
-        },
+        { firstName, lastName, email, password },
         churchObjectId,
         churchRoleObjectId,
         title || null,
       ),
-      await this.adminInviteService.acceptInvitation(email),
+      this.adminInviteService.acceptInvitation(email),
     ]);
 
+    const tokens = this.generateTokens(admin._id.toString());
+
     return {
-      message: 'Registration successful.',
-      accessToken: this.generateAccessToken(admin._id.toString()),
+      message: 'Registration successful',
+      ...tokens,
     };
   }
 
   async login(data: any) {
+    const tokens = this.generateTokens(data._id);
+
     return {
       user: data,
-      accessToken: this.generateAccessToken(data._id),
+      ...tokens,
     };
   }
-
   async googleLogin(idToken: string, token?: string) {
     if (!idToken) {
       throw new BadRequestException('ID token is required');
@@ -151,7 +156,7 @@ export class AuthService {
         audience: clientId,
       });
       payload = ticket.getPayload();
-    } catch (error) {
+    } catch {
       throw new BadRequestException('Invalid ID token');
     }
 
@@ -159,19 +164,19 @@ export class AuthService {
       throw new BadRequestException('Email not found in Google token');
     }
 
-    const email = payload.email;
-    const firstName = payload.given_name;
-    const lastName = payload.family_name;
+    const { email, given_name: firstName, family_name: lastName } = payload;
 
-    const isExistingAdmin = await this.adminService.findOne(email);
+    const existingAdmin = await this.adminService.findOne(email);
 
-    if (isExistingAdmin) {
-      const { password: _, ...userWithoutPassword } =
-        isExistingAdmin.toObject();
+    if (existingAdmin) {
+      const tokens = this.generateTokens(existingAdmin._id.toString());
+
+      const { password: _, ...userWithoutPassword } = existingAdmin.toObject();
+
       return {
         message: 'Login successful',
         user: userWithoutPassword,
-        accessToken: this.generateAccessToken(isExistingAdmin._id.toString()),
+        ...tokens,
       };
     }
 
@@ -179,24 +184,21 @@ export class AuthService {
       Math.random().toString(36).slice(-8) +
       Math.random().toString(36).slice(-8);
 
-    if (token) {
-      const {
-        email: inviteEmail,
-        title,
-        churchId,
-        churchRoleId,
-      } = decryptInvite(token);
+    let admin;
 
-      if (email !== inviteEmail) {
+    if (token) {
+      const invite = decryptInvite(token);
+
+      if (email !== invite.email) {
         throw new BadRequestException(
           'Google email does not match invite email',
         );
       }
 
-      const churchObjectId = new Types.ObjectId(churchId);
-      const churchRoleObjectId = new Types.ObjectId(churchRoleId);
+      const churchObjectId = new Types.ObjectId(invite.churchId);
+      const churchRoleObjectId = new Types.ObjectId(invite.churchRoleId);
 
-      const [admin, _] = await Promise.all([
+      const results = await Promise.all([
         this.adminService.createAdmin(
           {
             firstName,
@@ -206,30 +208,58 @@ export class AuthService {
           },
           churchObjectId,
           churchRoleObjectId,
-          title || null,
+          invite.title || null,
         ),
-        await this.adminInviteService.acceptInvitation(email),
+        this.adminInviteService.acceptInvitation(email),
       ]);
 
-      return {
-        message: 'Registration successful.',
-        accessToken: this.generateAccessToken(admin._id.toString()),
-      };
+      admin = results[0];
     } else {
-      const superAdmin = await this.adminService.createSuperAdmin({
+      admin = await this.adminService.createSuperAdmin({
         firstName,
         lastName,
         email,
         password: dummyPassword,
       });
 
-      await this.adminService.findOneAndUpdate(email, { isVerified: true });
-
-      return {
-        message: 'Registration successful.',
-        accessToken: this.generateAccessToken(superAdmin._id.toString()),
-      };
+      await this.adminService.findOneAndUpdate(email, {
+        isVerified: true,
+      });
     }
+
+    const tokens = this.generateTokens(admin._id.toString());
+
+    return {
+      message: 'Registration successful',
+      user: admin,
+      ...tokens,
+    };
+  }
+
+  async refreshToken(refreshToken: string) {
+    if (!refreshToken) {
+      throw new UnauthorizedException('Refresh token missing');
+    }
+
+    let payload: any;
+
+    try {
+      payload = this.jwtService.verify(refreshToken, {
+        secret: this.configService.getOrThrow('JWT_REFRESH_SECRET'),
+      });
+    } catch {
+      throw new UnauthorizedException('Invalid or expired refresh token');
+    }
+
+    const user = await this.adminService.findById(payload.sub);
+
+    if (!user) {
+      throw new UnauthorizedException('User no longer exists');
+    }
+
+    const tokens = this.generateTokens(user._id.toString());
+
+    return tokens;
   }
 
   async requestOtp(email: string) {
@@ -249,46 +279,41 @@ export class AuthService {
 
   async verifyOtp(verifyOtpDto: VerifyOtpDto) {
     const { email, otp } = verifyOtpDto;
+
     const latestOtp = await this.otpService.findLatestByEmail(email);
+
     if (!latestOtp || latestOtp.isUsed) {
-      throw new BadRequestException('Invalid or already used OTP');
+      throw new BadRequestException('Invalid OTP');
     }
 
-    const isOtpValid =
-      latestOtp.otp === otp && latestOtp.otpExpiry > new Date();
-    if (!isOtpValid) {
+    if (latestOtp.otp !== otp || latestOtp.otpExpiry < new Date()) {
       throw new BadRequestException('Expired OTP');
     }
 
-    const [_, admin] = await Promise.all([
+    const [, admin] = await Promise.all([
       this.otpService.markAsUsed(latestOtp._id as unknown as Types.ObjectId),
       this.adminService.findOneAndUpdate(email, { isVerified: true }),
     ]);
 
+    const tokens = this.generateTokens(admin._id.toString());
+
     return {
-      message: 'Email verified successfully',
-      accessToken: this.generateAccessToken(admin._id as unknown as string),
+      message: 'Email verified',
+      ...tokens,
     };
   }
 
-  async resetPassword(authUser: Admin, resetPasswordDto: ResetPasswordDto) {
-    const { newPassword, confirmNewPassword } = resetPasswordDto;
+  async resetPassword(authUser: Admin, dto: ResetPasswordDto) {
+    const { newPassword, confirmNewPassword } = dto;
 
-    const isExistingAdmin = await this.adminService.findById(authUser._id);
-    if (!isExistingAdmin || !isExistingAdmin.isVerified) {
-      throw new NotFoundException(
-        'Admin with this email does not exist or is not verified',
-      );
-    }
-
-    const isPasswordValid = newPassword === confirmNewPassword;
-    if (!isPasswordValid) {
+    if (newPassword !== confirmNewPassword) {
       throw new BadRequestException('Passwords do not match');
     }
 
     await this.adminService.findByIdAndUpdate(authUser._id, {
       password: bcrypt.hashSync(newPassword, 10),
     });
+
     return { message: 'Password reset successful' };
   }
 }
