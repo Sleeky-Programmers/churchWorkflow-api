@@ -1,4 +1,10 @@
-import { IsNotEmpty, IsOptional, IsString, IsMongoId, IsArray } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsMongoId,
+  IsArray,
+} from 'class-validator';
 
 export class CreateDepartmentDto {
   @IsNotEmpty()

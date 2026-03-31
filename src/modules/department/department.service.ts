@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model, Types } from 'mongoose';
 import { Department } from '../../schemas/department.schema';
@@ -11,7 +15,11 @@ import { UpdateDepartmentStatusDto } from './dto/update-department-status.dto';
 import { MembersService } from '../members/members.service';
 import { AdminService } from '../admin/admin.service';
 import { ActivityLogService } from '../activity-log/activity-log.service';
-import { ModuleSections, DepartmentStatus, DepartmentMemberAction } from '../../common/utils/enums.utils';
+import {
+  ModuleSections,
+  DepartmentStatus,
+  DepartmentMemberAction,
+} from '../../common/utils/enums.utils';
 import { paginationMeta } from '../../common/helpers/pagination.helper';
 
 @Injectable()
@@ -56,9 +64,7 @@ export class DepartmentService {
     const query: FilterQuery<Department> = { churchId: authUser.churchId };
 
     if (search) {
-      query.$or = [
-        { name: { $regex: search, $options: 'i' } }
-      ];
+      query.$or = [{ name: { $regex: search, $options: 'i' } }];
     }
     if (name) {
       query.name = { $regex: name, $options: 'i' };
@@ -103,7 +109,10 @@ export class DepartmentService {
   }
 
   async update(authUser: Admin, id: string, dto: UpdateDepartmentDto) {
-    const existing = await this.departmentModel.findOne({ _id: id, churchId: authUser.churchId });
+    const existing = await this.departmentModel.findOne({
+      _id: id,
+      churchId: authUser.churchId,
+    });
     if (!existing) {
       throw new NotFoundException('Department not found');
     }
@@ -125,7 +134,10 @@ export class DepartmentService {
       }
     }
 
-    await this.departmentModel.updateOne({ _id: id, churchId: authUser.churchId }, updatePayload);
+    await this.departmentModel.updateOne(
+      { _id: id, churchId: authUser.churchId },
+      updatePayload,
+    );
 
     await this.activityLogService.create(authUser, {
       action: 'Update Department',
@@ -136,8 +148,15 @@ export class DepartmentService {
     return this.findById(authUser, id);
   }
 
-  async updateStatus(authUser: Admin, id: string, dto: UpdateDepartmentStatusDto) {
-    const existing = await this.departmentModel.findOne({ _id: id, churchId: authUser.churchId });
+  async updateStatus(
+    authUser: Admin,
+    id: string,
+    dto: UpdateDepartmentStatusDto,
+  ) {
+    const existing = await this.departmentModel.findOne({
+      _id: id,
+      churchId: authUser.churchId,
+    });
     if (!existing) {
       throw new NotFoundException('Department not found');
     }
@@ -153,8 +172,15 @@ export class DepartmentService {
     return this.findById(authUser, id);
   }
 
-  async updateMembers(authUser: Admin, id: string, dto: UpdateDepartmentMembersDto) {
-    const department = await this.departmentModel.findOne({ _id: id, churchId: authUser.churchId });
+  async updateMembers(
+    authUser: Admin,
+    id: string,
+    dto: UpdateDepartmentMembersDto,
+  ) {
+    const department = await this.departmentModel.findOne({
+      _id: id,
+      churchId: authUser.churchId,
+    });
     if (!department) {
       throw new NotFoundException('Department not found');
     }
@@ -163,7 +189,9 @@ export class DepartmentService {
     await this.assertMembersInChurch(authUser, memberIds);
 
     let updateQuery = {};
-    const memberObjectIds = memberIds.map((memberId) => new Types.ObjectId(memberId));
+    const memberObjectIds = memberIds.map(
+      (memberId) => new Types.ObjectId(memberId),
+    );
 
     if (dto.action === DepartmentMemberAction.ADD) {
       updateQuery = { $addToSet: { members: { $each: memberObjectIds } } };
@@ -183,7 +211,10 @@ export class DepartmentService {
   }
 
   async delete(authUser: Admin, id: string) {
-    const deleted = await this.departmentModel.findOneAndDelete({ _id: id, churchId: authUser.churchId });
+    const deleted = await this.departmentModel.findOneAndDelete({
+      _id: id,
+      churchId: authUser.churchId,
+    });
     if (!deleted) {
       throw new NotFoundException('Department not found');
     }
@@ -217,9 +248,17 @@ export class DepartmentService {
     const rows = departments.map((dept: any) => {
       const escapedName = (dept.name || '').replace(/"/g, '""');
       const escapedDesc = (dept.description || '').replace(/"/g, '""');
-      const hodName = dept.hod ? `${dept.hod.firstName} ${dept.hod.lastName}`.trim().replace(/"/g, '""') : 'None';
-      const hodEmail = dept.hod?.email ? dept.hod.email.replace(/"/g, '""') : '';
-      const membersCount = Array.isArray(dept.members) ? dept.members.length : 0;
+      const hodName = dept.hod
+        ? `${dept.hod.firstName} ${dept.hod.lastName}`
+            .trim()
+            .replace(/"/g, '""')
+        : 'None';
+      const hodEmail = dept.hod?.email
+        ? dept.hod.email.replace(/"/g, '""')
+        : '';
+      const membersCount = Array.isArray(dept.members)
+        ? dept.members.length
+        : 0;
       const createdAt = new Date(dept.createdAt).toISOString();
 
       return [
@@ -245,9 +284,14 @@ export class DepartmentService {
       return;
     }
 
-    const count = await this.membersService.countMembersInChurch(memberIds, authUser.churchId);
+    const count = await this.membersService.countMembersInChurch(
+      memberIds,
+      authUser.churchId,
+    );
     if (count !== memberIds.length) {
-      throw new BadRequestException('One or more members were not found in this church');
+      throw new BadRequestException(
+        'One or more members were not found in this church',
+      );
     }
   }
 
