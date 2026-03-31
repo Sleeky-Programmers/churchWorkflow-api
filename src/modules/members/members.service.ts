@@ -515,9 +515,40 @@ export class MembersService {
       case MemberFilter.FEMALE:
         query.gender = Gender.FEMALE;
         break;
+      case MemberFilter.MARRIED:
+        query.maritalStatus = MaritalStatus.MARRIED;
+        break;
+      case MemberFilter.SINGLE:
+        query.maritalStatus = MaritalStatus.SINGLE;
+        break;
+      case MemberFilter.DIVORCED:
+        query.maritalStatus = MaritalStatus.DIVORCED;
+        break;
+      case MemberFilter.WIDOWED:
+        query.maritalStatus = MaritalStatus.WIDOWED;
+        break;
+      case MemberFilter.VISITOR:
+        query.membershipStatus = MembershipStatus.VISITOR;
+        break;
+      case MemberFilter.VOLUNTEER:
+        query.membershipStatus = MembershipStatus.VOLUNTEER;
+        break;
+      case MemberFilter.LEADER:
+        query.membershipStatus = MembershipStatus.LEADER;
+        break;
+      case MemberFilter.MEMBER:
+        query.membershipStatus = MembershipStatus.MEMBER;
+        break;
+      case MemberFilter.WORKER:
+        query.membershipStatus = MembershipStatus.WORKER;
+        break;
+      case MemberFilter.CONVERT:
+        query.membershipStatus = MembershipStatus.CONVERT;
+        break;
       case MemberFilter.IS_BAPTIZED:
         query.isBaptized = true;
         break;
+        
       case MemberFilter.NEW_MEMBERS:
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
