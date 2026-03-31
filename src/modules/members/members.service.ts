@@ -548,7 +548,7 @@ export class MembersService {
       case MemberFilter.IS_BAPTIZED:
         query.isBaptized = true;
         break;
-        
+
       case MemberFilter.NEW_MEMBERS:
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
