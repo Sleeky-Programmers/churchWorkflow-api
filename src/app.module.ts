@@ -24,6 +24,7 @@ import { ChurchServicesModule } from './modules/church-services/church-services.
 import { ScheduleModule } from '@nestjs/schedule';
 import { AccountDeletionModule } from './modules/account-deletion/account-deletion.module';
 import { SmallTeamsModule } from './modules/small-teams/small-teams.module';
+import { DepartmentModule } from './modules/department/department.module';
 
 @Module({
   imports: [
@@ -73,6 +74,7 @@ import { SmallTeamsModule } from './modules/small-teams/small-teams.module';
     SmallTeamsModule,
     ScheduleModule.forRoot(),
     AccountDeletionModule,
+    DepartmentModule,
   ],
   controllers: [AppController],
   providers: [AppService],

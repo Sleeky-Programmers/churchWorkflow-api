@@ -63,6 +63,16 @@ export enum RoleStatus {
   DISABLED = 'DISABLED',
 }
 
+export enum DepartmentStatus {
+  ACTIVE = 'ACTIVE',
+  INACTIVE = 'INACTIVE',
+}
+
+export enum DepartmentMemberAction {
+  ADD = 'ADD',
+  REMOVE = 'REMOVE',
+}
+
 export enum RoleType {
   SYSTEM = 'SYSTEM',
   CUSTOM = 'CUSTOM',
