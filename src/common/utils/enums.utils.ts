@@ -30,6 +30,8 @@ export enum Gender {
 export enum MaritalStatus {
   MARRIED = 'MARRIED',
   SINGLE = 'SINGLE',
+  DIVORCED = 'DIVORCED',
+  WIDOWED = 'WIDOWED',
 }
 
 export enum MembershipStatus {
@@ -125,9 +127,18 @@ export enum MemberFilter {
   ALL = 'all',
   MALE = 'male',
   FEMALE = 'female',
-  THIS_MONTH = 'this-month',
+  MARRIED = 'married',
+  SINGLE = 'single',
+  DIVORCED = 'divorced',
+  WIDOWED = 'widowed',
+  VISITOR = 'visitor',
+  MEMBER = 'member',
+  WORKER = 'worker',
+  VOLUNTEER = 'volunteer',
+  LEADER = 'leader',
+  CONVERT = 'new-convert',
   NEW_MEMBERS = 'new-members',
-  IS_BAPTIZED = 'isBaptized',
+  IS_BAPTIZED = 'is-baptized',
 }
 
 export enum AttendanceStatus {
