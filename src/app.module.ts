@@ -25,6 +25,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { AccountDeletionModule } from './modules/account-deletion/account-deletion.module';
 import { SmallTeamsModule } from './modules/small-teams/small-teams.module';
 import { DepartmentModule } from './modules/department/department.module';
+import { CouponModule } from './modules/coupon/coupon.module';
 
 @Module({
   imports: [
@@ -75,6 +76,7 @@ import { DepartmentModule } from './modules/department/department.module';
     ScheduleModule.forRoot(),
     AccountDeletionModule,
     DepartmentModule,
+    CouponModule,
   ],
   controllers: [AppController],
   providers: [AppService],
