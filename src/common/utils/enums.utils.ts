@@ -150,3 +150,8 @@ export enum SmallTeamStatus {
   ACTIVE = 'ACTIVE',
   INACTIVE = 'INACTIVE',
 }
+
+export enum DiscountType {
+  PERCENTAGE = 'PERCENTAGE',
+  FLAT = 'FLAT',
+}
