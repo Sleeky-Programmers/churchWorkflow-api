@@ -1,6 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { SchemaTypes, Types, Document } from 'mongoose';
-import { Church } from './church.schema';
+import { Document } from 'mongoose';
 import { DiscountType } from '../common/utils/enums.utils';
 
 @Schema({ timestamps: true })
@@ -28,9 +27,6 @@ export class Coupon extends Document {
 
   @Prop({ default: 0 })
   usageCount: number;
-
-  @Prop({ type: SchemaTypes.ObjectId, ref: Church.name })
-  churchId: Types.ObjectId;
 
   @Prop()
   createdAt?: Date;
