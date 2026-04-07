@@ -28,6 +28,7 @@ import { DepartmentModule } from './modules/department/department.module';
 import { SubscriptionModule } from './modules/subscription/subscription.module';
 import { PaymentModule } from './modules/payment/payment.module';
 import { PaystackModule } from './modules/paystack/paystack.module';
+import { CouponModule } from './modules/coupon/coupon.module';
 
 @Module({
   imports: [
@@ -78,6 +79,7 @@ import { PaystackModule } from './modules/paystack/paystack.module';
     ScheduleModule.forRoot(),
     AccountDeletionModule,
     DepartmentModule,
+    CouponModule,
     SubscriptionModule,
     PaymentModule,
     PaystackModule,

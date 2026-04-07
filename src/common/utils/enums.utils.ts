@@ -182,3 +182,8 @@ export enum MemberLimitType {
   BLOCK = 'BLOCK',
   WARNING = 'WARNING',
 }
+
+export enum DiscountType {
+  PERCENTAGE = 'PERCENTAGE',
+  FLAT = 'FLAT',
+}
