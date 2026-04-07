@@ -150,3 +150,35 @@ export enum SmallTeamStatus {
   ACTIVE = 'ACTIVE',
   INACTIVE = 'INACTIVE',
 }
+
+export enum BillingCycle {
+  MONTHLY = 'MONTHLY',
+  YEARLY = 'YEARLY',
+}
+
+export enum PaymentStatus {
+  PENDING = 'PENDING',
+  SUCCESS = 'SUCCESS',
+  FAILED = 'FAILED',
+  REFUNDED = 'REFUNDED',
+}
+
+export enum PlanType {
+  STARTER = 'STARTER',
+  GROWTH = 'GROWTH',
+  EXPANSION = 'EXPANSION',
+  ENTERPRISE = 'ENTERPRISE',
+}
+
+export enum SubscriptionStatus {
+  ACTIVE = 'ACTIVE',
+  GRACE = 'GRACE',
+  EXPIRED = 'EXPIRED',
+  TRIAL = 'TRIAL',
+}
+
+export enum MemberLimitType {
+  NONE = 'NONE',
+  BLOCK = 'BLOCK',
+  WARNING = 'WARNING',
+}

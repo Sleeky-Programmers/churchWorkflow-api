@@ -17,4 +17,9 @@ export const envConfig = () => ({
     clientId: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
   },
+  paystack: {
+    secretKey: process.env.PAYSTACK_SECRET_KEY,
+    publicKey: process.env.PAYSTACK_PUBLIC_KEY,
+    baseUrl: process.env.PAYSTACK_BASE_URL,
+  },
 });

@@ -25,6 +25,9 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { AccountDeletionModule } from './modules/account-deletion/account-deletion.module';
 import { SmallTeamsModule } from './modules/small-teams/small-teams.module';
 import { DepartmentModule } from './modules/department/department.module';
+import { SubscriptionModule } from './modules/subscription/subscription.module';
+import { PaymentModule } from './modules/payment/payment.module';
+import { PaystackModule } from './modules/paystack/paystack.module';
 
 @Module({
   imports: [
@@ -75,6 +78,9 @@ import { DepartmentModule } from './modules/department/department.module';
     ScheduleModule.forRoot(),
     AccountDeletionModule,
     DepartmentModule,
+    SubscriptionModule,
+    PaymentModule,
+    PaystackModule,
   ],
   controllers: [AppController],
   providers: [AppService],
