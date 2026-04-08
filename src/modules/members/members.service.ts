@@ -569,6 +569,10 @@ export class MembersService {
     };
   }
 
+  async getAllMembersNoPagination(authUser: Admin) {
+  return this.memberModel.find({ churchId: authUser.churchId });
+}
+
   async findAll(authUser: Admin) {
     return await this.memberModel.find({ churchId: authUser.churchId });
   }

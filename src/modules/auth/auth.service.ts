@@ -18,6 +18,7 @@ import { Admin } from '../../schemas/admin.schema';
 import { CreateSuperAdminDto } from '../admin/dto/create-super-admin.dto';
 import { decryptInvite } from '../../common/helpers/crypto.helper';
 import { OAuth2Client } from 'google-auth-library';
+import { ChangePasswordDto } from './dto/change-password.dto';
 
 @Injectable()
 export class AuthService {
@@ -316,4 +317,40 @@ export class AuthService {
 
     return { message: 'Password reset successful' };
   }
+
+  async changePassword(authUser: Admin, dto: ChangePasswordDto) {
+  const { currentPassword, newPassword, confirmNewPassword } = dto;
+
+  if (newPassword !== confirmNewPassword) {
+    throw new BadRequestException("Passwords do not match");
+  }
+
+  const user = await this.adminService.findById(authUser._id);
+
+  if (!user) {
+    throw new NotFoundException("User not found");
+  }
+
+  const isMatch = bcrypt.compareSync(currentPassword, user.password);
+
+  if (!isMatch) {
+    throw new UnauthorizedException("Current password is incorrect");
+  }
+
+
+  const isSamePassword = bcrypt.compareSync(newPassword, user.password);
+
+  if (isSamePassword) {
+    throw new BadRequestException(
+      "New password cannot be the same as current password",
+    );
+  }
+
+
+  await this.adminService.findByIdAndUpdate(authUser._id, {
+    password: bcrypt.hashSync(newPassword, 10),
+  });
+
+  return { message: "Password updated successfully" };
+}
 }

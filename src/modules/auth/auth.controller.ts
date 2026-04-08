@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   HttpCode,
+  Patch,
   Post,
   Query,
   UseGuards,
@@ -10,6 +11,7 @@ import {
 import { AuthService } from './auth.service';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { LocalAuthGuard } from './guard/local-auth.guard';
 import { AuthUser } from '../../common/decorators/auth-user.decorator';
 import { Admin } from '../../schemas/admin.schema';
@@ -89,4 +91,13 @@ export class AuthController {
   refresh(@Body() dto: RefreshTokenDto) {
     return this.authService.refreshToken(dto.refreshToken);
   }
+
+ @UseGuards(JwtAuthGuard)
+@Patch("change-password")
+async changePassword(
+  @AuthUser() authUser: Admin,
+  @Body() dto: ChangePasswordDto,
+) {
+  return this.authService.resetPassword(authUser, dto);
+}
 }
