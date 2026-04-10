@@ -56,4 +56,26 @@ export class ChurchService {
 
     return church;
   }
+
+  async update(
+  churchId: Types.ObjectId,
+  data: Partial<Church>,
+  file?: Express.Multer.File,
+) {
+  let updateData: any = { ...data };
+
+  if (file) {
+    const { url, publicId } =
+      await this.fileUploadService.uploadFile(file);
+
+    updateData.logoUrl = url;
+    updateData.logoPublicId = publicId;
+  }
+
+  return await this.churchModel.findByIdAndUpdate(
+    churchId,
+    updateData,
+    { new: true },
+  );
+}
 }

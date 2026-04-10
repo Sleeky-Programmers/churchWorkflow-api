@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -36,5 +37,18 @@ export class ChurchController {
     @UploadedFile() file?: Express.Multer.File,
   ) {
     return this.churchService.create(authUser, churchIdentityDto, file);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('me')
+  @UseInterceptors(FileInterceptor('file'))
+  async updateChurch(
+    @AuthUser() user: Admin,
+    @Body() body: any,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    const church = await this.churchService.findCurrentChurch(user);
+
+    return this.churchService.update(church._id, body, file);
   }
 }
