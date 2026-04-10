@@ -9,6 +9,7 @@ import { AdminService } from '../admin/admin.service';
 import { SubscriptionService } from '../subscription/subscription.service';
 import { MembersService } from '../members/members.service';
 import { ChurchDetails } from '../../common/utils/types.utils';
+import { ChurchSubscriptionStatus } from '../../common/utils/enums.utils';
 
 @Injectable()
 export class ChurchService {
@@ -47,18 +48,18 @@ export class ChurchService {
         );
         const sub = await this.subscriptionService.getSubscription(church._id);
 
-        let subscriptionStatus = 'Active';
+        let subscriptionStatus = ChurchSubscriptionStatus.ACTIVE;
         if (sub && sub.endDate) {
           const end = new Date(sub.endDate);
           if (end < now) {
-            subscriptionStatus = 'Overdue';
+            subscriptionStatus = ChurchSubscriptionStatus.OVERDUE;
           } else if (end.getTime() - now.getTime() <= 7 * 24 * 60 * 60 * 1000) {
-            subscriptionStatus = 'Expiring soon';
+            subscriptionStatus = ChurchSubscriptionStatus.EXPIRING_SOON;
           } else {
-            subscriptionStatus = 'Active';
+            subscriptionStatus = ChurchSubscriptionStatus.ACTIVE;
           }
         } else {
-          subscriptionStatus = sub ? 'Active' : 'Overdue';
+          subscriptionStatus = sub ? ChurchSubscriptionStatus.ACTIVE : ChurchSubscriptionStatus.OVERDUE;
         }
 
         return {

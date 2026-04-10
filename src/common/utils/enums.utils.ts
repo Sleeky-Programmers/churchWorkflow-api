@@ -177,6 +177,12 @@ export enum SubscriptionStatus {
   TRIAL = 'TRIAL',
 }
 
+export enum ChurchSubscriptionStatus {
+  ACTIVE = 'Active',
+  OVERDUE = 'Overdue',
+  EXPIRING_SOON = 'Expiring soon',
+}
+
 export enum MemberLimitType {
   NONE = 'NONE',
   BLOCK = 'BLOCK',
