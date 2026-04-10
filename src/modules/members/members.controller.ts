@@ -83,6 +83,14 @@ export class MembersController {
     return this.membersService.getAllMembers(authUser, paginationBaseDto);
   }
 
+  @Get('all')
+  @RequirePermissions({
+    section: ModuleSections.MEMBERS,
+    level: AccessLevel.VIEW,
+  })
+  getAllMembersNoPagination(@AuthUser() authUser: Admin) {
+    return this.membersService.getAllMembersNoPagination(authUser);
+  }
   @Get('/:id')
   @RequirePermissions({
     section: ModuleSections.MEMBERS,
