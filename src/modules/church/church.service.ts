@@ -59,7 +59,9 @@ export class ChurchService {
             subscriptionStatus = ChurchSubscriptionStatus.ACTIVE;
           }
         } else {
-          subscriptionStatus = sub ? ChurchSubscriptionStatus.ACTIVE : ChurchSubscriptionStatus.OVERDUE;
+          subscriptionStatus = sub
+            ? ChurchSubscriptionStatus.ACTIVE
+            : ChurchSubscriptionStatus.OVERDUE;
         }
 
         return {

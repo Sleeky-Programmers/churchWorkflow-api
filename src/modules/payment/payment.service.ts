@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Payment } from '../../schemas/payment.schema';
+import { PaymentStatus } from '../../common/utils/enums.utils';
 
 @Injectable()
 export class PaymentService {
@@ -62,7 +63,7 @@ export class PaymentService {
     const payment = await this.paymentModel.findOne({
       churchId,
       'metadata.promoCode': couponCode,
-      status: 'SUCCESS',
+      status: PaymentStatus.SUCCESS,
     });
 
     return !!payment;
