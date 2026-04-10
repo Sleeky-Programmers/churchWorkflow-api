@@ -1,10 +1,4 @@
-import {
-  Controller,
-  Post,
-  Body,
-  HttpCode,
-  HttpStatus,
-} from '@nestjs/common';
+import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
 import { FlutterwaveService } from './flutterwave.service';
 
 @Controller('flutterwave')
@@ -13,9 +7,7 @@ export class FlutterwaveController {
 
   @Post('webhook')
   @HttpCode(HttpStatus.OK)
-  async handleWebhook(
-    @Body() payload: any,
-  ) {
+  async handleWebhook(@Body() payload: any) {
     return this.flutterwaveService.handleWebhook(payload);
   }
 
