@@ -45,6 +45,9 @@ export class Subscription extends Document {
 
   @Prop({ default: false })
   isAutoRenew: boolean;
+
+  @Prop({ type: Object })
+  provider: Record<string, any>;
 }
 
 export const SubscriptionSchema = SchemaFactory.createForClass(Subscription);

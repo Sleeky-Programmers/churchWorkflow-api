@@ -30,6 +30,15 @@ export class Payment extends Document {
   @Prop({ type: String, enum: BillingCycle })
   billingCycle: BillingCycle;
 
+  @Prop({ type: String })
+  paymentMethod: string;
+
+  @Prop({ type: String })
+  transactionId: string;
+
+  @Prop({ type: Boolean, default: false })
+  autoRenew: boolean;
+
   @Prop({ type: Object })
   metadata: Record<string, any>;
 

@@ -8,14 +8,7 @@ import { ChurchService } from '../church/church.service';
 import { CreateAdminDto } from '././dto/create-admin.dto';
 import { RolesService } from '../roles/roles.service';
 import { AccountSettingsService } from '../account-settings/account-settings.service';
-
-const emailMatcher = (email: string) => ({
-  $regex: `^${email
-    .toLowerCase()
-    .trim()
-    .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`,
-  $options: 'i',
-});
+import { emailMatcher } from '../../common/helpers/email-matcher.helper';
 
 @Injectable()
 export class AdminService {
@@ -25,6 +18,10 @@ export class AdminService {
     private rolesService: RolesService,
     private accountSettingsService: AccountSettingsService,
   ) {}
+
+  async countAdminsByChurch(churchId: Types.ObjectId) {
+    return await this.adminModel.countDocuments({ churchId });
+  }
 
   async createAdmin(
     adminRegisterDto: CreateAdminDto,

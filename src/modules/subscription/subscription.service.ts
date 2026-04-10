@@ -6,6 +6,7 @@ import { PaymentService } from '../payment/payment.service';
 import {
   BillingCycle,
   MemberLimitType,
+  PaymentProvider,
   PlanType,
   SubscriptionStatus,
 } from '../../common/utils/enums.utils';
@@ -41,10 +42,32 @@ export class SubscriptionService {
     },
   };
 
-  async getSubscription(churchId: string) {
-    const subscription = await this.subscriptionModel.findOne({
-      churchId: new Types.ObjectId(churchId),
-    });
+  getPlanAmount(plan: PlanType, billingCycle: BillingCycle): number {
+    const pricing: Record<PlanType, Record<BillingCycle, number>> = {
+      [PlanType.STARTER]: {
+        [BillingCycle.MONTHLY]: 0,
+        [BillingCycle.YEARLY]: 0,
+      },
+      [PlanType.GROWTH]: {
+        [BillingCycle.MONTHLY]: 20000,
+        [BillingCycle.YEARLY]: 200000,
+      },
+      [PlanType.EXPANSION]: {
+        [BillingCycle.MONTHLY]: 45000,
+        [BillingCycle.YEARLY]: 450000,
+      },
+      [PlanType.ENTERPRISE]: {
+        [BillingCycle.MONTHLY]: 100000,
+        [BillingCycle.YEARLY]: 1000000,
+      },
+    };
+
+    const planPricing = pricing[plan] || pricing[PlanType.STARTER];
+    return planPricing[billingCycle] ?? planPricing[BillingCycle.MONTHLY];
+  }
+
+  async getSubscription(churchId: Types.ObjectId) {
+    const subscription = await this.subscriptionModel.findOne({ churchId });
 
     if (!subscription) {
       return this.initializeTrialPlan(churchId);
@@ -53,13 +76,13 @@ export class SubscriptionService {
     return subscription;
   }
 
-  async initializeTrialPlan(churchId: string) {
+  async initializeTrialPlan(churchId: Types.ObjectId) {
     const limits = this.planLimits[PlanType.STARTER];
     const trialEndDate = new Date();
     trialEndDate.setDate(trialEndDate.getDate() + 7);
 
-    const newSubscription = new this.subscriptionModel({
-      churchId: new Types.ObjectId(churchId),
+    return this.subscriptionModel.create({
+      churchId,
       plan: PlanType.STARTER,
       status: SubscriptionStatus.TRIAL,
       memberLimit: limits.members,
@@ -68,14 +91,28 @@ export class SubscriptionService {
       endDate: trialEndDate,
       gracePeriodEndDate: trialEndDate,
     });
+  }
 
-    return newSubscription.save();
+  async createTrialSubscription(churchId: Types.ObjectId) {
+    const existing = await this.subscriptionModel.findOne({ churchId });
+
+    if (existing) {
+      return existing;
+    }
+
+    return this.initializeTrialPlan(churchId);
   }
 
   async updateSubscription(data: {
-    churchId: string;
+    churchId: Types.ObjectId;
     plan: PlanType;
     billingCycle: BillingCycle;
+    autoRenew?: boolean;
+    providerData?: {
+      subscriptionCode?: string;
+      emailToken?: string;
+      customerCode?: string;
+    };
   }) {
     const limits = this.planLimits[data.plan];
     const startDate = new Date();
@@ -97,13 +134,33 @@ export class SubscriptionService {
         customRolesEnabled: limits.customRoles,
         startDate,
         endDate,
+        isAutoRenew: data.autoRenew,
         gracePeriodEndDate: null,
+
+        ...(data.providerData && {
+          provider: {
+            name: PaymentProvider.PAYSTACK,
+            subscriptionCode: data.providerData.subscriptionCode,
+            emailToken: data.providerData.emailToken,
+            customerCode: data.providerData.customerCode,
+          },
+        }),
       },
       { new: true, upsert: true },
     );
   }
 
-  async checkMemberLimit(churchId: string, currentMemberCount: number) {
+  async isActiveAutoRenewing(churchId: Types.ObjectId) {
+    const subscription = await this.getSubscription(churchId);
+
+    return (
+      subscription?.isAutoRenew &&
+      subscription?.provider?.subscriptionCode &&
+      subscription?.status === SubscriptionStatus.ACTIVE
+    );
+  }
+
+  async checkMemberLimit(churchId: Types.ObjectId, currentMemberCount: number) {
     const sub = await this.getSubscription(churchId);
 
     if (sub.memberLimit === -1) {
@@ -129,7 +186,7 @@ export class SubscriptionService {
     return { allowed: true, type: MemberLimitType.NONE };
   }
 
-  async checkUserLimit(churchId: string, currentUserCount: number) {
+  async checkUserLimit(churchId: Types.ObjectId, currentUserCount: number) {
     const sub = await this.getSubscription(churchId);
     if (sub.userLimit === -1) {
       return { allowed: true };
@@ -145,7 +202,7 @@ export class SubscriptionService {
     return { allowed: true };
   }
 
-  async canUseCustomRoles(churchId: string) {
+  async canUseCustomRoles(churchId: Types.ObjectId) {
     const sub = await this.getSubscription(churchId);
     return sub.customRolesEnabled;
   }

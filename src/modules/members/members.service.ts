@@ -22,7 +22,6 @@ import {
   Gender,
   MaritalStatus,
   MembershipStatus,
-  MemberTitle,
   ModuleSections,
   NotificationType,
 } from '../../common/utils/enums.utils';
@@ -32,95 +31,20 @@ import { paginationMeta } from '../../common/helpers/pagination.helper';
 import { ActivityLogService } from '../activity-log/activity-log.service';
 import { NotificationService } from '../notification/notification.service';
 import { Admin } from '../../schemas/admin.schema';
+import {
+  normalizeDateKey,
+  normalizeKey,
+  normalizeText,
+  parseBoolean,
+  parseOptionalDate,
+} from '../../common/helpers/normalize.helper';
+import {
+  GENDER_MAP,
+  MARITAL_STATUS_MAP,
+  MEMBERSHIP_STATUS_MAP,
+  TITLE_MAP,
+} from '../../common/utils/const.utils';
 const csv = require('csv-parser');
-
-const TITLE_MAP: Record<string, MemberTitle> = {
-  MR: MemberTitle.MR,
-  'MR.': MemberTitle.MR,
-  MRS: MemberTitle.MRS,
-  'MRS.': MemberTitle.MRS,
-  MISS: MemberTitle.MISS,
-  'MISS.': MemberTitle.MISS,
-  MS: MemberTitle.MISS,
-  'MS.': MemberTitle.MISS,
-  DR: MemberTitle.DR,
-  'DR.': MemberTitle.DR,
-  PASTOR: MemberTitle.PASTOR,
-  'PASTOR.': MemberTitle.PASTOR,
-  REV: MemberTitle.REV,
-  'REV.': MemberTitle.REV,
-};
-
-const GENDER_MAP: Record<string, Gender> = {
-  MALE: Gender.MALE,
-  M: Gender.MALE,
-  FEMALE: Gender.FEMALE,
-  F: Gender.FEMALE,
-};
-
-const MARITAL_STATUS_MAP: Record<string, MaritalStatus | null> = {
-  MARRIED: MaritalStatus.MARRIED,
-  SINGLE: MaritalStatus.SINGLE,
-  DIVORCED: null,
-  WIDOWED: null,
-};
-
-const MEMBERSHIP_STATUS_MAP: Record<string, MembershipStatus> = {
-  MEMBER: MembershipStatus.MEMBER,
-  ACTIVE: MembershipStatus.MEMBER,
-  'NEW MEMBER': MembershipStatus.MEMBER,
-  VOLUNTEER: MembershipStatus.VOLUNTEER,
-  LEADER: MembershipStatus.LEADER,
-  VISITOR: MembershipStatus.VISITOR,
-  INACTIVE: MembershipStatus.VISITOR,
-};
-
-function normalizeKey(value?: string) {
-  return (value || '').trim().toUpperCase();
-}
-
-function parseOptionalDate(value?: string): Date | null {
-  const normalized = (value || '').trim();
-  if (!normalized) {
-    return null;
-  }
-  const parsed = new Date(normalized);
-  if (Number.isNaN(parsed.getTime())) {
-    return null;
-  }
-  return parsed;
-}
-
-function parseBoolean(value?: string): boolean | null {
-  const normalized = normalizeKey(value);
-  if (!normalized) {
-    return null;
-  }
-
-  if (['TRUE', 'YES', '1'].includes(normalized)) {
-    return true;
-  }
-  if (['FALSE', 'NO', '0'].includes(normalized)) {
-    return false;
-  }
-
-  return null;
-}
-
-function normalizeText(value?: string): string {
-  return (value || '').trim().toLowerCase();
-}
-
-function normalizeDateKey(value?: Date | string | null): string {
-  if (!value) {
-    return '';
-  }
-  const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return '';
-  }
-  return date.toISOString().split('T')[0];
-}
 
 @Injectable()
 export class MembersService {
@@ -134,6 +58,12 @@ export class MembersService {
     private readonly activityLogService: ActivityLogService,
     private readonly notificationService: NotificationService,
   ) {}
+
+  async countMembersByChurch(churchId: Types.ObjectId) {
+    return await this.memberModel.countDocuments({
+      churchId: new Types.ObjectId(churchId),
+    });
+  }
 
   async getMemberAttendanceStats(
     id: string,

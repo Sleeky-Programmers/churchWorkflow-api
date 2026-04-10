@@ -187,3 +187,8 @@ export enum DiscountType {
   PERCENTAGE = 'PERCENTAGE',
   FLAT = 'FLAT',
 }
+
+export enum PaymentProvider {
+  PAYSTACK = 'paystack',
+  FLUTTERWAVE = 'flutterwave',
+}

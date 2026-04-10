@@ -28,7 +28,9 @@ import { DepartmentModule } from './modules/department/department.module';
 import { SubscriptionModule } from './modules/subscription/subscription.module';
 import { PaymentModule } from './modules/payment/payment.module';
 import { PaystackModule } from './modules/paystack/paystack.module';
+import { FlutterwaveModule } from './modules/flutterwave/flutterwave.module';
 import { CouponModule } from './modules/coupon/coupon.module';
+import { SubscriptionPlanCodesModule } from './modules/subscription-plan-codes/subscription-plan-codes.module';
 
 @Module({
   imports: [
@@ -83,6 +85,8 @@ import { CouponModule } from './modules/coupon/coupon.module';
     SubscriptionModule,
     PaymentModule,
     PaystackModule,
+    FlutterwaveModule,
+    SubscriptionPlanCodesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
