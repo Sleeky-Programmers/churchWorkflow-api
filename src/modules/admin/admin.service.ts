@@ -9,15 +9,8 @@ import { CreateAdminDto } from '././dto/create-admin.dto';
 import { UpdateAdminDto } from './dto/update-admin.dto';
 import { RolesService } from '../roles/roles.service';
 import { AccountSettingsService } from '../account-settings/account-settings.service';
-import { PaginationBaseDto, paginationMeta } from 'src/common/helpers/pagination.helper';
-
-const emailMatcher = (email: string) => ({
-  $regex: `^${email
-    .toLowerCase()
-    .trim()
-    .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`,
-  $options: 'i',
-});
+import { emailMatcher } from '../../common/helpers/email-matcher.helper';
+import { PaginationBaseDto, paginationMeta } from '../../common/helpers/pagination.helper';
 
 @Injectable()
 export class AdminService {
@@ -27,6 +20,10 @@ export class AdminService {
     private rolesService: RolesService,
     private accountSettingsService: AccountSettingsService,
   ) {}
+
+  async countAdminsByChurch(churchId: Types.ObjectId) {
+    return await this.adminModel.countDocuments({ churchId });
+  }
 
   async createAdmin(
     adminRegisterDto: CreateAdminDto,

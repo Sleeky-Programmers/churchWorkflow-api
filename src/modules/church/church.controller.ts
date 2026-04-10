@@ -7,6 +7,8 @@ import {
   UploadedFile,
   UseGuards,
   UseInterceptors,
+  Query,
+  Param,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ChurchService } from './church.service';
@@ -16,6 +18,7 @@ import { ChurchIdentityDto } from './dto/church-identity.dto';
 import { JwtAuthGuard } from '../auth/guard/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { PaginationBaseDto } from '../../common/helpers/pagination.helper';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('church')
@@ -26,6 +29,18 @@ export class ChurchController {
   @Roles('Super Admin')
   getMyChurch(@AuthUser() authUser: Admin) {
     return this.churchService.findCurrentChurch(authUser);
+  }
+
+  @Get()
+  @Roles('Super Admin')
+  getAllChurches(@Query() paginationBaseDto: PaginationBaseDto) {
+    return this.churchService.findAll(paginationBaseDto);
+  }
+
+  @Get(':id')
+  @Roles('Super Admin')
+  getChurchById(@Param('id') id: string) {
+    return this.churchService.findDetailsById(id);
   }
 
   @Post()

@@ -9,3 +9,13 @@ export type InvitePayload = {
   churchRole: string;
   churchRoleId: Types.ObjectId;
 };
+
+export type ChurchDetails = {
+  _id: Types.ObjectId;
+  name: string;
+  createdAt?: Date;
+  updatedAt?: Date;
+  totalMembers: number;
+  totalUsers: number;
+  subscription: any;
+};

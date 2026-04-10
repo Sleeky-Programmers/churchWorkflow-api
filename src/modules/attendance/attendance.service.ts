@@ -22,6 +22,7 @@ export class AttendanceService {
     @Inject(forwardRef(() => MembersService))
     private membersService: MembersService,
     private churchServicesService: ChurchServicesService,
+    @Inject(forwardRef(() => AdminService))
     private adminService: AdminService,
   ) {}
 

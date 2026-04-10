@@ -17,4 +17,15 @@ export const envConfig = () => ({
     clientId: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
   },
+  paystack: {
+    secretKey: process.env.PAYSTACK_SECRET_KEY,
+    publicKey: process.env.PAYSTACK_PUBLIC_KEY,
+    baseUrl: process.env.PAYSTACK_BASE_URL,
+  },
+  flutterwave: {
+    secretKey: process.env.FLUTTERWAVE_SECRET_KEY,
+    publicKey: process.env.FLUTTERWAVE_PUBLIC_KEY,
+    baseUrl: process.env.FLUTTERWAVE_BASE_URL,
+    redirectUrl: process.env.FLUTTERWAVE_REDIRECT_URL,
+  },
 });

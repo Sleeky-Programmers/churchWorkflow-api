@@ -94,4 +94,38 @@ export class CouponService {
       totalUsage,
     };
   }
+
+  async validateCoupon(code: string) {
+    if (!code) {
+      throw new BadRequestException('Coupon code is required');
+    }
+
+    const coupon = await this.couponModel.findOne({ code }).lean();
+
+    if (!coupon || !coupon.isActive) {
+      throw new BadRequestException('Invalid coupon code');
+    }
+
+    if (coupon.expiryDate && new Date(coupon.expiryDate) < new Date()) {
+      throw new BadRequestException('Coupon has expired');
+    }
+
+    const usage = coupon.usageCount ?? 0;
+    if (coupon.maxUsage && coupon.maxUsage > 0 && usage >= coupon.maxUsage) {
+      throw new BadRequestException('Coupon usage limit reached');
+    }
+
+    return coupon;
+  }
+
+  async incrementUsage(code: string) {
+    if (!code) {
+      return null;
+    }
+    return await this.couponModel.findOneAndUpdate(
+      { code },
+      { $inc: { usageCount: 1 } },
+      { new: true },
+    );
+  }
 }

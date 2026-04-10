@@ -25,7 +25,12 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { AccountDeletionModule } from './modules/account-deletion/account-deletion.module';
 import { SmallTeamsModule } from './modules/small-teams/small-teams.module';
 import { DepartmentModule } from './modules/department/department.module';
+import { SubscriptionModule } from './modules/subscription/subscription.module';
+import { PaymentModule } from './modules/payment/payment.module';
+import { PaystackModule } from './modules/paystack/paystack.module';
+import { FlutterwaveModule } from './modules/flutterwave/flutterwave.module';
 import { CouponModule } from './modules/coupon/coupon.module';
+import { SubscriptionPlanCodesModule } from './modules/subscription-plan-codes/subscription-plan-codes.module';
 
 @Module({
   imports: [
@@ -77,6 +82,11 @@ import { CouponModule } from './modules/coupon/coupon.module';
     AccountDeletionModule,
     DepartmentModule,
     CouponModule,
+    SubscriptionModule,
+    PaymentModule,
+    PaystackModule,
+    FlutterwaveModule,
+    SubscriptionPlanCodesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -151,7 +151,50 @@ export enum SmallTeamStatus {
   INACTIVE = 'INACTIVE',
 }
 
+export enum BillingCycle {
+  MONTHLY = 'MONTHLY',
+  YEARLY = 'YEARLY',
+}
+
+export enum PaymentStatus {
+  PENDING = 'PENDING',
+  SUCCESS = 'SUCCESS',
+  FAILED = 'FAILED',
+  REFUNDED = 'REFUNDED',
+}
+
+export enum PlanType {
+  STARTER = 'STARTER',
+  GROWTH = 'GROWTH',
+  EXPANSION = 'EXPANSION',
+  ENTERPRISE = 'ENTERPRISE',
+}
+
+export enum SubscriptionStatus {
+  ACTIVE = 'ACTIVE',
+  GRACE = 'GRACE',
+  EXPIRED = 'EXPIRED',
+  TRIAL = 'TRIAL',
+}
+
+export enum ChurchSubscriptionStatus {
+  ACTIVE = 'Active',
+  OVERDUE = 'Overdue',
+  EXPIRING_SOON = 'Expiring soon',
+}
+
+export enum MemberLimitType {
+  NONE = 'NONE',
+  BLOCK = 'BLOCK',
+  WARNING = 'WARNING',
+}
+
 export enum DiscountType {
   PERCENTAGE = 'PERCENTAGE',
   FLAT = 'FLAT',
+}
+
+export enum PaymentProvider {
+  PAYSTACK = 'paystack',
+  FLUTTERWAVE = 'flutterwave',
 }

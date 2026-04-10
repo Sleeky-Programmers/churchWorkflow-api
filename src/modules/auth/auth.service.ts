@@ -142,6 +142,7 @@ export class AuthService {
       ...tokens,
     };
   }
+
   async googleLogin(idToken: string, token?: string) {
     if (!idToken) {
       throw new BadRequestException('ID token is required');
