@@ -10,7 +10,7 @@ import { UpdateAdminDto } from './dto/update-admin.dto';
 import { RolesService } from '../roles/roles.service';
 import { AccountSettingsService } from '../account-settings/account-settings.service';
 import { emailMatcher } from '../../common/helpers/email-matcher.helper';
-import { PaginationBaseDto, paginationMeta } from 'src/common/helpers/pagination.helper';
+import { PaginationBaseDto, paginationMeta } from '../../common/helpers/pagination.helper';
 
 @Injectable()
 export class AdminService {
