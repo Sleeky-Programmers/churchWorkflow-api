@@ -1,5 +1,6 @@
 import {
   Controller,
+  Get,
   Post,
   Body,
   BadRequestException,
@@ -13,6 +14,7 @@ import { InitializePaymentDto } from './dto/initialize-payment.dto';
 import {
   DiscountType,
   PaymentProvider,
+  PaymentTimeframe,
   PlanType,
   SubscriptionStatus,
 } from '../../common/utils/enums.utils';
@@ -20,8 +22,9 @@ import { SubscriptionService } from '../subscription/subscription.service';
 import { JwtAuthGuard } from '../auth/guard/jwt-auth.guard';
 import { AuthUser } from '../../common/decorators/auth-user.decorator';
 import { Admin } from '../../schemas/admin.schema';
+import { Query } from '@nestjs/common';
+import { PaymentFilterDto } from './dto/payment-filter.dto';
 
-@UseGuards(JwtAuthGuard)
 @Controller('payment')
 export class PaymentController {
   constructor(
@@ -32,6 +35,7 @@ export class PaymentController {
     private readonly subscriptionService: SubscriptionService,
   ) {}
 
+  @UseGuards(JwtAuthGuard)
   @Post('initialize')
   async initialize(
     @AuthUser() authUser: Admin,
@@ -103,6 +107,7 @@ export class PaymentController {
     throw new BadRequestException('Invalid payment provider');
   }
 
+  @UseGuards(JwtAuthGuard)
   @Post('verify')
   async manualVerify(@Body() body: { reference: string; provider: any }) {
     const { reference, provider } = body as any;
@@ -120,5 +125,15 @@ export class PaymentController {
     }
 
     throw new BadRequestException('Invalid payment provider');
+  }
+
+  @Get()
+  async list(@Query() paymentFilterDto?: PaymentFilterDto) {
+    return await this.paymentService.listPayments(paymentFilterDto);
+  }
+
+  @Get('stats')
+  async stats(@Query('timeframe') timeframe?: PaymentTimeframe) {
+    return await this.paymentService.getStats({ timeframe: timeframe || null });
   }
 }

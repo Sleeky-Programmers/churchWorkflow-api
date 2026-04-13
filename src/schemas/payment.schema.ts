@@ -5,47 +5,46 @@ import { Church } from './church.schema';
 
 @Schema({ timestamps: true })
 export class Payment extends Document {
-  @Prop({ type: Types.ObjectId, ref: Church.name, required: true })
+  @Prop({ type: Types.ObjectId, ref: Church.name })
   churchId: Types.ObjectId;
 
-  @Prop({ type: String, required: true })
+  @Prop()
   reference: string;
 
-  @Prop({ type: Number, required: true })
+  @Prop()
   amount: number;
 
-  @Prop({ type: String, default: 'NGN' })
+  @Prop({ default: 'NGN' })
   currency: string;
 
   @Prop({
-    type: String,
     enum: PaymentStatus,
     default: PaymentStatus.PENDING,
   })
   status: PaymentStatus;
 
-  @Prop({ type: String })
+  @Prop()
   plan: string;
 
-  @Prop({ type: String, enum: BillingCycle })
+  @Prop({ enum: BillingCycle })
   billingCycle: BillingCycle;
 
-  @Prop({ type: String })
+  @Prop({ default: null })
   paymentMethod: string;
 
-  @Prop({ type: String })
+  @Prop()
   transactionId: string;
 
-  @Prop({ type: Boolean, default: false })
+  @Prop({ default: false })
   autoRenew: boolean;
 
   @Prop({ type: Object })
   metadata: Record<string, any>;
 
-  @Prop({ type: String })
+  @Prop()
   paymentGateway: string;
 
-  @Prop({ type: Date })
+  @Prop()
   paidAt: Date;
 }
 

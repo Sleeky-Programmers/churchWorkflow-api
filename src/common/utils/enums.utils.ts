@@ -198,3 +198,9 @@ export enum PaymentProvider {
   PAYSTACK = 'paystack',
   FLUTTERWAVE = 'flutterwave',
 }
+
+export enum PaymentTimeframe {
+  WEEK = 'week',
+  MONTH = 'month',
+  QUARTER = 'quarter',
+}
