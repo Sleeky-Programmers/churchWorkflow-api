@@ -92,12 +92,12 @@ export class AuthController {
     return this.authService.refreshToken(dto.refreshToken);
   }
 
- @UseGuards(JwtAuthGuard)
-@Patch("change-password")
-async changePassword(
-  @AuthUser() authUser: Admin,
-  @Body() dto: ChangePasswordDto,
-) {
-  return this.authService.resetPassword(authUser, dto);
-}
+  @UseGuards(JwtAuthGuard)
+  @Patch('change-password')
+  async changePassword(
+    @AuthUser() authUser: Admin,
+    @Body() dto: ChangePasswordDto,
+  ) {
+    return this.authService.resetPassword(authUser, dto);
+  }
 }

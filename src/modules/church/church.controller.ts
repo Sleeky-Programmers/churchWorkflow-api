@@ -18,13 +18,13 @@ import { ChurchIdentityDto } from './dto/church-identity.dto';
 import { JwtAuthGuard } from '../auth/guard/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
-import { PaginationBaseDto } from '../../common/helpers/pagination.helper';
+import { ChurchFilterDto } from './dto/church-filter.dto';
 
-@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('church')
 export class ChurchController {
   constructor(private readonly churchService: ChurchService) {}
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Get('me')
   @Roles('Super Admin')
   getMyChurch(@AuthUser() authUser: Admin) {
@@ -32,17 +32,16 @@ export class ChurchController {
   }
 
   @Get()
-  @Roles('Super Admin')
-  getAllChurches(@Query() paginationBaseDto: PaginationBaseDto) {
-    return this.churchService.findAll(paginationBaseDto);
+  getAllChurches(@Query() filter: ChurchFilterDto) {
+    return this.churchService.findAll(filter);
   }
 
   @Get(':id')
-  @Roles('Super Admin')
   getChurchById(@Param('id') id: string) {
     return this.churchService.findDetailsById(id);
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Post()
   @Roles('Super Admin')
   @UseInterceptors(FileInterceptor('file'))
@@ -54,8 +53,9 @@ export class ChurchController {
     return this.churchService.create(authUser, churchIdentityDto, file);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Patch('me')
+  @Roles('Super Admin')
   @UseInterceptors(FileInterceptor('file'))
   async updateChurch(
     @AuthUser() user: Admin,
