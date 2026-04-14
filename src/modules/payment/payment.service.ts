@@ -234,7 +234,7 @@ export class PaymentService {
       totalRevenue: agg.totalRevenue || 0,
       pendingCount: agg.pendingCount || 0,
       pendingAmount: agg.pendingAmount || 0,
-      successRate,
+      successRate: successRate.toFixed(2) + '%',
       failedCount: agg.failedCount || 0,
       totalCount: agg.totalCount || 0,
     };

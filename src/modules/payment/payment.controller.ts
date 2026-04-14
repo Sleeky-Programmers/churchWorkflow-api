@@ -24,6 +24,7 @@ import { AuthUser } from '../../common/decorators/auth-user.decorator';
 import { Admin } from '../../schemas/admin.schema';
 import { Query } from '@nestjs/common';
 import { PaymentFilterDto } from './dto/payment-filter.dto';
+import { ProductAdminJwtAuthGuard } from '../product-admin/guard/product-jwt-auth.guard';
 
 @Controller('payment')
 export class PaymentController {
@@ -127,11 +128,13 @@ export class PaymentController {
     throw new BadRequestException('Invalid payment provider');
   }
 
+  @UseGuards(ProductAdminJwtAuthGuard)
   @Get()
   async list(@Query() paymentFilterDto?: PaymentFilterDto) {
     return await this.paymentService.listPayments(paymentFilterDto);
   }
 
+  @UseGuards(ProductAdminJwtAuthGuard)
   @Get('stats')
   async stats(@Query('timeframe') timeframe?: PaymentTimeframe) {
     return await this.paymentService.getStats({ timeframe: timeframe || null });
