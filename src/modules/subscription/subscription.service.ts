@@ -210,4 +210,12 @@ export class SubscriptionService {
   async getPaymentHistory(churchId: string) {
     return this.paymentService.getChurchPayments(churchId);
   }
+
+  async getChurchIdsByPlan(plan: string) {
+    const subs = await this.subscriptionModel
+      .find({ plan })
+      .select('churchId')
+      .lean();
+    return subs.map((s) => s.churchId);
+  }
 }

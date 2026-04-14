@@ -18,4 +18,5 @@ export type ChurchDetails = {
   totalMembers: number;
   totalUsers: number;
   subscription: any;
+  superAdmin: any;
 };

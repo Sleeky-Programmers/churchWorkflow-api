@@ -6,11 +6,13 @@ import { CreateSuperAdminDto } from './dto/create-super-admin.dto';
 import { Admin } from '../../schemas/admin.schema';
 import { ChurchService } from '../church/church.service';
 import { CreateAdminDto } from '././dto/create-admin.dto';
-import { UpdateAdminDto } from './dto/update-admin.dto';
 import { RolesService } from '../roles/roles.service';
 import { AccountSettingsService } from '../account-settings/account-settings.service';
 import { emailMatcher } from '../../common/helpers/email-matcher.helper';
-import { PaginationBaseDto, paginationMeta } from '../../common/helpers/pagination.helper';
+import {
+  PaginationBaseDto,
+  paginationMeta,
+} from '../../common/helpers/pagination.helper';
 
 @Injectable()
 export class AdminService {
@@ -74,47 +76,45 @@ export class AdminService {
     return superAdmin;
   }
 
-  async findAll(id:Types.ObjectId) {
-    return await this.adminModel.find({churchId:id});
+  async findAll(id: Types.ObjectId) {
+    return await this.adminModel.find({ churchId: id });
   }
 
+  async findAllAdminWithPagination(
+    churchId: Types.ObjectId,
+    dto: PaginationBaseDto,
+  ) {
+    const { page = 1, limit = 20, search } = dto;
 
+    const skip = (page - 1) * limit;
 
-async findAllAdminWithPagination(
-  churchId: Types.ObjectId,
-  dto: PaginationBaseDto,
-) {
-  const { page = 1, limit = 20, search } = dto;
+    const query: any = {
+      churchId,
+    };
 
-  const skip = (page - 1) * limit;
+    if (search) {
+      query.$or = [
+        { firstName: { $regex: search, $options: 'i' } },
+        { lastName: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } },
+      ];
+    }
 
-  const query: any = {
-    churchId,
-  };
+    const [admins, itemCount] = await Promise.all([
+      this.adminModel
+        .find(query)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      this.adminModel.countDocuments(query),
+    ]);
 
-  if (search) {
-    query.$or = [
-      { firstName: { $regex: search, $options: 'i' } },
-      { lastName: { $regex: search, $options: 'i' } },
-      { email: { $regex: search, $options: 'i' } },
-    ];
+    return {
+      data: admins.map(this.mapAdmin),
+      pagination: paginationMeta({ page, limit, itemCount }),
+    };
   }
-
-  const [admins, itemCount] = await Promise.all([
-    this.adminModel
-      .find(query)
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .lean(),
-    this.adminModel.countDocuments(query),
-  ]);
-
-  return {
-    data: admins.map(this.mapAdmin),
-    pagination: paginationMeta({ page, limit, itemCount }),
-  };
-}
 
   async findOne(email: string) {
     return await this.adminModel
@@ -160,43 +160,60 @@ async findAllAdminWithPagination(
   }
 
   async mapAdmin(admin: any) {
-  return {
-    id: admin._id.toString(),
-    fullName: `${admin.firstName} ${admin.lastName}`,
-    email: admin.email,
-  };
-}
-async updateAdminProfile(
-  id: Types.ObjectId,
-  updateData: Partial<Admin>,
-) {
-  const updated = await this.adminModel
-    .findByIdAndUpdate(
-      id,
-      {
-        $set: {
-          ...updateData,
-          ...(updateData.email && {
-            email: updateData.email.toLowerCase().trim(),
-          }),
-        },
-      },
-      {
-        new: true,
-        runValidators: true,
-      },
-    )
-    .lean();
-
-  if (!updated) {
-    throw new NotFoundException("Admin not found");
+    return {
+      id: admin._id.toString(),
+      fullName: `${admin.firstName} ${admin.lastName}`,
+      email: admin.email,
+    };
   }
+  async findFirstSuperAdminByChurch(churchId: Types.ObjectId) {
+    const superRole = await this.rolesService.findOne('Super Admin');
+    if (!superRole) {
+      return null;
+    }
 
-  return {
-    id: updated._id.toString(),
-    firstName: updated.firstName,
-    lastName: updated.lastName,
-    email: updated.email,
-  };
-}
+    const admin = await this.adminModel
+      .findOne({
+        churchId: new Types.ObjectId(churchId),
+        churchRole: superRole._id,
+      })
+      .sort({ createdAt: 1 })
+      .lean();
+
+    if (!admin) {
+      return null;
+    }
+
+    return this.mapAdmin(admin);
+  }
+  async updateAdminProfile(id: Types.ObjectId, updateData: Partial<Admin>) {
+    const updated = await this.adminModel
+      .findByIdAndUpdate(
+        id,
+        {
+          $set: {
+            ...updateData,
+            ...(updateData.email && {
+              email: updateData.email.toLowerCase().trim(),
+            }),
+          },
+        },
+        {
+          new: true,
+          runValidators: true,
+        },
+      )
+      .lean();
+
+    if (!updated) {
+      throw new NotFoundException('Admin not found');
+    }
+
+    return {
+      id: updated._id.toString(),
+      firstName: updated.firstName,
+      lastName: updated.lastName,
+      email: updated.email,
+    };
+  }
 }
