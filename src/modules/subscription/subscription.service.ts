@@ -218,4 +218,45 @@ export class SubscriptionService {
       .lean();
     return subs.map((s) => s.churchId);
   }
+
+  async countActiveSubscriptions() {
+    return await this.subscriptionModel.countDocuments({
+      status: SubscriptionStatus.ACTIVE,
+    });
+  }
+
+  async countByPlan(plan: string) {
+    return await this.subscriptionModel.countDocuments({ plan });
+  }
+
+  async getCountsByPlan() {
+    const result = await this.subscriptionModel.aggregate([
+      { $group: { _id: '$plan', count: { $sum: 1 } } },
+    ]);
+
+    const map: Record<string, number> = {};
+    result.forEach((r) => {
+      map[r._id] = r.count;
+    });
+
+    return map;
+  }
+
+  async countNewSubscriptionsByPlanBetween(from?: Date, to?: Date) {
+    const match: any = {};
+    if (from || to) {
+      match.createdAt = {};
+      if (from) match.createdAt.$gte = from;
+      if (to) match.createdAt.$lt = to;
+    }
+
+    const res = await this.subscriptionModel.aggregate([
+      { $match: match },
+      { $group: { _id: '$plan', count: { $sum: 1 } } },
+    ]);
+
+    const map: Record<string, number> = {};
+    res.forEach((r: any) => (map[r._id] = r.count));
+    return map;
+  }
 }

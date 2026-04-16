@@ -214,4 +214,16 @@ export class ChurchService {
       new: true,
     });
   }
+
+  async countAll() {
+    return await this.churchModel.countDocuments();
+  }
+
+  async countRegisteredSince(days: number) {
+    const since = new Date();
+    since.setDate(since.getDate() - days);
+    return await this.churchModel.countDocuments({
+      createdAt: { $gte: since },
+    });
+  }
 }

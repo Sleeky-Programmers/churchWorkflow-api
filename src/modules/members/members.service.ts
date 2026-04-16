@@ -65,6 +65,26 @@ export class MembersService {
     });
   }
 
+  async countAllMembers() {
+    return await this.memberModel.countDocuments();
+  }
+
+  async countMembersByChurchIds(churchIds: string[] | any[]) {
+    if (!churchIds || churchIds.length === 0) {
+      return 0;
+    }
+    const ids = churchIds.map((id) => new Types.ObjectId(id));
+    return await this.memberModel.countDocuments({ churchId: { $in: ids } });
+  }
+
+  async countRegisteredSince(days: number) {
+    const since = new Date();
+    since.setDate(since.getDate() - days);
+    return await this.memberModel.countDocuments({
+      createdAt: { $gte: since },
+    });
+  }
+
   async getMemberAttendanceStats(
     id: string,
     dto: MemberAttendanceStatsFilterDto,

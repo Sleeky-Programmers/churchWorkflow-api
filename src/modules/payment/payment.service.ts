@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { Payment } from '../../schemas/payment.schema';
 import {
   PaymentStatus,
@@ -238,5 +238,109 @@ export class PaymentService {
       failedCount: agg.failedCount || 0,
       totalCount: agg.totalCount || 0,
     };
+  }
+
+  async getMRRForChurchIds(churchIds?: Types.ObjectId[]) {
+    const match: any = { status: PaymentStatus.SUCCESS };
+    if (churchIds && churchIds.length) {
+      match.churchId = { $in: churchIds.map((id) => new Types.ObjectId(id)) };
+    }
+
+    const pipeline: any[] = [
+      { $match: match },
+      {
+        $group: {
+          _id: null,
+          monthlyEquivalent: {
+            $sum: {
+              $switch: {
+                branches: [
+                  {
+                    case: { $eq: ['$billingCycle', 'MONTHLY'] },
+                    then: '$amount',
+                  },
+                  {
+                    case: { $eq: ['$billingCycle', 'YEARLY'] },
+                    then: { $divide: ['$amount', 12] },
+                  },
+                ],
+                default: 0,
+              },
+            },
+          },
+        },
+      },
+    ];
+
+    const res = await this.paymentModel.aggregate(pipeline as any);
+    return (res[0]?.monthlyEquivalent as number) || 0;
+  }
+
+  async getMRRBetween(from?: Date, to?: Date) {
+    const match: any = { status: PaymentStatus.SUCCESS };
+    if (from || to) {
+      match.createdAt = {};
+      if (from) {
+        match.createdAt.$gte = from;
+      }
+      if (to) {
+        match.createdAt.$lt = to;
+      }
+    }
+
+    const pipeline: any[] = [
+      { $match: match },
+      {
+        $group: {
+          _id: null,
+          monthlyEquivalent: {
+            $sum: {
+              $switch: {
+                branches: [
+                  {
+                    case: { $eq: ['$billingCycle', 'MONTHLY'] },
+                    then: '$amount',
+                  },
+                  {
+                    case: { $eq: ['$billingCycle', 'YEARLY'] },
+                    then: { $divide: ['$amount', 12] },
+                  },
+                ],
+                default: 0,
+              },
+            },
+          },
+        },
+      },
+    ];
+
+    const res = await this.paymentModel.aggregate(pipeline as any);
+    return (res[0]?.monthlyEquivalent as number) || 0;
+  }
+
+  async getRevenueBetween(from?: Date, to?: Date) {
+    const match: any = { status: PaymentStatus.SUCCESS };
+    if (from || to) {
+      match.createdAt = {};
+      if (from) {
+        match.createdAt.$gte = from;
+      }
+      if (to) {
+        match.createdAt.$lt = to;
+      }
+    }
+
+    const pipeline = [
+      { $match: match },
+      {
+        $group: {
+          _id: null,
+          totalRevenue: { $sum: '$amount' },
+        },
+      },
+    ];
+
+    const res = await this.paymentModel.aggregate(pipeline as any);
+    return (res[0]?.totalRevenue as number) || 0;
   }
 }
