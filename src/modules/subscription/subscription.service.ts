@@ -246,8 +246,12 @@ export class SubscriptionService {
     const match: any = {};
     if (from || to) {
       match.createdAt = {};
-      if (from) match.createdAt.$gte = from;
-      if (to) match.createdAt.$lt = to;
+      if (from) {
+        match.createdAt.$gte = from;
+      }
+      if (to) {
+        match.createdAt.$lt = to;
+      }
     }
 
     const res = await this.subscriptionModel.aggregate([
