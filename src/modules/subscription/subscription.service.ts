@@ -220,104 +220,110 @@ export class SubscriptionService {
   }
 
   async getBillingOverview(churchId: Types.ObjectId) {
-  const subscription = await this.getSubscription(churchId);
+    const subscription = await this.getSubscription(churchId);
 
-  return {
-    plans: this.getPlans(),
+    return {
+      plans: this.getPlans(),
 
-    currentPlan: subscription.plan,
-    subscriptionStatus: subscription.status,
+      currentPlan: subscription.plan,
+      subscriptionStatus: subscription.status,
 
-    
-    churchStatus: this.mapToChurchStatus(subscription),
+      churchStatus: this.mapToChurchStatus(subscription),
 
-    billingCycle: this.getBillingCycle(subscription),
-  };
-}
-private getPlans() {
-  return Object.values(PlanType).map((plan) => ({
-    type: plan,
-    name: this.formatPlanName(plan),
-
-    monthlyPrice: this.getPlanAmount(plan, BillingCycle.MONTHLY),
-
-    yearlyPrice: Math.round(
-      this.getPlanAmount(plan, BillingCycle.MONTHLY) * 12 * 0.83,
-    ),
-
-    features: this.getPlanFeatures(plan),
-
-    popular: plan === PlanType.GROWTH,
-  }));
-}
-private getPlanFeatures(plan: PlanType): string[] {
-  switch (plan) {
-    case PlanType.STARTER:
-      return [
-        'Small teams',
-        'Membership management',
-        'Up to 3 users',
-        'Up to 100 members',
-        'Attendance tracking',
-      ];
-
-    case PlanType.GROWTH:
-      return [
-        'Everything in Starter',
-        'Up to 10 users',
-        'Up to 500 members',
-        'Custom roles & permissions',
-      ];
-
-    case PlanType.EXPANSION:
-      return [
-        'Everything in Growth',
-        'Up to 25 users',
-        'Up to 1,500 members',
-      ];
-
-    case PlanType.ENTERPRISE:
-      return [
-        'Everything in Expansion',
-        'Priority support',
-        'Unlimited users',
-        'Advanced controls',
-        'Unlimited members',
-      ];
-
-    default:
-      return [];
+      billingCycle: this.getBillingCycle(subscription),
+    };
   }
-}
+  private getPlans() {
+    const numberOfMonths = 12;
+    const discountAmount = 0.83;
 
-private formatPlanName(plan: PlanType) {
-  return plan.charAt(0) + plan.slice(1).toLowerCase();
-}
+    return Object.values(PlanType).map((plan) => ({
+      type: plan,
+      name: this.formatPlanName(plan),
 
-private mapToChurchStatus(subscription: Subscription) {
-  if (subscription.status === SubscriptionStatus.TRIAL) {
-    return 'TRIAL';
+      monthlyPrice: this.getPlanAmount(plan, BillingCycle.MONTHLY),
+
+      yearlyPrice: Math.round(
+        this.getPlanAmount(plan, BillingCycle.MONTHLY) *
+          numberOfMonths *
+          discountAmount,
+      ),
+
+      features: this.getPlanFeatures(plan),
+
+      popular: plan === PlanType.GROWTH,
+    }));
+  }
+  private getPlanFeatures(plan: PlanType): string[] {
+    switch (plan) {
+      case PlanType.STARTER:
+        return [
+          'Small teams',
+          'Membership management',
+          'Up to 3 users',
+          'Up to 100 members',
+          'Attendance tracking',
+        ];
+
+      case PlanType.GROWTH:
+        return [
+          'Everything in Starter',
+          'Up to 10 users',
+          'Up to 500 members',
+          'Custom roles & permissions',
+        ];
+
+      case PlanType.EXPANSION:
+        return [
+          'Everything in Growth',
+          'Up to 25 users',
+          'Up to 1,500 members',
+        ];
+
+      case PlanType.ENTERPRISE:
+        return [
+          'Everything in Expansion',
+          'Priority support',
+          'Unlimited users',
+          'Advanced controls',
+          'Unlimited members',
+        ];
+
+      default:
+        return [];
+    }
   }
 
-  if (subscription.status === SubscriptionStatus.ACTIVE) {
-    return 'ACTIVE';
+  private formatPlanName(plan: PlanType) {
+    return plan.charAt(0) + plan.slice(1).toLowerCase();
   }
 
+  private mapToChurchStatus(subscription: Subscription) {
+    if (subscription.status === SubscriptionStatus.TRIAL) {
+      return SubscriptionStatus.TRIAL;
+    }
 
-  if (subscription.endDate && new Date() > subscription.endDate) {
-    return 'EXPIRED';
+    if (subscription.status === SubscriptionStatus.ACTIVE) {
+      return SubscriptionStatus.ACTIVE;
+    }
+
+    if (subscription.endDate && new Date() > subscription.endDate) {
+      return SubscriptionStatus.EXPIRED;
+    }
+
+    return SubscriptionStatus.ACTIVE;
   }
 
-  return 'ACTIVE';
-}
+  private getBillingCycle(subscription: Subscription): BillingCycle {
+    const oneDayInMilliseconds = 1000 * 60 * 60 * 24;
+    const threeHundredDaysLimit = 300;
+    const subDurationInDays =
+      (subscription.endDate.getTime() - subscription.startDate.getTime()) /
+      oneDayInMilliseconds;
 
-private getBillingCycle(subscription: Subscription): BillingCycle {
-  const duration =
-    (subscription.endDate.getTime() - subscription.startDate.getTime()) /
-    (1000 * 60 * 60 * 24);
-
-  return duration > 32
-    ? BillingCycle.YEARLY
-    : BillingCycle.MONTHLY;
-}
+    if (subDurationInDays >= threeHundredDaysLimit) {
+      return BillingCycle.YEARLY;
+    }
+    return BillingCycle.MONTHLY;
+  }
 }
