@@ -210,40 +210,35 @@ export class DepartmentService {
     return this.findById(authUser, id);
   }
 
+  async removeMembers(authUser: Admin, id: string, memberIds: string[]) {
+    const department = await this.departmentModel.findOne({
+      _id: id,
+      churchId: authUser.churchId,
+    });
 
-  async removeMembers(
-  authUser: Admin,
-  id: string,
-  memberIds: string[],
-) {
-  const department = await this.departmentModel.findOne({
-    _id: id,
-    churchId: authUser.churchId,
-  });
+    if (!department) {
+      throw new NotFoundException('Department not found');
+    }
 
-  if (!department) {
-    throw new NotFoundException('Department not found');
+    const uniqueIds = this.toUniqueIds(memberIds);
+
+    const memberObjectIds = uniqueIds.map(
+      (memberId) => new Types.ObjectId(memberId),
+    );
+
+    await this.departmentModel.updateOne(
+      { _id: id },
+      { $pull: { members: { $in: memberObjectIds } } },
+    );
+
+    await this.activityLogService.create(authUser, {
+      action: 'Remove Department Members',
+      module: ModuleSections.DEPARTMENTS,
+      details: `Removed ${uniqueIds.length} members from ${department.name}`,
+    });
+
+    return this.findById(authUser, id);
   }
-
-  const uniqueIds = this.toUniqueIds(memberIds);
-
-  const memberObjectIds = uniqueIds.map(
-    (memberId) => new Types.ObjectId(memberId),
-  );
-
-  await this.departmentModel.updateOne(
-    { _id: id },
-    { $pull: { members: { $in: memberObjectIds } } },
-  );
-
-  await this.activityLogService.create(authUser, {
-    action: 'Remove Department Members',
-    module: ModuleSections.DEPARTMENTS,
-    details: `Removed ${uniqueIds.length} members from ${department.name}`,
-  });
-
-  return this.findById(authUser, id);
-}
 
   async delete(authUser: Admin, id: string) {
     const deleted = await this.departmentModel.findOneAndDelete({
@@ -346,7 +341,7 @@ export class DepartmentService {
         fullName: member.fullName,
         email: member.email || '',
         dateJoined: member.dateJoined,
-        phoneNumber:member.phoneNumber
+        phoneNumber: member.phoneNumber,
       }));
 
     return {

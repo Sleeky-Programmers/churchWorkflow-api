@@ -32,6 +32,7 @@ import { FlutterwaveModule } from './modules/flutterwave/flutterwave.module';
 import { CouponModule } from './modules/coupon/coupon.module';
 import { SubscriptionPlanCodesModule } from './modules/subscription-plan-codes/subscription-plan-codes.module';
 
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -87,6 +88,7 @@ import { SubscriptionPlanCodesModule } from './modules/subscription-plan-codes/s
     PaystackModule,
     FlutterwaveModule,
     SubscriptionPlanCodesModule,
+
   ],
   controllers: [AppController],
   providers: [AppService],

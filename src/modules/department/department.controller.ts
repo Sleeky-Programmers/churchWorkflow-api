@@ -120,15 +120,15 @@ export class DepartmentController {
   }
 
   @Put(':id/members/remove')
-@RequirePermissions({
-  section: ModuleSections.DEPARTMENTS,
-  level: AccessLevel.MANAGE,
-})
-removeMembers(
-  @AuthUser() authUser: Admin,
-  @Param('id') id: string,
-  @Body('memberIds') memberIds: string[],
-) {
-  return this.departmentService.removeMembers(authUser, id, memberIds);
-}
+  @RequirePermissions({
+    section: ModuleSections.DEPARTMENTS,
+    level: AccessLevel.MANAGE,
+  })
+  removeMembers(
+    @AuthUser() authUser: Admin,
+    @Param('id') id: string,
+    @Body('memberIds') memberIds: string[],
+  ) {
+    return this.departmentService.removeMembers(authUser, id, memberIds);
+  }
 }
