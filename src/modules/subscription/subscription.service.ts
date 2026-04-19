@@ -235,7 +235,7 @@ export class SubscriptionService {
   }
   private getPlans() {
     const numberOfMonths = 12;
-    const discountAmount = 0.83;
+    const yearlyDiscountRate = 0.83;
 
     return Object.values(PlanType).map((plan) => ({
       type: plan,
@@ -246,7 +246,7 @@ export class SubscriptionService {
       yearlyPrice: Math.round(
         this.getPlanAmount(plan, BillingCycle.MONTHLY) *
           numberOfMonths *
-          discountAmount,
+          yearlyDiscountRate,
       ),
 
       features: this.getPlanFeatures(plan),
@@ -316,12 +316,12 @@ export class SubscriptionService {
 
   private getBillingCycle(subscription: Subscription): BillingCycle {
     const oneDayInMilliseconds = 1000 * 60 * 60 * 24;
-    const threeHundredDaysLimit = 300;
+    const threeHundredSixtyFiveDaysLimit = 365;
     const subDurationInDays =
       (subscription.endDate.getTime() - subscription.startDate.getTime()) /
       oneDayInMilliseconds;
 
-    if (subDurationInDays >= threeHundredDaysLimit) {
+    if (subDurationInDays >= threeHundredSixtyFiveDaysLimit) {
       return BillingCycle.YEARLY;
     }
     return BillingCycle.MONTHLY;
