@@ -24,9 +24,8 @@ import { ChurchFilterDto } from './dto/church-filter.dto';
 export class ChurchController {
   constructor(private readonly churchService: ChurchService) {}
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard)
   @Get('me')
-  @Roles('Super Admin')
   getMyChurch(@AuthUser() authUser: Admin) {
     return this.churchService.findCurrentChurch(authUser);
   }
