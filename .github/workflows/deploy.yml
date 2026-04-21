@@ -17,7 +17,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 22
+          node-version: 20
 
       - name: SSH into EC2 and deploy
         uses: appleboy/ssh-action@v1.0.3
@@ -28,8 +28,13 @@ jobs:
           script: |
             cd /home/${{ secrets.EC2_USER }}/churchWorkflow-api
 
-            # Checkout correct branch dynamically
             git fetch origin
+
+            # Force clean state
+            git reset --hard
+            git clean -fd
+
+            # Checkout correct branch dynamically
             git checkout ${{ github.ref_name }}
             git pull origin ${{ github.ref_name }}
 
