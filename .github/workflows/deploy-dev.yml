@@ -29,4 +29,4 @@ jobs:
           fi
 
           vercel pull --yes --environment=production --token=$VERCEL_TOKEN
-          vercel --prod --yes --name churchworkflow-api --token=$VERCEL_TOKEN
+          vercel deploy --prod --yes --token=$VERCEL_TOKEN
