@@ -4,7 +4,8 @@ This is a NestJS application designed to provide [brief description of your app]
 
 ## Getting Started
 
-Follow these steps to set up and run the project on your local machine.
+Follow these steps to set up and run the project on your local machine. 
+
 
 ---
 
@@ -98,3 +99,4 @@ Run the test suite to ensure everything is working correctly:
 ```bash
   git push -u origin <branch>
 ```
+
