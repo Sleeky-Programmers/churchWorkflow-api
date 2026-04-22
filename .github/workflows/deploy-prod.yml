@@ -1,10 +1,9 @@
-name: Deploy to AWS
+name: Deploy to Production (AWS EC2)
 
 on:
   push:
     branches:
       - main
-      - develop
 
 jobs:
   deploy:
