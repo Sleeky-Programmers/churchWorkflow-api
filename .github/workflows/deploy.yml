@@ -26,6 +26,9 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
+            export NVM_DIR="$HOME/.nvm"
+            source $NVM_DIR/nvm.sh
+            nvm use 22
             cd /home/${{ secrets.EC2_USER }}/churchWorkflow-api
 
             git fetch origin
