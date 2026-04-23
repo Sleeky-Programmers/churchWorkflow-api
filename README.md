@@ -1,11 +1,10 @@
-# NestJS App README template 
+# NestJS App README template
 
-This is a NestJS application designed to provide [brief description of your app]. It is built using the powerful NestJS framework to ensure scalability, maintainability, and performance. 
+This is a NestJS application designed to provide [a brief description of your app]. It is built using the powerful NestJS framework to ensure scalability, maintainability, and performance.
 
 ## Getting Started
 
-Follow these steps to set up and run the project on your local machine. 
-
+Follow these steps to set up and run the project on your local machine.
 
 ---
 
