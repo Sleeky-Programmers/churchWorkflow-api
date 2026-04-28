@@ -95,6 +95,9 @@ export enum ModuleSections {
   EVENTS = 'EVENTS',
   DEPARTMENTS = 'DEPARTMENTS',
   ATTENDANCE = 'ATTENDANCE',
+  CHURCH = 'CHURCH',
+  SUBSCRIPTION = 'SUBSCRIPTION',
+  PAYMENTS = 'PAYMENTS',
 }
 
 export enum NotificationType {
@@ -203,4 +206,20 @@ export enum PaymentTimeframe {
   WEEK = 'week',
   MONTH = 'month',
   QUARTER = 'quarter',
+}
+
+export enum ProductAdminStatus {
+  ACTIVE = 'ACTIVE',
+  BLOCKED = 'BLOCKED',
+}
+
+export enum ProductAdminInviteStatus {
+  PENDING = 'PENDING',
+  ACCEPTED = 'ACCEPTED',
+}
+
+export enum DefaultProductAdminRoles {
+  SUPER_ADMIN = 'SUPER_ADMIN',
+  FINANCE_ADMIN = 'FINANCE_ADMIN',
+  SUPPORT_ADMIN = 'SUPPORT_ADMIN',
 }

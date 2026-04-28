@@ -7,6 +7,7 @@ import { PaymentModule } from '../payment/payment.module';
 import { SubscriptionModule } from '../subscription/subscription.module';
 import { CouponModule } from '../coupon/coupon.module';
 import { SubscriptionPlanCodesModule } from '../subscription-plan-codes/subscription-plan-codes.module';
+import { AdminActivityLogModule } from '../admin-activity-log/admin-activity-log.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { SubscriptionPlanCodesModule } from '../subscription-plan-codes/subscrip
     forwardRef(() => SubscriptionModule),
     CouponModule,
     SubscriptionPlanCodesModule,
+    AdminActivityLogModule,
   ],
   controllers: [PaystackController],
   providers: [PaystackService],

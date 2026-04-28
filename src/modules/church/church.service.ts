@@ -13,6 +13,8 @@ import { FileUploadService } from '../file-upload/file-upload.service';
 import { AdminService } from '../admin/admin.service';
 import { SubscriptionService } from '../subscription/subscription.service';
 import { MembersService } from '../members/members.service';
+import { AdminActivityLogService } from '../admin-activity-log/admin-activity-log.service';
+import { PlanType } from '../../common/utils/enums.utils';
 import { ChurchDetails } from '../../common/utils/types.utils';
 import { ChurchSubscriptionStatus } from '../../common/utils/enums.utils';
 
@@ -25,6 +27,7 @@ export class ChurchService {
     private adminService: AdminService,
     private subscriptionService: SubscriptionService,
     private membersService: MembersService,
+    private adminActivityLogService: AdminActivityLogService,
   ) {}
 
   async findById(id: Types.ObjectId) {
@@ -194,6 +197,12 @@ export class ChurchService {
     if (!subscription) {
       await this.subscriptionService.createTrialSubscription(church._id);
     }
+
+    await this.adminActivityLogService.create({
+      action: 'CHURCH_REGISTERED',
+      details: `Church ${church.name} registered`,
+      plan: PlanType.STARTER,
+    } as any);
 
     return church;
   }

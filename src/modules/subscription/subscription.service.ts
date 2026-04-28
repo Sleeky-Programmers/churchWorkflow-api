@@ -10,6 +10,7 @@ import {
   PlanType,
   SubscriptionStatus,
 } from '../../common/utils/enums.utils';
+import { AdminActivityLogService } from '../admin-activity-log/admin-activity-log.service';
 
 @Injectable()
 export class SubscriptionService {
@@ -17,6 +18,7 @@ export class SubscriptionService {
     @InjectModel(Subscription.name)
     private subscriptionModel: Model<Subscription>,
     private paymentService: PaymentService,
+    private adminActivityLogService: AdminActivityLogService,
   ) {}
 
   private readonly planLimits = {
@@ -114,6 +116,10 @@ export class SubscriptionService {
       customerCode?: string;
     };
   }) {
+    const existing = await this.subscriptionModel.findOne({
+      churchId: new Types.ObjectId(data.churchId),
+    });
+
     const limits = this.planLimits[data.plan];
     const startDate = new Date();
     const endDate = new Date();
@@ -124,7 +130,7 @@ export class SubscriptionService {
       endDate.setFullYear(endDate.getFullYear() + 1);
     }
 
-    return this.subscriptionModel.findOneAndUpdate(
+    const updated = await this.subscriptionModel.findOneAndUpdate(
       { churchId: new Types.ObjectId(data.churchId) },
       {
         plan: data.plan,
@@ -148,6 +154,28 @@ export class SubscriptionService {
       },
       { new: true, upsert: true },
     );
+
+    if (!existing) {
+      await this.adminActivityLogService.create({
+        action: 'SUBSCRIPTION_CREATED',
+        details: `Subscription created for plan ${data.plan}`,
+        plan: data.plan as any,
+      } as any);
+    } else if (existing.plan !== data.plan) {
+      await this.adminActivityLogService.create({
+        action: 'SUBSCRIPTION_UPGRADED',
+        details: `Subscription changed from ${existing.plan} to ${data.plan}`,
+        plan: data.plan as any,
+      } as any);
+    } else {
+      await this.adminActivityLogService.create({
+        action: 'SUBSCRIPTION_UPDATED',
+        details: `Subscription updated for plan ${data.plan}`,
+        plan: data.plan as any,
+      } as any);
+    }
+
+    return updated;
   }
 
   async isActiveAutoRenewing(churchId: Types.ObjectId) {
@@ -233,6 +261,7 @@ export class SubscriptionService {
       billingCycle: this.getBillingCycle(subscription),
     };
   }
+
   private getPlans() {
     const numberOfMonths = 12;
     const yearlyDiscountRate = 0.83;
@@ -254,6 +283,7 @@ export class SubscriptionService {
       popular: plan === PlanType.GROWTH,
     }));
   }
+
   private getPlanFeatures(plan: PlanType): string[] {
     switch (plan) {
       case PlanType.STARTER:
@@ -365,6 +395,28 @@ export class SubscriptionService {
     const res = await this.subscriptionModel.aggregate([
       { $match: match },
       { $group: { _id: '$plan', count: { $sum: 1 } } },
+    ]);
+
+    const map: Record<string, number> = {};
+    res.forEach((r: any) => (map[r._id] = r.count));
+    return map;
+  }
+
+  async countSubscriptionsByStatusBetween(from?: Date, to?: Date) {
+    const match: any = {};
+    if (from || to) {
+      match.createdAt = {};
+      if (from) {
+        match.createdAt.$gte = from;
+      }
+      if (to) {
+        match.createdAt.$lt = to;
+      }
+    }
+
+    const res = await this.subscriptionModel.aggregate([
+      { $match: match },
+      { $group: { _id: '$status', count: { $sum: 1 } } },
     ]);
 
     const map: Record<string, number> = {};

@@ -33,6 +33,7 @@ import { CouponModule } from './modules/coupon/coupon.module';
 import { SubscriptionPlanCodesModule } from './modules/subscription-plan-codes/subscription-plan-codes.module';
 import { ProductAdminModule } from './modules/product-admin/product-admin.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { AdminActivityLogModule } from './modules/admin-activity-log/admin-activity-log.module';
 
 @Module({
   imports: [
@@ -91,6 +92,7 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
     SubscriptionPlanCodesModule,
     ProductAdminModule,
     AnalyticsModule,
+    AdminActivityLogModule,
   ],
   controllers: [AppController],
   providers: [AppService],

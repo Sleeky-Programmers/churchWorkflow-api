@@ -186,6 +186,69 @@ export class AnalyticsService {
         : 0;
     const conversionRateGrowth = fmtGrowth(conversionRate, conversionRatePrev);
 
+    const months = [] as { start: Date; end: Date; label: string }[];
+    const seriesCount = 12;
+    const firstOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    for (let i = seriesCount - 1; i >= 0; i--) {
+      const mStart = new Date(
+        firstOfThisMonth.getFullYear(),
+        firstOfThisMonth.getMonth() - i,
+        1,
+      );
+      const mEnd = new Date(mStart.getFullYear(), mStart.getMonth() + 1, 1);
+      const label = `${mStart.getFullYear()}-${String(mStart.getMonth() + 1).padStart(2, '0')}`;
+      months.push({ start: mStart, end: mEnd, label });
+    }
+
+    const revenueSubscriptionData = [] as any[];
+    const trialToPaidData = [] as any[];
+    const membersGrowth = [] as any[];
+
+    for (const month of months) {
+      const revenue = await this.paymentService.getRevenueBetween(
+        month.start,
+        month.end,
+      );
+      const newSubsMap =
+        await this.subscriptionService.countNewSubscriptionsByPlanBetween(
+          month.start,
+          month.end,
+        );
+      const subsTotal = Object.values(newSubsMap).reduce(
+        (a: number, b: number) => a + (b || 0),
+        0,
+      );
+      revenueSubscriptionData.push({
+        month: month.label,
+        revenue,
+        subscription: subsTotal,
+      });
+
+      const statusMap =
+        await this.subscriptionService.countSubscriptionsByStatusBetween(
+          month.start,
+          month.end,
+        );
+      const trialCount = statusMap['TRIAL'] || 0;
+      const conversionCount = Object.keys(statusMap).reduce(
+        (acc, k) => (k === 'TRIAL' ? acc : acc + (statusMap[k] || 0)),
+        0,
+      );
+      trialToPaidData.push({
+        month: month.label,
+        trial: trialCount,
+        conversion: conversionCount,
+      });
+
+      const active =
+        await this.attendanceService.countDistinctPresentMembersBetween(
+          month.start.toISOString(),
+          month.end.toISOString(),
+        );
+      const total = await this.membersService.countMembersUpTo(month.end);
+      membersGrowth.push({ month: month.label, active, total });
+    }
+
     return {
       timestamp: now.toISOString(),
       totalChurches: { count: totalChurches, growth: churchesGrowth },
@@ -208,6 +271,9 @@ export class AnalyticsService {
       },
       planDistribution,
       planPerformanceBreakdown: planPerformance,
+      revenueSubscriptionData,
+      trialToPaidData,
+      membersGrowth,
     };
   }
 }

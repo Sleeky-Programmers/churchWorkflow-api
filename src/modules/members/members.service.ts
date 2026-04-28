@@ -85,6 +85,10 @@ export class MembersService {
     });
   }
 
+  async countMembersUpTo(date: Date) {
+    return await this.memberModel.countDocuments({ createdAt: { $lte: date } });
+  }
+
   async getMemberAttendanceStats(
     id: string,
     dto: MemberAttendanceStatsFilterDto,

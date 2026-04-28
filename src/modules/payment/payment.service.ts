@@ -6,6 +6,7 @@ import {
   PaymentStatus,
   PaymentTimeframe,
 } from '../../common/utils/enums.utils';
+import { AdminActivityLogService } from '../admin-activity-log/admin-activity-log.service';
 import { PaymentFilterDto } from './dto/payment-filter.dto';
 import { paginationMeta } from '../../common/helpers/pagination.helper';
 
@@ -13,6 +14,7 @@ import { paginationMeta } from '../../common/helpers/pagination.helper';
 export class PaymentService {
   constructor(
     @InjectModel(Payment.name) private paymentModel: Model<Payment>,
+    private adminActivityLogService: AdminActivityLogService,
   ) {}
 
   async createPayment(paymentData: Partial<Payment>) {
@@ -41,7 +43,7 @@ export class PaymentService {
     provider: string,
     providerSubscriptionRef: string,
   ) {
-    return await this.paymentModel.findOneAndUpdate(
+    const updated = await this.paymentModel.findOneAndUpdate(
       { reference },
       {
         $set: {
@@ -54,6 +56,14 @@ export class PaymentService {
       },
       { new: true },
     );
+
+    await this.adminActivityLogService.create({
+      action: 'PROVIDER_SUBSCRIPTION_CREATED',
+      details: `Provider subscription created: ${providerSubscriptionRef}`,
+      plan: updated.plan as any,
+    } as any);
+
+    return updated;
   }
 
   async getChurchPayments(churchId: string) {
@@ -88,7 +98,7 @@ export class PaymentService {
     if (!code) {
       return null;
     }
-    return await this.paymentModel.updateMany(
+    const res = await this.paymentModel.updateMany(
       {
         'metadata.providerSubscription.providerSubscriptionRef.subscription_code':
           code,
@@ -100,6 +110,13 @@ export class PaymentService {
         },
       },
     );
+
+    await this.adminActivityLogService.create({
+      action: 'PROVIDER_SUBSCRIPTION_CANCELED',
+      details: `Provider subscription ${code} canceled`,
+    } as any);
+
+    return res;
   }
 
   async findLatestByChurch(churchId: any) {

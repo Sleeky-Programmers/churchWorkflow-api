@@ -9,12 +9,19 @@ import {
   ProductAdminSchema,
 } from '../../schemas/product-admin.schema';
 import { ProductJwtStrategy } from './strategy/product-jwt.strategy';
+import { ProductAdminRolesModule } from '../product-admin-roles/product-admin-roles.module';
+import {
+  ProductAdminInvite,
+  ProductAdminInviteSchema,
+} from '../../schemas/product-admin-invite.schema';
 
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: ProductAdmin.name, schema: ProductAdminSchema },
+      { name: ProductAdminInvite.name, schema: ProductAdminInviteSchema },
     ]),
+    ProductAdminRolesModule,
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
