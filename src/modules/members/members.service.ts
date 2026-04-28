@@ -530,6 +530,9 @@ export class MembersService {
       churchId,
     });
   }
+  async countAllMembers() {
+    return this.memberModel.countDocuments();
+  }
 
   async getMemberById(
     id: string,
@@ -554,6 +557,71 @@ export class MembersService {
       attendanceList: attendance.data,
       attendancePagination: attendance.pagination,
     };
+  }
+
+  async topChurchesByMembers() {
+    const topChurchByMembers = await this.memberModel.aggregate([
+      {
+        $group: {
+          _id: '$churchId',
+          membersCount: { $sum: 1 },
+        },
+      },
+      { $sort: { membersCount: -1 } },
+      { $limit: 10 },
+
+      {
+        $lookup: {
+          from: 'churches',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'church',
+        },
+      },
+      {
+        $unwind: {
+          path: '$church',
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+
+      {
+        $lookup: {
+          from: 'subscriptions',
+          let: { churchId: '$_id' },
+          pipeline: [
+            { $match: { $expr: { $eq: ['$churchId', '$$churchId'] } } },
+            { $limit: 1 },
+          ],
+          as: 'subscription',
+        },
+      },
+      {
+        $unwind: {
+          path: '$subscription',
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+
+      {
+        $project: {
+          _id: 0,
+          id: '$_id',
+          name: '$church.name',
+          location: {
+            $concat: [
+              { $ifNull: ['$church.state', ''] },
+              ', ',
+              { $ifNull: ['$church.country', ''] },
+            ],
+          },
+          membersCount: 1,
+          plan: '$subscription.plan',
+        },
+      },
+    ]);
+
+    return { topChurchByMembers };
   }
 
   async updateMember(id: string, updateMemberDto: UpdateMemberDto) {

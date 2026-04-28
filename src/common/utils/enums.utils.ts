@@ -95,6 +95,10 @@ export enum ModuleSections {
   EVENTS = 'EVENTS',
   DEPARTMENTS = 'DEPARTMENTS',
   ATTENDANCE = 'ATTENDANCE',
+  SUBSCRIPTION = 'SUBSCRIPTION',
+  PAYMENT = 'PAYMENT',
+  CHURCH = 'CHURCH',
+  ADMIN = 'ADMIN',
 }
 
 export enum NotificationType {
@@ -141,6 +145,11 @@ export enum MemberFilter {
   IS_BAPTIZED = 'is-baptized',
 }
 
+export enum CouponFilter {
+  ACTIVE = 'active',
+  INACTIVE = 'inactive',
+  EXPIRED = 'expired',
+}
 export enum AttendanceStatus {
   PRESENT = 'PRESENT',
   ABSENT = 'ABSENT',

@@ -233,6 +233,39 @@ export class SubscriptionService {
       billingCycle: this.getBillingCycle(subscription),
     };
   }
+
+  async getSubscriptionByPlan() {
+    const subscriptionsByPlan = await this.subscriptionModel.aggregate([
+      {
+        $group: {
+          _id: '$plan',
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const churchesByPlan = {
+      STARTER: 0,
+      GROWTH: 0,
+      ENTERPRISE: 0,
+    };
+
+    subscriptionsByPlan.forEach((item) => {
+      churchesByPlan[item._id] = item.count;
+    });
+
+    const totalStarterPlans = churchesByPlan.STARTER;
+
+    const totalActivePlans = await this.subscriptionModel.countDocuments({
+      status: SubscriptionStatus.ACTIVE,
+    });
+
+    return {
+      totalStarterPlans,
+      totalActivePlans,
+      churchesByPlan,
+    };
+  }
   private getPlans() {
     const numberOfMonths = 12;
     const yearlyDiscountRate = 0.83;

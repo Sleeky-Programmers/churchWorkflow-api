@@ -1,6 +1,6 @@
 import { IsInt, Max, Min, IsOptional, IsString } from 'class-validator';
 import { Type } from 'class-transformer';
-import { MemberFilter } from '../utils/enums.utils';
+import { MemberFilter, CouponFilter } from '../utils/enums.utils';
 interface PaginationMetaInterface {
   page: number;
   limit: number;
@@ -45,4 +45,10 @@ export class MembersFilterDto extends PaginationBaseDto {
   @IsOptional()
   @IsString()
   filter?: MemberFilter;
+}
+
+export class CouponFilterDto extends PaginationBaseDto {
+  @IsOptional()
+  @IsString()
+  filter?: CouponFilter;
 }
