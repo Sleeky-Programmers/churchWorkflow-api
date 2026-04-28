@@ -234,8 +234,8 @@ export class SubscriptionService {
     };
   }
 
-  async getSubscriptionByPlan(){
-   const subscriptionsByPlan =    await this.subscriptionModel.aggregate([
+  async getSubscriptionByPlan() {
+    const subscriptionsByPlan = await this.subscriptionModel.aggregate([
       {
         $group: {
           _id: '$plan',
@@ -263,9 +263,8 @@ export class SubscriptionService {
     return {
       totalStarterPlans,
       totalActivePlans,
-      churchesByPlan
-    }
-
+      churchesByPlan,
+    };
   }
   private getPlans() {
     const numberOfMonths = 12;
@@ -360,6 +359,4 @@ export class SubscriptionService {
     }
     return BillingCycle.MONTHLY;
   }
-
-
 }

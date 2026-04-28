@@ -16,9 +16,9 @@ import { SubscriptionModule } from '../subscription/subscription.module';
     SubscriptionModule,
     MembersModule,
   ],
-  
+
   controllers: [ChurchController],
   providers: [ChurchService],
-  exports: [    MongooseModule, ChurchService],
+  exports: [MongooseModule, ChurchService],
 })
 export class ChurchModule {}

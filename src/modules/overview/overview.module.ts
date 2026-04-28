@@ -12,12 +12,11 @@ import { ActivityLogModule } from '../activity-log/activity-log.module';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([
-    ]),
+    MongooseModule.forFeature([]),
     ChurchModule,
     MembersModule,
     SubscriptionModule,
-    ActivityLogModule
+    ActivityLogModule,
   ],
   controllers: [OverviewController],
   providers: [OverviewService],

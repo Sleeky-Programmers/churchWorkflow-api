@@ -4,24 +4,27 @@ import { ChurchService } from '../church/church.service';
 import { SubscriptionService } from '../subscription/subscription.service';
 import { ActivityLogService } from '../activity-log/activity-log.service';
 
-
 @Injectable()
 export class OverviewService {
   constructor(
     private membersService: MembersService,
     private churchService: ChurchService,
     private subscriptionService: SubscriptionService,
-    private activityLogService:ActivityLogService
+    private activityLogService: ActivityLogService,
   ) {}
 
   async getOverview() {
-   const { totalChurches, newChurchesLast30Days } =  await this.churchService.getChurchStats();
-    const totalMembers = await  this.membersService.countAllMembers()
-   
-    const { totalActivePlans,  totalStarterPlans, churchesByPlan} = await this.subscriptionService.getSubscriptionByPlan()
-    const {topChurchByMembers} =  await this.membersService.topChurchesByMembers()
-    const recentActivities = await this.activityLogService.getRecentActivitiesSuperAdmin()
-    
+    const { totalChurches, newChurchesLast30Days } =
+      await this.churchService.getChurchStats();
+    const totalMembers = await this.membersService.countAllMembers();
+
+    const { totalActivePlans, totalStarterPlans, churchesByPlan } =
+      await this.subscriptionService.getSubscriptionByPlan();
+    const { topChurchByMembers } =
+      await this.membersService.topChurchesByMembers();
+    const recentActivities =
+      await this.activityLogService.getRecentActivitiesSuperAdmin();
+
     return {
       totalChurches,
       newChurchesLast30Days,
@@ -32,7 +35,7 @@ export class OverviewService {
 
       churchesByPlan,
       topChurchByMembers,
-       recentActivities 
+      recentActivities,
     };
   }
 }
