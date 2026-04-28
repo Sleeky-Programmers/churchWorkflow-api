@@ -1,11 +1,12 @@
-import { MiddlewareConsumer, Module, RequestMethod } from '@nestjs/common';
+// Temporary: import { MiddlewareConsumer, Module, RequestMethod } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MailerModule } from '@nestjs-modules/mailer';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { envConfig } from './config/env.config';
-import { RateLimiterMiddleware } from './middlewares/RateLimiterMiddleware';
+// Temporary: import { RateLimiterMiddleware } from './middlewares/RateLimiterMiddleware';
 import { RateLimit, RateLimitSchema } from './schemas/rate-limit.schema';
 import { AdminModule } from './modules/admin/admin.module';
 import { ChurchModule } from './modules/church/church.module';
@@ -92,9 +93,9 @@ import { SubscriptionPlanCodesModule } from './modules/subscription-plan-codes/s
   providers: [AppService],
 })
 export class AppModule {
-  configure(consumer: MiddlewareConsumer) {
-    consumer
-      .apply(RateLimiterMiddleware)
-      .forRoutes({ path: '*', method: RequestMethod.ALL });
-  }
+  // Temporary: configure(consumer: MiddlewareConsumer) {
+  //   Temporary: consumer
+  //     .apply(RateLimiterMiddleware)
+  //     .forRoutes({ path: '*', method: RequestMethod.ALL });
+  // }
 }
