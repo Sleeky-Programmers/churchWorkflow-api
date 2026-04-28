@@ -5,7 +5,6 @@ import { Coupon } from '../../schemas/coupon.schema';
 import { CreateCouponDto } from './dto/create-coupon.dto';
 import { CouponFilter } from 'src/common/utils/enums.utils';
 import {
-  PaginationBaseDto,
   CouponFilterDto,
   paginationMeta,
 } from '../../common/helpers/pagination.helper';
@@ -43,52 +42,51 @@ export class CouponService {
   async findAll(paginationBaseDto: CouponFilterDto) {
     const { page, limit, search, filter } = paginationBaseDto;
 
- const skip = (page - 1) * limit;
-  const query: any = {};
+    const skip = (page - 1) * limit;
+    const query: any = {};
 
-     
-  if (search) {
-    query.$or = [
-      { code: { $regex: search, $options: 'i' } },
-      { description: { $regex: search, $options: 'i' } },
-    ];
-  }
+    if (search) {
+      query.$or = [
+        { code: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } },
+      ];
+    }
 
-   const now = new Date();
+    const now = new Date();
 
-switch (filter) {
-  case CouponFilter.ACTIVE:
-    query.isActive = true;
-    query.$or = [
-      { expiryDate: { $exists: false } },
-      { expiryDate: { $gte: now } },
-    ];
-    break;
+    switch (filter) {
+      case CouponFilter.ACTIVE:
+        query.isActive = true;
+        query.$or = [
+          { expiryDate: { $exists: false } },
+          { expiryDate: { $gte: now } },
+        ];
+        break;
 
-  case CouponFilter.INACTIVE:
-    query.isActive = false;
-    break;
+      case CouponFilter.INACTIVE:
+        query.isActive = false;
+        break;
 
-  case CouponFilter.EXPIRED:
-    query.expiryDate = { $lt: now };
-    break;
-}
-   const [coupons, itemCount] = await Promise.all([
-  this.couponModel.find(query).skip(skip).limit(limit),
-  this.couponModel.countDocuments(query),
-]);
-    const data = coupons.map((c) => ({
-      id: c._id,
-      code: c.code,
-      description: c.description,
-      discountType: c.discountType,
-      discount: c.discount,
-      maxUsage: c.maxUsage,
-      expiryDate: c.expiryDate,
-      isActive: c.isActive,
-      usageCount: c.usageCount ?? 0,
-      createdAt: c.createdAt,
-      updatedAt: c.updatedAt,
+      case CouponFilter.EXPIRED:
+        query.expiryDate = { $lt: now };
+        break;
+    }
+    const [coupons, itemCount] = await Promise.all([
+      this.couponModel.find(query).skip(skip).limit(limit),
+      this.couponModel.countDocuments(query),
+    ]);
+    const data = coupons.map((coupon) => ({
+      id: coupon._id,
+      code: coupon.code,
+      description: coupon.description,
+      discountType: coupon.discountType,
+      discount: coupon.discount,
+      maxUsage: coupon.maxUsage,
+      expiryDate: coupon.expiryDate,
+      isActive: coupon.isActive,
+      usageCount: coupon.usageCount ?? 0,
+      createdAt: coupon.createdAt,
+      updatedAt: coupon.updatedAt,
     }));
 
     return {
@@ -159,49 +157,59 @@ switch (filter) {
   }
 
   async update(id: string, updateDto: Partial<CreateCouponDto>) {
-  const coupon = await this.couponModel.findById(id);
+    const coupon = await this.couponModel.findById(id);
 
-  if (!coupon) {
-    throw new BadRequestException('Coupon not found');
-  }
-
-
-  if (updateDto.code && updateDto.code !== coupon.code) {
-    const exists = await this.couponModel
-      .findOne({ code: updateDto.code })
-      .lean();
-
-    if (exists) {
-      throw new BadRequestException('Coupon code already exists');
+    if (!coupon) {
+      throw new BadRequestException('Coupon not found');
     }
+
+    if (updateDto.code && updateDto.code !== coupon.code) {
+      const exists = await this.couponModel
+        .findOne({ code: updateDto.code })
+        .lean();
+
+      if (exists) {
+        throw new BadRequestException('Coupon code already exists');
+      }
+    }
+
+    if (updateDto.code !== undefined) {
+      coupon.code = updateDto.code;
+    }
+    if (updateDto.description !== undefined) {
+      coupon.description = updateDto.description;
+    }
+    if (updateDto.discountType !== undefined) {
+      coupon.discountType = updateDto.discountType;
+    }
+    if (updateDto.discount !== undefined) {
+      coupon.discount = updateDto.discount;
+    }
+    if (updateDto.maxUsage !== undefined) {
+      coupon.maxUsage = updateDto.maxUsage;
+    }
+    if (updateDto.isActive !== undefined) {
+      coupon.isActive = updateDto.isActive;
+    }
+
+    if (updateDto.expiryDate) {
+      coupon.expiryDate = new Date(updateDto.expiryDate);
+    }
+
+    await coupon.save();
+
+    return coupon.toObject();
   }
 
+  async remove(id: string) {
+    const deleted = await this.couponModel.findByIdAndDelete(id);
 
-  if (updateDto.code !== undefined) coupon.code = updateDto.code;
-  if (updateDto.description !== undefined) coupon.description = updateDto.description;
-  if (updateDto.discountType !== undefined) coupon.discountType = updateDto.discountType;
-  if (updateDto.discount !== undefined) coupon.discount = updateDto.discount;
-  if (updateDto.maxUsage !== undefined) coupon.maxUsage = updateDto.maxUsage;
-  if (updateDto.isActive !== undefined) coupon.isActive = updateDto.isActive;
+    if (!deleted) {
+      throw new BadRequestException('Coupon not found');
+    }
 
-  if (updateDto.expiryDate) {
-    coupon.expiryDate = new Date(updateDto.expiryDate);
+    return {
+      message: 'Coupon deleted successfully',
+    };
   }
-
-  await coupon.save();
-
-  return coupon.toObject();
-}
-
-async remove(id: string) {
-  const deleted = await this.couponModel.findByIdAndDelete(id);
-
-  if (!deleted) {
-    throw new BadRequestException('Coupon not found');
-  }
-
-  return {
-    message: 'Coupon deleted successfully',
-  };
-}
 }

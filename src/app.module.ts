@@ -31,6 +31,7 @@ import { PaystackModule } from './modules/paystack/paystack.module';
 import { FlutterwaveModule } from './modules/flutterwave/flutterwave.module';
 import { CouponModule } from './modules/coupon/coupon.module';
 import { SubscriptionPlanCodesModule } from './modules/subscription-plan-codes/subscription-plan-codes.module';
+import { OverviewModule } from './modules/overview/overview.module';
 
 @Module({
   imports: [
@@ -87,6 +88,7 @@ import { SubscriptionPlanCodesModule } from './modules/subscription-plan-codes/s
     PaystackModule,
     FlutterwaveModule,
     SubscriptionPlanCodesModule,
+    OverviewModule,
   ],
   controllers: [AppController],
   providers: [AppService],

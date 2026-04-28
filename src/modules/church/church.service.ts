@@ -125,7 +125,12 @@ export class ChurchService {
       totalCount,
     };
   }
+  async countAllChurches() {
+  return this.churchModel.countDocuments();
 
+
+
+}
   async findDetailsById(id: string): Promise<ChurchDetails> {
     const church = await this.churchModel.findById(id).lean();
     if (!church) {
@@ -198,6 +203,27 @@ export class ChurchService {
     return church;
   }
 
+async getChurchStats() {
+  const now = new Date();
+
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  thirtyDaysAgo.setHours(0, 0, 0, 0); 
+
+  const [totalChurches, newChurchesLast30Days] = await Promise.all([
+    this.churchModel.countDocuments().exec(),
+    this.churchModel.countDocuments({
+      createdAt: { $gte: thirtyDaysAgo },
+    }).exec(),
+  ]);
+
+  return {
+    totalChurches,
+    newChurchesLast30Days,
+  };
+}
+    
+  
   async update(
     churchId: Types.ObjectId,
     data: Partial<Church>,

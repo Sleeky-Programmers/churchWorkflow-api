@@ -54,6 +54,68 @@ export class ActivityLogService {
     };
   }
 
+async getActivitiesSuperAdmin(paginationBaseDto: PaginationBaseDto) {
+  const { page = 1, limit = 10 } = paginationBaseDto;
+
+  const skip = (page - 1) * limit;
+
+  const [logs, itemCount] = await Promise.all([
+    this.activityLogModel
+      .find()
+      .populate('adminId', 'firstName lastName')
+      .populate('churchId', 'name')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+
+    this.activityLogModel.countDocuments(),
+  ]);
+
+  const formattedData = logs.map((log: any) => {
+    const activity = {
+      id: log._id,
+      action: log.action,
+      module: log.module,
+      description: log.details,
+      createdAt: log.createdAt,
+
+      adminName: log.adminId
+        ? `${log.adminId.firstName} ${log.adminId.lastName}`
+        : 'System',
+
+      churchName: log.churchId?.name || 'Unknown Church',
+      churchId: log.churchId?._id || null,
+    };
+
+    return {
+      ...activity,
+
+   
+      text: this.formatActivity(activity),
+      time: this.formatTime(activity.createdAt),
+      color: this.getActivityColor(activity.module),
+    };
+  });
+
+  return {
+    data: formattedData,
+    pagination: paginationMeta({
+      page,
+      limit,
+      itemCount,
+    }),
+  };
+}
+async getRecentActivitiesSuperAdmin(limit = 5) {
+  const { data } = await this.getActivitiesSuperAdmin({
+    page: 1,
+    limit,
+  });
+
+  return data;
+}
+
   async findById(id: string) {
     return await this.activityLogModel
       .findById(id)
@@ -135,4 +197,37 @@ export class ActivityLogService {
 
     doc.end();
   }
+private formatActivity(log: any): string {
+  const churchName = log.churchName || 'System';
+  return `${churchName} — ${log.description}`;
+}
+
+private formatTime(date: Date): string {
+  const diff = Date.now() - new Date(date).getTime();
+
+  const minutes = Math.floor(diff / (1000 * 60));
+  if (minutes < 1) return 'Just now';
+  if (minutes < 60) return `${minutes} mins ago`;
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hours ago`;
+
+  const days = Math.floor(hours / 24);
+  if (days === 1) return 'Yesterday';
+
+  return `${days} days ago`;
+}
+
+private getActivityColor(module: string): string {
+  const map = {
+    MEMBERS: 'bg-blue-500',
+    SUBSCRIPTION: 'bg-green-500',
+    PAYMENT: 'bg-amber-500',
+    CHURCH: 'bg-purple-500',
+
+  };
+
+  return map[module] || 'bg-gray-400';
+}
+
 }

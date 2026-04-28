@@ -1,7 +1,16 @@
-import { Controller, Get, Post, Body, Query, Patch, Delete, Param } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Query,
+  Patch,
+  Delete,
+  Param,
+} from '@nestjs/common';
 import { CouponService } from './coupon.service';
 import { CreateCouponDto } from './dto/create-coupon.dto';
-import { PaginationBaseDto, CouponFilterDto } from '../../common/helpers/pagination.helper';
+import { CouponFilterDto } from '../../common/helpers/pagination.helper';
 
 @Controller('coupon')
 export class CouponController {
@@ -22,17 +31,16 @@ export class CouponController {
     return this.couponService.stats();
   }
 
+  @Patch(':id')
+  async update(
+    @Param('id') id: string,
+    @Body() body: Partial<CreateCouponDto>,
+  ) {
+    return this.couponService.update(id, body);
+  }
 
-@Patch(':id')
-async update(
-  @Param('id') id: string,
-  @Body() body: Partial<CreateCouponDto>,
-) {
-  return this.couponService.update(id, body);
-}
-
-@Delete(':id')
-async remove(@Param('id') id: string) {
-  return this.couponService.remove(id);
-}
+  @Delete(':id')
+  async remove(@Param('id') id: string) {
+    return this.couponService.remove(id);
+  }
 }
