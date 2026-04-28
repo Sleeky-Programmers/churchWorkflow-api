@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { ProductAdminRole } from '../../schemas/product-admin-role.schema';
 import { DefaultProductAdminRoles } from '../../common/utils/enums.utils';
+import { CreateProductAdminRoleDto } from './dto/create-product-admin-role';
 
 @Injectable()
 export class ProductAdminRolesService {
@@ -11,7 +12,7 @@ export class ProductAdminRolesService {
     private roleModel: Model<ProductAdminRole>,
   ) {}
 
-  async create(data: Partial<ProductAdminRole>) {
+  async create(data: CreateProductAdminRoleDto) {
     return this.roleModel.create(data);
   }
 

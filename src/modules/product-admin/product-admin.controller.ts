@@ -67,7 +67,11 @@ export class ProductAdminController {
       body.name,
       body.password,
     );
-    return { message: 'Account created', user: created };
+
+    return {
+      message: 'Account created',
+      user: created,
+    };
   }
 
   @UseGuards(ProductAdminJwtAuthGuard)

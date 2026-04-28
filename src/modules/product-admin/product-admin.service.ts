@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, OnModuleInit, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import * as bcrypt from 'bcryptjs';
@@ -15,6 +15,7 @@ import {
   ProductAdminInviteStatus,
   ProductAdminStatus,
 } from '../../common/utils/enums.utils';
+import { EmailService } from '../email/email.service';
 
 @Injectable()
 export class ProductAdminService implements OnModuleInit {
@@ -25,6 +26,7 @@ export class ProductAdminService implements OnModuleInit {
     private inviteModel: Model<ProductAdminInvite>,
     private configService: ConfigService,
     private rolesService: ProductAdminRolesService,
+    private emailService: EmailService,
   ) {}
 
   async onModuleInit() {
@@ -77,6 +79,11 @@ export class ProductAdminService implements OnModuleInit {
   }
 
   async inviteAdmin(email: string, roleId: string) {
+    const role = await this.rolesService.findById(roleId);
+    if (!role) {
+      throw new BadRequestException('Invalid role');
+    }
+
     const token = Math.random().toString(36).slice(2) + Date.now().toString(36);
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
@@ -87,6 +94,81 @@ export class ProductAdminService implements OnModuleInit {
       token,
       expiresAt,
     });
+
+    const frontendUrl = process.env.PRODUCT_ADMIN_FRONTEND_URL;
+    const baseUrl = frontendUrl.replace(/\/$/, '');
+    const inviteUrl = `${baseUrl}/accept-invite?token=${token}`;
+
+    const html = `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+      <meta charset="UTF-8" />
+      <title>Church Workflow</title>
+      <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; } 
+        body { background: #F7F7F8; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #000000; line-height: 1.5; } 
+        .email-wrapper { max-width: 640px; margin: 40px auto; background: #ffffff; } 
+        .header { background-color: #0C5FB3; padding: 28px 32px; text-align: center; } 
+        .logo-image { height: 42px; width: auto; display: inline-block; } 
+        .content { padding: 48px 48px 40px; text-align: center; } 
+        .content h1 { font-size: 26px; font-weight: 700; margin-bottom: 24px; } 
+        .content p { font-size: 16px; margin-bottom: 16px; } 
+        .role { color: #0C5FB3; font-weight: 600; font-size: 18px; margin-top: 4px; } 
+        .button-wrapper { margin: 32px 0; display: inline-block; background-color: #0C5FB3; border-radius: 8px; } 
+        .btn { color: #ffffff !important; text-decoration: none; font-weight: 600; font-size: 16px; display: block; padding: 14px 28px; } 
+        .fine-print { font-size: 14px; color: #737373; margin-top: 24px; } 
+        .footer { text-align: center; padding: 0 40px 40px; font-size: 13px; color: #737373; } 
+        .footer a { color: #0C5FB3; text-decoration: none; } 
+        .copyright { margin-top: 16px; font-size: 12px; }
+      </style>
+      </head>
+      <body>
+        <div class="email-wrapper">
+          <div class="header">
+            <img
+              src="https://res.cloudinary.com/dlw6sowno/image/upload/v1769148983/cw-logo_apjjxi.png"
+              alt="Church Workflow"
+              class="logo-image"
+            />
+          </div>
+
+          <div class="content">
+            <h1>You've been invited 🎉</h1>
+
+            <p>You have been invited to join the <strong>Church Workflow</strong> product administration panel.</p>
+
+            <p>Your assigned role:</p>
+            <div class="role">${role.name.replace(/_/g, ' ')}</div>
+
+            <div class="button-wrapper">
+              <a href="${inviteUrl}" class="btn">Accept Invitation</a>
+            </div>
+
+            <p class="fine-print">
+              This invitation expires in 7 days. If you did not expect this, please contact your administrator.
+            </p>
+          </div>
+
+          <div class="footer">
+            <p>This notification was sent via Church Workflow.</p>
+
+            <p>
+              <a href="https://admin.churchworkflow.com" target="_blank" rel="noopener noreferrer">
+                app.churchworkflow.com
+              </a>
+            </p>
+
+            <div class="copyright">
+              © ${new Date().getFullYear()} Church Workflow. All rights reserved.
+            </div>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    await this.emailService.sendEmail(email, 'Product Admin Invitation', html);
 
     return invite;
   }
@@ -115,7 +197,8 @@ export class ProductAdminService implements OnModuleInit {
     invite.status = ProductAdminInviteStatus.ACCEPTED;
     await invite.save();
 
-    return created;
+    const { password: _, ...rest } = created.toObject();
+    return rest;
   }
 
   async blockAdmin(id: string) {
@@ -152,7 +235,12 @@ export class ProductAdminService implements OnModuleInit {
     return { total, active, blocked, superAdmins: superCount };
   }
 
-  async list(filter: PaginationBaseDto & { role?: string; status?: string }) {
+  async list(
+    filter: PaginationBaseDto & { role?: string; status?: string },
+  ): Promise<{
+    data: any[];
+    pagination: any;
+  }> {
     const page = filter.page || 1;
     const limit = filter.limit || 20;
     const skip = (page - 1) * limit;
@@ -176,6 +264,14 @@ export class ProductAdminService implements OnModuleInit {
       this.productAdminModel.countDocuments(query),
     ]);
 
-    return { data, pagination: paginationMeta({ page, limit, itemCount }) };
+    const adminData = data.map((admin) => {
+      const { password: _, ...rest } = admin;
+      return rest;
+    });
+
+    return {
+      data: adminData,
+      pagination: paginationMeta({ page, limit, itemCount }),
+    };
   }
 }

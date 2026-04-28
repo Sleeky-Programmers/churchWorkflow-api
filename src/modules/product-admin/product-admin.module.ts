@@ -14,6 +14,7 @@ import {
   ProductAdminInvite,
   ProductAdminInviteSchema,
 } from '../../schemas/product-admin-invite.schema';
+import { EmailModule } from '../email/email.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import {
       { name: ProductAdminInvite.name, schema: ProductAdminInviteSchema },
     ]),
     ProductAdminRolesModule,
+    EmailModule,
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
