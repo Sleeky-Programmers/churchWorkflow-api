@@ -6,6 +6,7 @@ import { FlutterwaveController } from './flutterwave.controller';
 import { PaymentModule } from '../payment/payment.module';
 import { SubscriptionModule } from '../subscription/subscription.module';
 import { CouponModule } from '../coupon/coupon.module';
+import { AdminActivityLogModule } from '../admin-activity-log/admin-activity-log.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { CouponModule } from '../coupon/coupon.module';
     forwardRef(() => PaymentModule),
     forwardRef(() => SubscriptionModule),
     CouponModule,
+    AdminActivityLogModule,
   ],
   controllers: [FlutterwaveController],
   providers: [FlutterwaveService],

@@ -13,6 +13,8 @@ import { FileUploadService } from '../file-upload/file-upload.service';
 import { AdminService } from '../admin/admin.service';
 import { SubscriptionService } from '../subscription/subscription.service';
 import { MembersService } from '../members/members.service';
+import { AdminActivityLogService } from '../admin-activity-log/admin-activity-log.service';
+import { PlanType } from '../../common/utils/enums.utils';
 import { ChurchDetails } from '../../common/utils/types.utils';
 import { ChurchSubscriptionStatus } from '../../common/utils/enums.utils';
 
@@ -25,6 +27,7 @@ export class ChurchService {
     private adminService: AdminService,
     private subscriptionService: SubscriptionService,
     private membersService: MembersService,
+    private adminActivityLogService: AdminActivityLogService,
   ) {}
 
   async findById(id: Types.ObjectId) {
@@ -197,6 +200,12 @@ export class ChurchService {
       await this.subscriptionService.createTrialSubscription(church._id);
     }
 
+    await this.adminActivityLogService.create({
+      action: 'CHURCH_REGISTERED',
+      details: `Church ${church.name} registered`,
+      plan: PlanType.STARTER,
+    } as any);
+
     return church;
   }
 
@@ -234,6 +243,18 @@ export class ChurchService {
 
     return await this.churchModel.findByIdAndUpdate(churchId, data, {
       new: true,
+    });
+  }
+
+  async countAll() {
+    return await this.churchModel.countDocuments();
+  }
+
+  async countRegisteredSince(days: number) {
+    const since = new Date();
+    since.setDate(since.getDate() - days);
+    return await this.churchModel.countDocuments({
+      createdAt: { $gte: since },
     });
   }
 }

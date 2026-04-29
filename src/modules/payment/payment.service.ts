@@ -1,11 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { Payment } from '../../schemas/payment.schema';
 import {
   PaymentStatus,
   PaymentTimeframe,
 } from '../../common/utils/enums.utils';
+import { AdminActivityLogService } from '../admin-activity-log/admin-activity-log.service';
 import { PaymentFilterDto } from './dto/payment-filter.dto';
 import { paginationMeta } from '../../common/helpers/pagination.helper';
 
@@ -13,6 +14,7 @@ import { paginationMeta } from '../../common/helpers/pagination.helper';
 export class PaymentService {
   constructor(
     @InjectModel(Payment.name) private paymentModel: Model<Payment>,
+    private adminActivityLogService: AdminActivityLogService,
   ) {}
 
   async createPayment(paymentData: Partial<Payment>) {
@@ -41,7 +43,7 @@ export class PaymentService {
     provider: string,
     providerSubscriptionRef: string,
   ) {
-    return await this.paymentModel.findOneAndUpdate(
+    const updated = await this.paymentModel.findOneAndUpdate(
       { reference },
       {
         $set: {
@@ -54,6 +56,14 @@ export class PaymentService {
       },
       { new: true },
     );
+
+    await this.adminActivityLogService.create({
+      action: 'PROVIDER_SUBSCRIPTION_CREATED',
+      details: `Provider subscription created: ${providerSubscriptionRef}`,
+      plan: updated.plan as any,
+    } as any);
+
+    return updated;
   }
 
   async getChurchPayments(churchId: string) {
@@ -88,7 +98,7 @@ export class PaymentService {
     if (!code) {
       return null;
     }
-    return await this.paymentModel.updateMany(
+    const res = await this.paymentModel.updateMany(
       {
         'metadata.providerSubscription.providerSubscriptionRef.subscription_code':
           code,
@@ -100,6 +110,13 @@ export class PaymentService {
         },
       },
     );
+
+    await this.adminActivityLogService.create({
+      action: 'PROVIDER_SUBSCRIPTION_CANCELED',
+      details: `Provider subscription ${code} canceled`,
+    } as any);
+
+    return res;
   }
 
   async findLatestByChurch(churchId: any) {
@@ -234,9 +251,113 @@ export class PaymentService {
       totalRevenue: agg.totalRevenue || 0,
       pendingCount: agg.pendingCount || 0,
       pendingAmount: agg.pendingAmount || 0,
-      successRate,
+      successRate: successRate.toFixed(2) + '%',
       failedCount: agg.failedCount || 0,
       totalCount: agg.totalCount || 0,
     };
+  }
+
+  async getMRRForChurchIds(churchIds?: Types.ObjectId[]) {
+    const match: any = { status: PaymentStatus.SUCCESS };
+    if (churchIds && churchIds.length) {
+      match.churchId = { $in: churchIds.map((id) => new Types.ObjectId(id)) };
+    }
+
+    const pipeline: any[] = [
+      { $match: match },
+      {
+        $group: {
+          _id: null,
+          monthlyEquivalent: {
+            $sum: {
+              $switch: {
+                branches: [
+                  {
+                    case: { $eq: ['$billingCycle', 'MONTHLY'] },
+                    then: '$amount',
+                  },
+                  {
+                    case: { $eq: ['$billingCycle', 'YEARLY'] },
+                    then: { $divide: ['$amount', 12] },
+                  },
+                ],
+                default: 0,
+              },
+            },
+          },
+        },
+      },
+    ];
+
+    const res = await this.paymentModel.aggregate(pipeline as any);
+    return (res[0]?.monthlyEquivalent as number) || 0;
+  }
+
+  async getMRRBetween(from?: Date, to?: Date) {
+    const match: any = { status: PaymentStatus.SUCCESS };
+    if (from || to) {
+      match.createdAt = {};
+      if (from) {
+        match.createdAt.$gte = from;
+      }
+      if (to) {
+        match.createdAt.$lt = to;
+      }
+    }
+
+    const pipeline: any[] = [
+      { $match: match },
+      {
+        $group: {
+          _id: null,
+          monthlyEquivalent: {
+            $sum: {
+              $switch: {
+                branches: [
+                  {
+                    case: { $eq: ['$billingCycle', 'MONTHLY'] },
+                    then: '$amount',
+                  },
+                  {
+                    case: { $eq: ['$billingCycle', 'YEARLY'] },
+                    then: { $divide: ['$amount', 12] },
+                  },
+                ],
+                default: 0,
+              },
+            },
+          },
+        },
+      },
+    ];
+
+    const res = await this.paymentModel.aggregate(pipeline as any);
+    return (res[0]?.monthlyEquivalent as number) || 0;
+  }
+
+  async getRevenueBetween(from?: Date, to?: Date) {
+    const match: any = { status: PaymentStatus.SUCCESS };
+    if (from || to) {
+      match.createdAt = {};
+      if (from) {
+        match.createdAt.$gte = from;
+      }
+      if (to) {
+        match.createdAt.$lt = to;
+      }
+    }
+
+    const pipeline = [
+      { $match: match },
+      {
+        $group: {
+          _id: null,
+          totalRevenue: { $sum: '$amount' },
+        },
+      },
+    ];
+
+    const res = await this.paymentModel.aggregate(pipeline as any);
+    return (res[0]?.totalRevenue as number) || 0;
   }
 }

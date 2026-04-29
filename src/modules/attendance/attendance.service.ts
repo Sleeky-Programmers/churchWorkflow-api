@@ -456,6 +456,45 @@ export class AttendanceService {
       .lean();
   }
 
+  async countDistinctPresentMembers(days?: number) {
+    const match: any = { status: AttendanceStatus.PRESENT };
+    if (days) {
+      const since = new Date();
+      since.setDate(since.getDate() - days);
+      match.date = { $gte: since };
+    }
+
+    const res = await this.attendanceModel.aggregate([
+      { $match: match },
+      { $group: { _id: '$memberId' } },
+      { $count: 'count' },
+    ]);
+
+    return (res[0]?.count as number) || 0;
+  }
+
+  async countDistinctPresentMembersBetween(from?: string, to?: string) {
+    const match: any = { status: AttendanceStatus.PRESENT };
+
+    if (from || to) {
+      match.date = {};
+      if (from) {
+        match.date.$gte = new Date(from);
+      }
+      if (to) {
+        match.date.$lt = new Date(to);
+      }
+    }
+
+    const res = await this.attendanceModel.aggregate([
+      { $match: match },
+      { $group: { _id: '$memberId' } },
+      { $count: 'count' },
+    ]);
+
+    return (res[0]?.count as number) || 0;
+  }
+
   private async replaceAttendanceByStatus(
     authUser: Admin,
     serviceId: string,

@@ -32,6 +32,9 @@ import { PaystackModule } from './modules/paystack/paystack.module';
 import { FlutterwaveModule } from './modules/flutterwave/flutterwave.module';
 import { CouponModule } from './modules/coupon/coupon.module';
 import { SubscriptionPlanCodesModule } from './modules/subscription-plan-codes/subscription-plan-codes.module';
+import { ProductAdminModule } from './modules/product-admin/product-admin.module';
+import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { AdminActivityLogModule } from './modules/admin-activity-log/admin-activity-log.module';
 import { OverviewModule } from './modules/overview/overview.module';
 
 @Module({
@@ -89,6 +92,9 @@ import { OverviewModule } from './modules/overview/overview.module';
     PaystackModule,
     FlutterwaveModule,
     SubscriptionPlanCodesModule,
+    ProductAdminModule,
+    AnalyticsModule,
+    AdminActivityLogModule,
     OverviewModule,
   ],
   controllers: [AppController],

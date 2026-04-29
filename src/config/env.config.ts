@@ -28,4 +28,11 @@ export const envConfig = () => ({
     baseUrl: process.env.FLUTTERWAVE_BASE_URL,
     redirectUrl: process.env.FLUTTERWAVE_REDIRECT_URL,
   },
+  productAdmin: {
+    seedName: process.env.PRODUCT_ADMIN_SEED_NAME,
+    seedEmail: process.env.PRODUCT_ADMIN_SEED_EMAIL,
+    seedPassword: process.env.PRODUCT_ADMIN_SEED_PASSWORD,
+    jwtSecret: process.env.PRODUCT_ADMIN_JWT_SECRET,
+    jwtExpiresIn: process.env.PRODUCT_ADMIN_JWT_EXPIRES_IN,
+  },
 });

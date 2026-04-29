@@ -7,6 +7,7 @@ import { MembersModule } from '../members/members.module';
 import { FileUploadModule } from '../file-upload/file-upload.module';
 import { AdminModule } from '../admin/admin.module';
 import { SubscriptionModule } from '../subscription/subscription.module';
+import { AdminActivityLogModule } from '../admin-activity-log/admin-activity-log.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { SubscriptionModule } from '../subscription/subscription.module';
     FileUploadModule,
     forwardRef(() => AdminModule),
     SubscriptionModule,
+    AdminActivityLogModule,
     MembersModule,
   ],
 

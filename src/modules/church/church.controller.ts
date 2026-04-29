@@ -19,6 +19,7 @@ import { JwtAuthGuard } from '../auth/guard/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { ChurchFilterDto } from './dto/church-filter.dto';
+import { ProductAdminJwtAuthGuard } from '../product-admin/guard/product-jwt-auth.guard';
 
 @Controller('church')
 export class ChurchController {
@@ -30,11 +31,13 @@ export class ChurchController {
     return this.churchService.findCurrentChurch(authUser);
   }
 
+  @UseGuards(ProductAdminJwtAuthGuard)
   @Get()
   getAllChurches(@Query() filter: ChurchFilterDto) {
     return this.churchService.findAll(filter);
   }
 
+  @UseGuards(ProductAdminJwtAuthGuard)
   @Get(':id')
   getChurchById(@Param('id') id: string) {
     return this.churchService.findDetailsById(id);

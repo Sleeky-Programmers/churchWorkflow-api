@@ -10,6 +10,7 @@ import { PermissionsGuard } from '../../common/guards/permissions.guard';
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class SubscriptionController {
   constructor(private readonly subscriptionService: SubscriptionService) {}
+
   @Get('overview')
   getBillingOverview(@AuthUser() authUser: Admin) {
     return this.subscriptionService.getBillingOverview(

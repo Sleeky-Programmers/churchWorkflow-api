@@ -7,7 +7,7 @@ import {
   SubscriptionSchema,
 } from '../../schemas/subscription.schema';
 import { PaymentModule } from '../payment/payment.module';
-import { SubscriptionPlanCodesModule } from '../subscription-plan-codes/subscription-plan-codes.module';
+import { AdminActivityLogModule } from '../admin-activity-log/admin-activity-log.module';
 
 @Module({
   imports: [
@@ -15,7 +15,7 @@ import { SubscriptionPlanCodesModule } from '../subscription-plan-codes/subscrip
       { name: Subscription.name, schema: SubscriptionSchema },
     ]),
     forwardRef(() => PaymentModule),
-    SubscriptionPlanCodesModule,
+    AdminActivityLogModule,
   ],
   controllers: [SubscriptionController],
   providers: [SubscriptionService],

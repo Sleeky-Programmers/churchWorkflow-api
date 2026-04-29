@@ -7,6 +7,7 @@ import { PaystackModule } from '../paystack/paystack.module';
 import { FlutterwaveModule } from '../flutterwave/flutterwave.module';
 import { CouponModule } from '../coupon/coupon.module';
 import { SubscriptionModule } from '../subscription/subscription.module';
+import { AdminActivityLogModule } from '../admin-activity-log/admin-activity-log.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { SubscriptionModule } from '../subscription/subscription.module';
     forwardRef(() => FlutterwaveModule),
     CouponModule,
     forwardRef(() => SubscriptionModule),
+    AdminActivityLogModule,
   ],
   controllers: [PaymentController],
   providers: [PaymentService],

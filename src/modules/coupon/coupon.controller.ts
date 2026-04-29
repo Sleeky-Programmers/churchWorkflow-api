@@ -7,11 +7,14 @@ import {
   Patch,
   Delete,
   Param,
+  UseGuards,
 } from '@nestjs/common';
 import { CouponService } from './coupon.service';
 import { CreateCouponDto } from './dto/create-coupon.dto';
 import { CouponFilterDto } from '../../common/helpers/pagination.helper';
+import { ProductAdminJwtAuthGuard } from '../product-admin/guard/product-jwt-auth.guard';
 
+@UseGuards(ProductAdminJwtAuthGuard)
 @Controller('coupon')
 export class CouponController {
   constructor(private readonly couponService: CouponService) {}

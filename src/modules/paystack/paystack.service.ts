@@ -18,6 +18,7 @@ import {
 import { SubscriptionService } from '../subscription/subscription.service';
 import { SubscriptionPlanCodesService } from '../subscription-plan-codes/subscription-plan-codes.service';
 import { Types } from 'mongoose';
+import { AdminActivityLogService } from '../admin-activity-log/admin-activity-log.service';
 
 @Injectable()
 export class PaystackService {
@@ -31,6 +32,7 @@ export class PaystackService {
     private readonly subscriptionService: SubscriptionService,
     private readonly couponService: CouponService,
     private readonly subscriptionPlanCodesService: SubscriptionPlanCodesService,
+    private adminActivityLogService: AdminActivityLogService,
   ) {
     this.secretKey = this.configService.get<string>('paystack.secretKey');
     this.baseUrl = this.configService.get<string>('paystack.baseUrl');
@@ -110,6 +112,12 @@ export class PaystackService {
         metadata: payload.metadata,
       });
 
+      await this.adminActivityLogService.create({
+        action: 'PAYMENT_INITIATED',
+        details: `Reference ${reference} for plan ${data.plan}`,
+        plan: data.plan as any,
+      } as any);
+
       return { reference, authorization_url };
     } catch (error: any) {
       throw new InternalServerErrorException(
@@ -147,6 +155,12 @@ export class PaystackService {
           },
         );
 
+        await this.adminActivityLogService.create({
+          action: 'PAYMENT_SUCCESS',
+          details: `Reference ${reference} paid for plan ${plan}`,
+          plan: plan as any,
+        } as any);
+
         let providerData = undefined;
 
         if (autoRenew) {
@@ -177,6 +191,12 @@ export class PaystackService {
           reference,
           PaymentStatus.FAILED,
         );
+
+        await this.adminActivityLogService.create({
+          action: 'PAYMENT_FAILED',
+          details: `Reference ${reference} failed`,
+        } as any);
+
         return data;
       }
     } catch (error: any) {
@@ -199,6 +219,12 @@ export class PaystackService {
             PaymentStatus.SUCCESS,
             new Date(paid_at),
           );
+
+          await this.adminActivityLogService.create({
+            action: 'PAYMENT_SUCCESS',
+            details: `Webhook reference ${reference} succeeded for plan ${metadata.plan}`,
+            plan: metadata.plan,
+          } as any);
 
           await this.subscriptionService.updateSubscription({
             churchId: metadata.churchId,
@@ -229,6 +255,12 @@ export class PaystackService {
           data.reference,
           PaymentStatus.FAILED,
         );
+
+        await this.adminActivityLogService.create({
+          action: 'PAYMENT_FAILED',
+          details: `Webhook reference ${data.reference} failed`,
+        } as any);
+
         break;
       case 'subscription.create': {
         const paymentRecord =

@@ -12,6 +12,7 @@ import {
   PaymentProvider,
 } from '../../common/utils/enums.utils';
 import { Types } from 'mongoose';
+import { AdminActivityLogService } from '../admin-activity-log/admin-activity-log.service';
 
 @Injectable()
 export class FlutterwaveService {
@@ -24,6 +25,7 @@ export class FlutterwaveService {
     private readonly paymentService: PaymentService,
     private readonly subscriptionService: SubscriptionService,
     private readonly couponService: CouponService,
+    private readonly adminActivityLogService: AdminActivityLogService,
   ) {
     this.secretKey = this.configService.get<string>('flutterwave.secretKey');
     this.baseUrl = this.configService.get<string>('flutterwave.baseUrl');
@@ -91,6 +93,12 @@ export class FlutterwaveService {
         metadata: payload.meta,
       });
 
+      await this.adminActivityLogService.create({
+        action: 'PAYMENT_INITIATED',
+        details: `Reference ${tx_ref} for plan ${data.plan}`,
+        plan: data.plan as any,
+      } as any);
+
       return {
         reference: tx_ref,
         authorization_url:
@@ -131,6 +139,12 @@ export class FlutterwaveService {
           },
         );
 
+        await this.adminActivityLogService.create({
+          action: 'PAYMENT_SUCCESS',
+          details: `Reference ${reference} paid for plan ${meta.plan}`,
+          plan: meta.plan,
+        } as any);
+
         await this.subscriptionService.updateSubscription({
           churchId: meta.churchId,
           plan: meta.plan as PlanType,
@@ -161,6 +175,12 @@ export class FlutterwaveService {
           reference,
           PaymentStatus.FAILED,
         );
+
+        await this.adminActivityLogService.create({
+          action: 'PAYMENT_FAILED',
+          details: `Reference ${reference} failed`,
+        } as any);
+
         return data;
       }
     } catch (error: any) {
@@ -183,6 +203,12 @@ export class FlutterwaveService {
           PaymentStatus.SUCCESS,
           new Date(data.created_at || Date.now()),
         );
+
+        await this.adminActivityLogService.create({
+          action: 'PAYMENT_SUCCESS',
+          details: `Webhook reference ${reference} succeeded for plan ${meta.plan}`,
+          plan: meta.plan,
+        } as any);
 
         await this.subscriptionService.updateSubscription({
           churchId: meta.churchId,
