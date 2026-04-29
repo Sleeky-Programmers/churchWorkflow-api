@@ -554,9 +554,6 @@ export class MembersService {
       churchId,
     });
   }
-  async countAllMembers() {
-    return this.memberModel.countDocuments();
-  }
 
   async getMemberById(
     id: string,
