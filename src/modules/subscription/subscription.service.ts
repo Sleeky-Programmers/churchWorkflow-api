@@ -294,7 +294,7 @@ export class SubscriptionService {
       churchesByPlan,
     };
   }
-  
+
   private getPlans() {
     const numberOfMonths = 12;
     const yearlyDiscountRate = 0.83;
