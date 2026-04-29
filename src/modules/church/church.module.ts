@@ -18,8 +18,9 @@ import { AdminActivityLogModule } from '../admin-activity-log/admin-activity-log
     AdminActivityLogModule,
     MembersModule,
   ],
+
   controllers: [ChurchController],
   providers: [ChurchService],
-  exports: [ChurchService],
+  exports: [MongooseModule, ChurchService],
 })
 export class ChurchModule {}

@@ -1,7 +1,16 @@
-import { Controller, Get, Post, Body, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Query,
+  Patch,
+  Delete,
+  Param,
+} from '@nestjs/common';
 import { CouponService } from './coupon.service';
 import { CreateCouponDto } from './dto/create-coupon.dto';
-import { PaginationBaseDto } from '../../common/helpers/pagination.helper';
+import { CouponFilterDto } from '../../common/helpers/pagination.helper';
 import { ProductAdminJwtAuthGuard } from '../product-admin/guard/product-jwt-auth.guard';
 
 @UseGuards(ProductAdminJwtAuthGuard)
@@ -15,12 +24,25 @@ export class CouponController {
   }
 
   @Get()
-  async findAll(@Query() paginationBaseDto: PaginationBaseDto) {
+  async findAll(@Query() paginationBaseDto: CouponFilterDto) {
     return this.couponService.findAll(paginationBaseDto);
   }
 
   @Get('stats')
   async stats() {
     return this.couponService.stats();
+  }
+
+  @Patch(':id')
+  async update(
+    @Param('id') id: string,
+    @Body() body: Partial<CreateCouponDto>,
+  ) {
+    return this.couponService.update(id, body);
+  }
+
+  @Delete(':id')
+  async remove(@Param('id') id: string) {
+    return this.couponService.remove(id);
   }
 }

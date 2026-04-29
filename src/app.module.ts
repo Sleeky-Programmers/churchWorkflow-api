@@ -35,6 +35,7 @@ import { SubscriptionPlanCodesModule } from './modules/subscription-plan-codes/s
 import { ProductAdminModule } from './modules/product-admin/product-admin.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { AdminActivityLogModule } from './modules/admin-activity-log/admin-activity-log.module';
+import { OverviewModule } from './modules/overview/overview.module';
 
 @Module({
   imports: [
@@ -94,6 +95,7 @@ import { AdminActivityLogModule } from './modules/admin-activity-log/admin-activ
     ProductAdminModule,
     AnalyticsModule,
     AdminActivityLogModule,
+    OverviewModule,
   ],
   controllers: [AppController],
   providers: [AppService],
