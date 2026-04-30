@@ -50,6 +50,10 @@ export class ChurchServicesController {
   }
 
   @Get('by-date')
+  @RequirePermissions({
+    section: ModuleSections.EVENTS,
+    level: AccessLevel.VIEW,
+  })
   getServicesByDate(@AuthUser() authUser: Admin, @Query('date') date: string) {
     return this.churchServicesService.getServicesByDate(
       new Date(date),
