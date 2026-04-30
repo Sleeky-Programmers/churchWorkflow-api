@@ -14,6 +14,7 @@ export class AdminController {
   async findAll(@AuthUser() authUser: Admin, @Query() dto: PaginationBaseDto) {
     return this.adminService.findAllAdminWithPagination(authUser.churchId, dto);
   }
+
   @UseGuards(JwtAuthGuard)
   @Patch('me')
   async updateProfile(

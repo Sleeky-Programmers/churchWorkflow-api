@@ -141,8 +141,10 @@ export class MembersService {
     const errors: { row: number; column?: string; reason: string }[] = [];
     const existingEmailSet = new Set<string>();
     const existingIdentitySet = new Set<string>();
+    const existingPhoneSet = new Set<string>();
     const batchEmailSet = new Set<string>();
     const batchIdentitySet = new Set<string>();
+    const batchPhoneSet = new Set<string>();
 
     let rowIndex = 1;
 
@@ -155,6 +157,11 @@ export class MembersService {
       const emailKey = normalizeText(member.email);
       if (emailKey) {
         existingEmailSet.add(emailKey);
+      }
+
+      const phoneKey = normalizeText(member.phoneNumber);
+      if (phoneKey) {
+        existingPhoneSet.add(phoneKey);
       }
 
       const identityKey = [
@@ -294,6 +301,17 @@ export class MembersService {
             });
           }
 
+          const phoneKey = normalizeText(parsedData.phoneNumber);
+          if (
+            phoneKey &&
+            (existingPhoneSet.has(phoneKey) || batchPhoneSet.has(phoneKey))
+          ) {
+            rowErrors.push({
+              column: 'phoneNumber',
+              reason: 'Member with this phone number already exists',
+            });
+          }
+
           const identityKey = [
             normalizeText(parsedData.fullName),
             normalizeDateKey(parsedData.birthday),
@@ -347,6 +365,9 @@ export class MembersService {
           if (emailKey) {
             batchEmailSet.add(emailKey);
           }
+          if (phoneKey) {
+            batchPhoneSet.add(phoneKey);
+          }
           if (identityKey !== '||') {
             batchIdentitySet.add(identityKey);
           }
@@ -394,6 +415,44 @@ export class MembersService {
       membershipStatus:
         createMemberDto.membershipStatus || MembershipStatus.MEMBER,
     };
+
+    // Ensure email or phone is unique within the church
+    const email = payload.email?.toLowerCase()?.trim();
+    const phone = payload.phoneNumber?.trim();
+
+    if (email || phone) {
+      const conflict = await this.memberModel.findOne({
+        churchId: authUser.churchId,
+        $or: [
+          ...(email ? [{ email }] : []),
+          ...(phone ? [{ phoneNumber: phone }] : []),
+        ],
+      });
+
+      if (conflict) {
+        if (
+          conflict.email &&
+          email &&
+          normalizeText(conflict.email) === normalizeText(email)
+        ) {
+          throw new BadRequestException(
+            'Member with this email already exists',
+          );
+        }
+        if (
+          conflict.phoneNumber &&
+          phone &&
+          normalizeText(conflict.phoneNumber) === normalizeText(phone)
+        ) {
+          throw new BadRequestException(
+            'Member with this phone number already exists',
+          );
+        }
+        throw new BadRequestException(
+          'Member with same contact already exists',
+        );
+      }
+    }
 
     const createdMember = await this.memberModel.create({
       churchId: authUser.churchId,
@@ -639,6 +698,49 @@ export class MembersService {
   }
 
   async updateMember(id: string, updateMemberDto: UpdateMemberDto) {
+    const member = await this.memberModel.findById(id).lean();
+    if (!member) {
+      return null;
+    }
+
+    const email = updateMemberDto.email?.toLowerCase()?.trim();
+    const phone = updateMemberDto.phoneNumber?.trim();
+
+    if (email || phone) {
+      const conflict = await this.memberModel.findOne({
+        churchId: member.churchId,
+        _id: { $ne: new Types.ObjectId(id) },
+        $or: [
+          ...(email ? [{ email }] : []),
+          ...(phone ? [{ phoneNumber: phone }] : []),
+        ],
+      });
+
+      if (conflict) {
+        if (
+          conflict.email &&
+          email &&
+          normalizeText(conflict.email) === normalizeText(email)
+        ) {
+          throw new BadRequestException(
+            'Member with this email already exists',
+          );
+        }
+        if (
+          conflict.phoneNumber &&
+          phone &&
+          normalizeText(conflict.phoneNumber) === normalizeText(phone)
+        ) {
+          throw new BadRequestException(
+            'Member with this phone number already exists',
+          );
+        }
+        throw new BadRequestException(
+          'Member with same contact already exists',
+        );
+      }
+    }
+
     return await this.memberModel.findByIdAndUpdate(id, updateMemberDto, {
       new: true,
     });
