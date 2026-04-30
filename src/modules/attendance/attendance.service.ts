@@ -511,6 +511,61 @@ export class AttendanceService {
     }
 
     const attendanceDate = new Date(createAttendanceDto.date);
+
+    if (isNaN(attendanceDate.getTime())) {
+      throw new BadRequestException('Invalid attendance date');
+    }
+
+    const now = new Date();
+    attendanceDate.setHours(0, 0, 0, 0);
+
+    const today = new Date(now);
+    today.setHours(0, 0, 0, 0);
+
+    if (attendanceDate.getTime() > today.getTime()) {
+      throw new BadRequestException(
+        'Cannot mark attendance for a future service',
+      );
+    }
+
+    if (attendanceDate.getTime() === today.getTime()) {
+      let startTimeStr: string | undefined;
+
+      if (service?.specialDays?.length) {
+        const matched = service.specialDays.find((specialDay: any) => {
+          if (!specialDay?.date) {
+            return false;
+          }
+
+          const specialDayDate = new Date(specialDay.date);
+          specialDayDate.setHours(0, 0, 0, 0);
+
+          return specialDayDate.getTime() === attendanceDate.getTime();
+        });
+
+        if (matched?.startTime) {
+          startTimeStr = matched.startTime;
+        }
+      }
+
+      if (!startTimeStr) {
+        startTimeStr = service?.startTime;
+      }
+
+      if (startTimeStr) {
+        const serviceDateTime = this.combineDateAnd12HourTime(
+          attendanceDate,
+          startTimeStr,
+        );
+
+        if (serviceDateTime.getTime() > now.getTime()) {
+          throw new BadRequestException(
+            'Cannot mark attendance for a future service',
+          );
+        }
+      }
+    }
+
     let memberIds = createAttendanceDto.memberIds || [];
 
     if (createAttendanceDto.isAllPresent) {
@@ -524,7 +579,7 @@ export class AttendanceService {
       status,
     });
 
-    if (memberIds.length === 0) {
+    if (!memberIds.length) {
       return;
     }
 
@@ -537,5 +592,30 @@ export class AttendanceService {
         status,
       })),
     );
+  }
+
+  private combineDateAnd12HourTime(baseDate: Date, timeStr: string): Date {
+    const match = timeStr.trim().match(/^(\d{1,2}):(\d{2})\s?(AM|PM)$/i);
+
+    if (!match) {
+      throw new BadRequestException(`Invalid time format: ${timeStr}`);
+    }
+
+    let hours = parseInt(match[1], 10);
+    const minutes = parseInt(match[2], 10);
+    const meridian = match[3].toUpperCase();
+
+    if (meridian === 'AM' && hours === 12) {
+      hours = 0;
+    }
+
+    if (meridian === 'PM' && hours !== 12) {
+      hours += 12;
+    }
+
+    const result = new Date(baseDate);
+    result.setHours(hours, minutes, 0, 0);
+
+    return result;
   }
 }
