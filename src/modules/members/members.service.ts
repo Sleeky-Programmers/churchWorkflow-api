@@ -548,13 +548,6 @@ export class MembersService {
     });
   }
 
-  async existsInChurch(memberId: string, churchId: Types.ObjectId) {
-    return await this.memberModel.exists({
-      _id: new Types.ObjectId(memberId),
-      churchId,
-    });
-  }
-
   async getMemberById(
     id: string,
     dto?: MemberAttendanceFilterDto,

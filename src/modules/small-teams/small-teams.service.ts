@@ -18,6 +18,7 @@ import { MarkSmallTeamAttendanceDto } from './dto/mark-small-team-attendance.dto
 import { SmallTeamReportQueryDto } from './dto/small-team-report-query.dto';
 import { SmallTeam } from '../../schemas/small-team.schema';
 import { MembersService } from '../members/members.service';
+import { AdminService } from '../admin/admin.service';
 import { AttendanceService } from '../attendance/attendance.service';
 import { ChurchServicesService } from '../church-services/church-services.service';
 
@@ -26,6 +27,7 @@ export class SmallTeamsService {
   constructor(
     @InjectModel(SmallTeam.name) private smallTeamModel: Model<SmallTeam>,
     private membersService: MembersService,
+    private adminService: AdminService,
     private attendanceService: AttendanceService,
     private churchServicesService: ChurchServicesService,
   ) {}
@@ -65,7 +67,7 @@ export class SmallTeamsService {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
-        .populate('leaderId', 'fullName')
+        .populate('leaderId', 'firstName lastName')
         .populate('memberIds', 'fullName email')
         .lean(),
       this.smallTeamModel.countDocuments(query),
@@ -322,7 +324,7 @@ export class SmallTeamsService {
       return;
     }
 
-    const leader = await this.membersService.existsInChurch(
+    const leader = await this.adminService.existsInChurch(
       leaderId,
       authUser.churchId,
     );
@@ -350,7 +352,8 @@ export class SmallTeamsService {
       leader: team.leaderId
         ? {
             id: team.leaderId._id?.toString?.() || team.leaderId.toString(),
-            fullName: team.leaderId.fullName || '',
+            fullName:
+              `${team.leaderId.firstName} ${team.leaderId.lastName}` || '',
           }
         : null,
       members: memberList,
