@@ -166,6 +166,7 @@ export class AdminService {
       email: admin.email,
     };
   }
+
   async findFirstSuperAdminByChurch(churchId: Types.ObjectId) {
     const superRole = await this.rolesService.findOne('Super Admin');
     if (!superRole) {
@@ -186,6 +187,7 @@ export class AdminService {
 
     return this.mapAdmin(admin);
   }
+
   async updateAdminProfile(id: Types.ObjectId, updateData: Partial<Admin>) {
     const updated = await this.adminModel
       .findByIdAndUpdate(
@@ -215,5 +217,12 @@ export class AdminService {
       lastName: updated.lastName,
       email: updated.email,
     };
+  }
+
+  async existsInChurch(adminId: string, churchId: Types.ObjectId) {
+    return await this.adminModel.exists({
+      _id: new Types.ObjectId(adminId),
+      churchId,
+    });
   }
 }

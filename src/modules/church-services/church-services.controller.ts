@@ -49,6 +49,14 @@ export class ChurchServicesController {
     return this.churchServicesService.findAll(authUser, paginationBaseDto);
   }
 
+  @Get('by-date')
+  getServicesByDate(@AuthUser() authUser: Admin, @Query('date') date: string) {
+    return this.churchServicesService.getServicesByDate(
+      new Date(date),
+      authUser.churchId,
+    );
+  }
+
   @Get(':id')
   @RequirePermissions({
     section: ModuleSections.EVENTS,

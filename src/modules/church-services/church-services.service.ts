@@ -9,6 +9,7 @@ import {
   paginationMeta,
 } from '../../common/helpers/pagination.helper';
 import { UpdateChurchServiceDto } from './dto/update-church-service.dto';
+import { ServiceDay, ServiceType } from '../../common/utils/enums.utils';
 
 const escapeRegExp = (value: string) =>
   value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -138,11 +139,67 @@ export class ChurchServicesService {
   async delete(id: string) {
     return await this.churchServiceModel.findByIdAndDelete(id);
   }
+
   async getServiceIdsByType(type: string) {
     const services = await this.churchServiceModel
       .find({ type })
       .select('_id')
       .lean();
     return services.map((s) => s._id);
+  }
+
+  async getServicesByDate(date: Date, churchId: Types.ObjectId) {
+    const startOfDay = new Date(date);
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const endOfDay = new Date(date);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const weekdayMap = {
+      0: ServiceDay.SUNDAY,
+      1: ServiceDay.MONDAY,
+      2: ServiceDay.TUESDAY,
+      3: ServiceDay.WEDNESDAY,
+      4: ServiceDay.THURSDAY,
+      5: ServiceDay.FRIDAY,
+      6: ServiceDay.SATURDAY,
+    } as const;
+
+    const weekday = weekdayMap[new Date(date).getDay()];
+
+    const regularFilter: any = {
+      churchId,
+      type: ServiceType.REGULAR,
+      day: weekday,
+      $and: [
+        {
+          $or: [
+            { startDate: { $exists: false } },
+            { startDate: { $lte: endOfDay } },
+          ],
+        },
+        {
+          $or: [
+            { endDate: { $exists: false } },
+            { endDate: { $gte: startOfDay } },
+          ],
+        },
+      ],
+    };
+
+    const specialFilter: any = {
+      churchId,
+      $or: [
+        {
+          type: ServiceType.SPECIAL,
+          startDate: { $gte: startOfDay, $lte: endOfDay },
+        },
+        { 'specialDays.date': { $gte: startOfDay, $lte: endOfDay } },
+      ],
+    };
+
+    return await this.churchServiceModel
+      .find({ $or: [regularFilter, specialFilter] })
+      .lean();
   }
 }
