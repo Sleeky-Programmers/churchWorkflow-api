@@ -159,9 +159,9 @@ export class AdminService {
     return await this.adminModel.findByIdAndDelete(id);
   }
 
-  async mapAdmin(admin: any) {
+  mapAdmin(admin: any) {
     return {
-      id: admin._id.toString(),
+      id: admin._id,
       fullName: `${admin.firstName} ${admin.lastName}`,
       email: admin.email,
     };
