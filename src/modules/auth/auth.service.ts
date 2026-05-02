@@ -111,7 +111,7 @@ export class AuthService {
     lastName: string,
     password: string,
   ) {
-    const { email, title, churchId, churchRoleId } = decryptInvite(token);
+    const { email, title, churchId, churchRole } = decryptInvite(token);
 
     const isExistingAdmin = await this.adminService.findOne(email);
     if (isExistingAdmin) {
@@ -119,7 +119,7 @@ export class AuthService {
     }
 
     const churchObjectId = new Types.ObjectId(churchId);
-    const churchRoleObjectId = new Types.ObjectId(churchRoleId);
+    const churchRoleObjectId = new Types.ObjectId(churchRole);
 
     const [admin] = await Promise.all([
       this.adminService.createAdmin(
