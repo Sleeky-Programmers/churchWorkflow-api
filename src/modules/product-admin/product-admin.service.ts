@@ -56,7 +56,7 @@ export class ProductAdminService implements OnModuleInit {
   }
 
   async findOne(email: string) {
-    return await this.productAdminModel.findOne({ email });
+    return await this.productAdminModel.findOne({ email }).select('+password');
   }
 
   async findById(id: string) {

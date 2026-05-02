@@ -1,12 +1,13 @@
-// Temporary: import { MiddlewareConsumer, Module, RequestMethod } from '@nestjs/common';
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, RequestMethod } from '@nestjs/common';
+import { ProductAdminModule } from './modules/product-admin/product-admin.module';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MailerModule } from '@nestjs-modules/mailer';
 import { AppController } from './app.controller';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { AppService } from './app.service';
 import { envConfig } from './config/env.config';
-// Temporary: import { RateLimiterMiddleware } from './middlewares/RateLimiterMiddleware';
+import { RateLimiterMiddleware } from './middlewares/RateLimiterMiddleware';
 import { RateLimit, RateLimitSchema } from './schemas/rate-limit.schema';
 import { AdminModule } from './modules/admin/admin.module';
 import { ChurchModule } from './modules/church/church.module';
@@ -32,10 +33,9 @@ import { PaystackModule } from './modules/paystack/paystack.module';
 import { FlutterwaveModule } from './modules/flutterwave/flutterwave.module';
 import { CouponModule } from './modules/coupon/coupon.module';
 import { SubscriptionPlanCodesModule } from './modules/subscription-plan-codes/subscription-plan-codes.module';
-import { ProductAdminModule } from './modules/product-admin/product-admin.module';
-import { AnalyticsModule } from './modules/analytics/analytics.module';
-import { AdminActivityLogModule } from './modules/admin-activity-log/admin-activity-log.module';
 import { OverviewModule } from './modules/overview/overview.module';
+import { ChurchBlockedGuard } from './common/guards/church-block.guard';
+import { LastActiveInterceptor } from './common/interceptors/last-active.interceptor';
 
 @Module({
   imports: [
@@ -58,6 +58,7 @@ import { OverviewModule } from './modules/overview/overview.module';
     AdminModule,
     ChurchModule,
     OtpModule,
+    ProductAdminModule,
     MailerModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
@@ -92,18 +93,25 @@ import { OverviewModule } from './modules/overview/overview.module';
     PaystackModule,
     FlutterwaveModule,
     SubscriptionPlanCodesModule,
-    ProductAdminModule,
-    AnalyticsModule,
-    AdminActivityLogModule,
     OverviewModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: ChurchBlockedGuard,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: LastActiveInterceptor,
+    },
+  ],
 })
 export class AppModule {
-  // Temporary: configure(consumer: MiddlewareConsumer) {
-  //   Temporary: consumer
-  //     .apply(RateLimiterMiddleware)
-  //     .forRoutes({ path: '*', method: RequestMethod.ALL });
-  // }
+  configure(consumer: MiddlewareConsumer) {
+    consumer
+      .apply(RateLimiterMiddleware)
+      .forRoutes({ path: '*', method: RequestMethod.ALL });
+  }
 }

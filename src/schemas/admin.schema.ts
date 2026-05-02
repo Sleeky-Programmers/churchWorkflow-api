@@ -2,6 +2,7 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { SchemaTypes, Types, Document } from 'mongoose';
 import { Church } from './church.schema';
 import { Role } from './role.schema';
+import { ChurchAdminStatus } from 'src/common/utils/enums.utils';
 
 @Schema({ timestamps: true })
 export class Admin extends Document {
@@ -31,6 +32,12 @@ export class Admin extends Document {
 
   @Prop({ default: false })
   isVerified: boolean;
+
+  @Prop({ default: ChurchAdminStatus.ACTIVE })
+  status: string;
+
+  @Prop({ default: Date.now })
+  lastActive: Date;
 }
 
 export const AdminSchema = SchemaFactory.createForClass(Admin);

@@ -9,6 +9,7 @@ import {
   UseInterceptors,
   Query,
   Param,
+  BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ChurchService } from './church.service';
@@ -19,6 +20,8 @@ import { JwtAuthGuard } from '../auth/guard/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { ChurchFilterDto } from './dto/church-filter.dto';
+import { Types } from 'mongoose';
+
 import { ProductAdminJwtAuthGuard } from '../product-admin/guard/product-jwt-auth.guard';
 
 @Controller('church')
@@ -67,5 +70,25 @@ export class ChurchController {
     const church = await this.churchService.findCurrentChurch(user);
 
     return this.churchService.update(church._id, body, file);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Patch(':id/block')
+  @Roles('Super Admin')
+  blockChurch(@Param('id') id: string) {
+    if (!Types.ObjectId.isValid(id)) {
+      throw new BadRequestException('Invalid church ID');
+    }
+    return this.churchService.blockChurch(new Types.ObjectId(id));
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Patch(':id/unblock')
+  @Roles('Super Admin')
+  unblockChurch(@Param('id') id: string) {
+    if (!Types.ObjectId.isValid(id)) {
+      throw new BadRequestException('Invalid church ID');
+    }
+    return this.churchService.unblockChurch(new Types.ObjectId(id));
   }
 }

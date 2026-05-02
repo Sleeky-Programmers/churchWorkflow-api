@@ -5,6 +5,7 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
+import { ChurchStatus } from 'src/common/utils/enums.utils';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
@@ -19,6 +20,7 @@ import { CreateSuperAdminDto } from '../admin/dto/create-super-admin.dto';
 import { decryptInvite } from '../../common/helpers/crypto.helper';
 import { OAuth2Client } from 'google-auth-library';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { ChurchService } from '../church/church.service';
 
 @Injectable()
 export class AuthService {
@@ -28,6 +30,7 @@ export class AuthService {
     private otpService: OtpService,
     private jwtService: JwtService,
     private configService: ConfigService,
+    private churchService: ChurchService,
   ) {}
 
   generateTokens(userId: string) {
@@ -65,6 +68,8 @@ export class AuthService {
     if (!user.isVerified) {
       throw new UnauthorizedException('Email not verified');
     }
+
+    await this.ensureChurchNotBlocked(user.churchId);
 
     const { password: _, ...userWithoutPassword } = user.toObject();
     return userWithoutPassword;
@@ -171,6 +176,7 @@ export class AuthService {
     const existingAdmin = await this.adminService.findOne(email);
 
     if (existingAdmin) {
+      await this.ensureChurchNotBlocked(existingAdmin.churchId);
       const tokens = this.generateTokens(existingAdmin._id.toString());
 
       const { password: _, ...userWithoutPassword } = existingAdmin.toObject();
@@ -196,7 +202,7 @@ export class AuthService {
           'Google email does not match invite email',
         );
       }
-
+      await this.ensureChurchNotBlocked(new Types.ObjectId(invite.churchId));
       const churchObjectId = new Types.ObjectId(invite.churchId);
       const churchRoleObjectId = new Types.ObjectId(invite.churchRoleId);
 
@@ -258,6 +264,8 @@ export class AuthService {
     if (!user) {
       throw new UnauthorizedException('User no longer exists');
     }
+
+    await this.ensureChurchNotBlocked(user.churchId);
 
     const tokens = this.generateTokens(user._id.toString());
 
@@ -351,5 +359,23 @@ export class AuthService {
     });
 
     return { message: 'Password updated successfully' };
+  }
+
+  async ensureChurchNotBlocked(churchId?: Types.ObjectId) {
+    if (!churchId) {
+      return;
+    }
+
+    const church = await this.churchService.findById(churchId);
+
+    if (!church) {
+      return;
+    }
+
+    if (church.status == ChurchStatus.BLOCKED) {
+      throw new UnauthorizedException(
+        'Your church has been blocked. Contact support.',
+      );
+    }
   }
 }

@@ -52,3 +52,17 @@ export class CouponFilterDto extends PaginationBaseDto {
   @IsString()
   filter?: CouponFilter;
 }
+
+export class AdminFilterDto extends PaginationBaseDto {
+  @IsOptional()
+  @IsString()
+  churchId?: string;
+
+  @IsOptional()
+  @IsString()
+  role?: string;
+
+  @IsOptional()
+  @IsString()
+  status?: string;
+}

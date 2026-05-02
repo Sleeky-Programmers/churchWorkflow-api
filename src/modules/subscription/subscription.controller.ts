@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, UseGuards } from '@nestjs/common';
 import { SubscriptionService } from './subscription.service';
 import { Types } from 'mongoose';
 import { AuthUser } from '../../common/decorators/auth-user.decorator';
@@ -16,5 +16,10 @@ export class SubscriptionController {
     return this.subscriptionService.getBillingOverview(
       new Types.ObjectId(authUser.churchId),
     );
+  }
+
+  @Post('update')
+  update(@Body() body) {
+    return this.subscriptionService.updateSubscription(body);
   }
 }

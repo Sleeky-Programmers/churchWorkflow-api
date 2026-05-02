@@ -34,6 +34,11 @@ export class CouponController {
     return this.couponService.stats();
   }
 
+  @Get('validate')
+  async validate(@Query('code') code: string) {
+    return this.couponService.validateCoupon(code);
+  }
+
   @Patch(':id')
   async update(
     @Param('id') id: string,

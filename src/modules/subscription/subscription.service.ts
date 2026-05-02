@@ -276,6 +276,7 @@ export class SubscriptionService {
       STARTER: 0,
       GROWTH: 0,
       ENTERPRISE: 0,
+      EXPANSION: 0,
     };
 
     subscriptionsByPlan.forEach((item) => {

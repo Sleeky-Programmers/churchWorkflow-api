@@ -9,10 +9,13 @@ import { CreateAdminDto } from '././dto/create-admin.dto';
 import { RolesService } from '../roles/roles.service';
 import { AccountSettingsService } from '../account-settings/account-settings.service';
 import { emailMatcher } from '../../common/helpers/email-matcher.helper';
+import { AdminFilterDto } from '../../common/helpers/pagination.helper';
+
 import {
   PaginationBaseDto,
   paginationMeta,
 } from '../../common/helpers/pagination.helper';
+import { ChurchAdminStatus } from '../../common/utils/enums.utils';
 
 @Injectable()
 export class AdminService {
@@ -82,15 +85,25 @@ export class AdminService {
 
   async findAllAdminWithPagination(
     churchId: Types.ObjectId,
-    dto: PaginationBaseDto,
+    dto: AdminFilterDto,
   ) {
-    const { page = 1, limit = 20, search } = dto;
+    const { page = 1, limit = 20, search, role, status } = dto;
 
     const skip = (page - 1) * limit;
 
-    const query: any = {
-      churchId,
-    };
+    const query: any = {};
+
+    if (churchId && Types.ObjectId.isValid(churchId)) {
+      query.churchId = new Types.ObjectId(churchId);
+    }
+
+    if (status) {
+      query.status = status;
+    }
+
+    if (role) {
+      query.role = role;
+    }
 
     if (search) {
       query.$or = [
@@ -104,18 +117,20 @@ export class AdminService {
       this.adminModel
         .find(query)
         .sort({ createdAt: -1 })
+        .populate({ path: 'churchId', select: 'name alias' })
+        .populate({ path: 'churchRole', select: 'roleName' })
         .skip(skip)
         .limit(limit)
         .lean(),
+
       this.adminModel.countDocuments(query),
     ]);
 
     return {
-      data: admins.map(this.mapAdmin),
+      data: admins.map((a) => this.mapAdmin(a)).filter(Boolean),
       pagination: paginationMeta({ page, limit, itemCount }),
     };
   }
-
   async findOne(email: string) {
     return await this.adminModel
       .findOne({ email: emailMatcher(email) })
@@ -143,6 +158,65 @@ export class AdminService {
     );
   }
 
+  async blockAdmin(id: string) {
+    const admin = await this.adminModel.findByIdAndUpdate(
+      id,
+      { status: ChurchAdminStatus.BLOCKED },
+      { new: true },
+    );
+
+    if (!admin) {
+      throw new NotFoundException('Admin not found');
+    }
+
+    return admin;
+  }
+
+  async unblockAdmin(id: string) {
+    const admin = await this.adminModel.findByIdAndUpdate(
+      id,
+      { status: ChurchAdminStatus.ACTIVE },
+      { new: true },
+    );
+
+    if (!admin) {
+      throw new NotFoundException('Admin not found');
+    }
+
+    return admin;
+  }
+
+  async stats(churchId: Types.ObjectId) {
+    const total = await this.adminModel.countDocuments({ churchId });
+
+    const active = await this.adminModel.countDocuments({
+      churchId,
+      status: ChurchAdminStatus.ACTIVE,
+    });
+
+    const blocked = await this.adminModel.countDocuments({
+      churchId,
+      status: ChurchAdminStatus.BLOCKED,
+    });
+
+    const superRole = await this.rolesService.findOne('Super Admin');
+
+    const superAdmins = superRole
+      ? await this.adminModel.countDocuments({
+          churchId,
+          churchRole: superRole._id,
+        })
+      : 0;
+
+    return {
+      total,
+      active,
+      blocked,
+
+      superAdmins,
+    };
+  }
+
   async findByIdAndUpdate(id: Types.ObjectId, updateData: Partial<Admin>) {
     return await this.adminModel.findByIdAndUpdate(id, updateData, {
       new: true,
@@ -158,12 +232,34 @@ export class AdminService {
   async findByIdAndDelete(id: Types.ObjectId) {
     return await this.adminModel.findByIdAndDelete(id);
   }
+  mapAdmin(admin: any) {
+    if (!admin) {
+      return null;
+    }
 
-  async mapAdmin(admin: any) {
     return {
-      id: admin._id.toString(),
-      fullName: `${admin.firstName} ${admin.lastName}`,
-      email: admin.email,
+      id: admin?._id?.toString?.() ?? admin?.id ?? '',
+
+      name:
+        `${admin?.firstName ?? ''} ${admin?.lastName ?? ''}`.trim() ||
+        'Unknown User',
+
+      email: admin?.email ?? '',
+      phone: admin?.phoneNumber ?? '—',
+
+      role: admin?.churchRole?.roleName ?? 'Admin',
+      status: admin?.status ?? ChurchAdminStatus.ACTIVE,
+
+      lastActive:
+        admin?.lastActive ?? admin?.createdAt ?? new Date().toISOString(),
+
+      church: admin?.churchId
+        ? {
+            id: admin.churchId?._id?.toString?.() ?? admin.churchId?.id,
+            name: admin.churchId?.name ?? '—',
+            alias: admin.churchId?.alias ?? 'CH',
+          }
+        : null,
     };
   }
   async findFirstSuperAdminByChurch(churchId: Types.ObjectId) {
@@ -186,6 +282,7 @@ export class AdminService {
 
     return this.mapAdmin(admin);
   }
+
   async updateAdminProfile(id: Types.ObjectId, updateData: Partial<Admin>) {
     const updated = await this.adminModel
       .findByIdAndUpdate(

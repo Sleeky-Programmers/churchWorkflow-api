@@ -11,7 +11,7 @@ export class ProductAdmin extends Document {
   @Prop()
   email: string;
 
-  @Prop()
+  @Prop({ select: false })
   password: string;
 
   @Prop({ type: SchemaTypes.ObjectId, ref: ProductAdminRole.name })

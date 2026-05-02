@@ -1,5 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
+import { ChurchStatus } from 'src/common/utils/enums.utils';
 
 @Schema({ timestamps: true })
 export class Church extends Document {
@@ -27,8 +28,8 @@ export class Church extends Document {
   @Prop({ default: null })
   logoUrl: string;
 
-  @Prop({ default: null })
-  logoPublicId: string;
+  @Prop({ default: ChurchStatus.ACTIVE })
+  status: string;
 }
 
 export const ChurchSchema = SchemaFactory.createForClass(Church);

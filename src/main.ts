@@ -14,6 +14,7 @@ async function bootstrap() {
     defaultVersion: '1',
     prefix: 'api/v',
   });
+
   app.useGlobalPipes(
     new ValidationPipe({
       transform: true,

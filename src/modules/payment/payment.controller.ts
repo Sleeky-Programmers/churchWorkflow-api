@@ -18,6 +18,7 @@ import {
   PlanType,
   SubscriptionStatus,
 } from '../../common/utils/enums.utils';
+import { PaymentStatus } from '../../common/utils/enums.utils';
 import { SubscriptionService } from '../subscription/subscription.service';
 import { JwtAuthGuard } from '../auth/guard/jwt-auth.guard';
 import { AuthUser } from '../../common/decorators/auth-user.decorator';
@@ -117,15 +118,44 @@ export class PaymentController {
       throw new BadRequestException('Missing payment reference');
     }
 
+    let paymentResult: any;
     if (provider === PaymentProvider.PAYSTACK) {
-      return await this.paystackService.verifyTransaction(reference);
+      paymentResult = await this.paystackService.verifyTransaction(reference);
+    } else if (provider === PaymentProvider.FLUTTERWAVE) {
+      paymentResult =
+        await this.flutterwaveService.verifyTransaction(reference);
+    } else {
+      throw new BadRequestException('Invalid provider');
     }
 
-    if (provider === PaymentProvider.FLUTTERWAVE) {
-      return await this.flutterwaveService.verifyTransaction(reference);
+    // const metadata = paymentResult.metadata || {};
+
+    if (paymentResult.status === 'success') {
+      await this.paymentService.updatePaymentStatus(
+        reference,
+        PaymentStatus.SUCCESS,
+        new Date(),
+      );
+
+      await this.subscriptionService.updateSubscription({
+        churchId: paymentResult.churchId,
+        plan: paymentResult.plan,
+        billingCycle: paymentResult.billingCycle,
+        autoRenew: paymentResult.autoRenew,
+        providerData: {
+          subscriptionCode:
+            paymentResult.subscription_code ||
+            paymentResult.data?.subscription_code,
+          emailToken:
+            paymentResult.email_token || paymentResult.data?.email_token,
+          customerCode:
+            paymentResult.customer?.customer_code ||
+            paymentResult.data?.customer?.customer_code,
+        },
+      });
     }
 
-    throw new BadRequestException('Invalid payment provider');
+    return paymentResult;
   }
 
   @UseGuards(ProductAdminJwtAuthGuard)

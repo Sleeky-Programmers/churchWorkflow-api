@@ -1,9 +1,15 @@
-import { forwardRef, Inject, Injectable } from '@nestjs/common';
+import {
+  forwardRef,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Church } from '../../schemas/church.schema';
 import { Admin } from '../../schemas/admin.schema';
 import { ChurchIdentityDto } from './dto/church-identity.dto';
+import { ChurchStatus } from '../../common/utils/enums.utils';
 import {
   PaginationBaseDto,
   paginationMeta,
@@ -89,6 +95,9 @@ export class ChurchService {
         const subscription = await this.subscriptionService.getSubscription(
           church._id,
         );
+        const superAdmin = await this.adminService.findFirstSuperAdminByChurch(
+          church._id,
+        );
 
         let subscriptionStatus = ChurchSubscriptionStatus.ACTIVE;
         if (subscription && subscription.endDate) {
@@ -109,13 +118,13 @@ export class ChurchService {
         return {
           id: church._id,
           name: church.name,
-          location:
-            church.address ||
-            `${church.state || ''} ${church.country || ''}`.trim(),
+          superAdmin,
+          location: `${church.state || ''} ${church.country || ''}`.trim(),
           totalMembers,
           totalUsers,
           plan: subscription?.plan || null,
           subscriptionStatus,
+          status: church.status,
         };
       }),
     );
@@ -229,6 +238,34 @@ export class ChurchService {
     };
   }
 
+  async blockChurch(churchId: Types.ObjectId) {
+    const church = await this.churchModel.findByIdAndUpdate(
+      churchId,
+      { status: ChurchStatus.BLOCKED },
+      { new: true },
+    );
+
+    if (!church) {
+      throw new NotFoundException('Church not found');
+    }
+
+    return { message: 'Church blocked successfully' };
+  }
+
+  async unblockChurch(churchId: Types.ObjectId) {
+    const church = await this.churchModel.findByIdAndUpdate(
+      churchId,
+      { status: ChurchStatus.ACTIVE },
+      { new: true },
+    );
+
+    if (!church) {
+      throw new NotFoundException('Church not found');
+    }
+
+    return { message: 'Church unblocked successfully' };
+  }
+
   async update(
     churchId: Types.ObjectId,
     data: Partial<Church>,
@@ -238,7 +275,7 @@ export class ChurchService {
       const { url, publicId } = await this.fileUploadService.uploadFile(file);
 
       data.logoUrl = url;
-      data.logoPublicId = publicId;
+       data.logoPublicId = publicId;
     }
 
     return await this.churchModel.findByIdAndUpdate(churchId, data, {

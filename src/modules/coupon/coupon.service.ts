@@ -102,8 +102,12 @@ export class CouponService {
     const [totalCoupons, activeCoupons, expiringSoonAgg, totalUsageAgg] =
       await Promise.all([
         this.couponModel.countDocuments(),
-        this.couponModel.countDocuments({ isActive: true }),
         this.couponModel.countDocuments({
+          isActive: true,
+          expiryDate: { $gt: now },
+        }),
+        this.couponModel.countDocuments({
+          isActive: true,
           expiryDate: { $gte: now, $lte: soon },
         }),
         this.couponModel.aggregate([
@@ -144,6 +148,8 @@ export class CouponService {
 
     return coupon;
   }
+
+  async applyCoupon() {}
 
   async incrementUsage(code: string) {
     if (!code) {

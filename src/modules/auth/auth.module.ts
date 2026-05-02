@@ -9,9 +9,12 @@ import { OtpModule } from '../otp/otp.module';
 import { JwtStrategy } from './strategy/jwt.strategy';
 import { LocalStrategy } from './strategy/local.strategy';
 
+import { ChurchModule } from '../church/church.module';
+
 @Module({
   imports: [
     AdminModule,
+    ChurchModule,
     AdminInviteModule,
     OtpModule,
     JwtModule.registerAsync({

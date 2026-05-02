@@ -220,6 +220,16 @@ export enum ProductAdminStatus {
   BLOCKED = 'BLOCKED',
 }
 
+export enum ChurchStatus {
+  ACTIVE = 'ACTIVE',
+  BLOCKED = 'BLOCKED',
+}
+
+export enum ChurchAdminStatus {
+  ACTIVE = 'ACTIVE',
+  BLOCKED = 'BLOCKED',
+}
+
 export enum ProductAdminInviteStatus {
   PENDING = 'PENDING',
   ACCEPTED = 'ACCEPTED',
