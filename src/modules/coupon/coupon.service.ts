@@ -3,7 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Coupon } from '../../schemas/coupon.schema';
 import { CreateCouponDto } from './dto/create-coupon.dto';
-import { CouponFilter } from 'src/common/utils/enums.utils';
+import { CouponFilter, DiscountType } from 'src/common/utils/enums.utils';
 import {
   CouponFilterDto,
   paginationMeta,
@@ -97,7 +97,7 @@ export class CouponService {
 
   async stats() {
     const now = new Date();
-    const soon = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const expiringSoon = new Date(now.getTime() + 1 * 24 * 60 * 60 * 1000);
 
     const [totalCoupons, activeCoupons, expiringSoonAgg, totalUsageAgg] =
       await Promise.all([
@@ -108,7 +108,7 @@ export class CouponService {
         }),
         this.couponModel.countDocuments({
           isActive: true,
-          expiryDate: { $gte: now, $lte: soon },
+          expiryDate: { $gte: now, $lte: expiringSoon },
         }),
         this.couponModel.aggregate([
           { $group: { _id: null, total: { $sum: '$usageCount' } } },
@@ -149,7 +149,27 @@ export class CouponService {
     return coupon;
   }
 
-  async applyCoupon() {}
+  async applyCoupon(code: string, amount: number) {
+    const coupon = await this.validateCoupon(code);
+
+    let finalAmount = amount;
+
+    if (coupon.discountType === DiscountType.PERCENTAGE) {
+      finalAmount = amount - (amount * coupon.discount) / 100;
+    }
+
+    if (coupon.discountType === DiscountType.FLAT) {
+      finalAmount = Math.max(0, amount - coupon.discount);
+    }
+
+    return {
+      originalAmount: amount,
+      finalAmount,
+      discountType: coupon.discountType,
+      discount: coupon.discount,
+      code: coupon.code,
+    };
+  }
 
   async incrementUsage(code: string) {
     if (!code) {

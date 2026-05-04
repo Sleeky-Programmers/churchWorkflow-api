@@ -160,17 +160,17 @@ var AdminService = /** @class */ (function () {
                         }
                         if (search) {
                             query.$or = [
-                                { firstName: { $regex: search, $options: "i" } },
-                                { lastName: { $regex: search, $options: "i" } },
-                                { email: { $regex: search, $options: "i" } },
+                                { firstName: { $regex: search, $options: 'i' } },
+                                { lastName: { $regex: search, $options: 'i' } },
+                                { email: { $regex: search, $options: 'i' } },
                             ];
                         }
                         return [4 /*yield*/, Promise.all([
                                 this.adminModel
                                     .find(query)
                                     .sort({ createdAt: -1 })
-                                    .populate({ path: "churchId", select: "name alias" })
-                                    .populate({ path: "churchRole", select: "roleName" })
+                                    .populate({ path: 'churchId', select: 'name alias' })
+                                    .populate({ path: 'churchRole', select: 'roleName' })
                                     .skip(skip)
                                     .limit(limit)
                                     .lean(),
@@ -241,8 +241,9 @@ var AdminService = /** @class */ (function () {
                     case 0: return [4 /*yield*/, this.adminModel.findByIdAndUpdate(id, { status: enums_utils_1.ChurchAdminStatus.BLOCKED }, { "new": true })];
                     case 1:
                         admin = _a.sent();
-                        if (!admin)
+                        if (!admin) {
                             throw new common_1.NotFoundException('Admin not found');
+                        }
                         return [2 /*return*/, admin];
                 }
             });
@@ -256,8 +257,9 @@ var AdminService = /** @class */ (function () {
                     case 0: return [4 /*yield*/, this.adminModel.findByIdAndUpdate(id, { status: enums_utils_1.ChurchAdminStatus.ACTIVE }, { "new": true })];
                     case 1:
                         admin = _a.sent();
-                        if (!admin)
+                        if (!admin) {
                             throw new common_1.NotFoundException('Admin not found');
+                        }
                         return [2 /*return*/, admin];
                 }
             });
@@ -345,21 +347,22 @@ var AdminService = /** @class */ (function () {
     };
     AdminService.prototype.mapAdmin = function (admin) {
         var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s, _t, _u, _v, _w, _x;
-        if (!admin)
+        if (!admin) {
             return null;
+        }
         return {
-            id: (_d = (_c = (_b = (_a = admin === null || admin === void 0 ? void 0 : admin._id) === null || _a === void 0 ? void 0 : _a.toString) === null || _b === void 0 ? void 0 : _b.call(_a)) !== null && _c !== void 0 ? _c : admin === null || admin === void 0 ? void 0 : admin.id) !== null && _d !== void 0 ? _d : "",
-            name: (((_e = admin === null || admin === void 0 ? void 0 : admin.firstName) !== null && _e !== void 0 ? _e : "") + " " + ((_f = admin === null || admin === void 0 ? void 0 : admin.lastName) !== null && _f !== void 0 ? _f : "")).trim() ||
-                "Unknown User",
-            email: (_g = admin === null || admin === void 0 ? void 0 : admin.email) !== null && _g !== void 0 ? _g : "",
-            phone: (_h = admin === null || admin === void 0 ? void 0 : admin.phoneNumber) !== null && _h !== void 0 ? _h : "—",
-            role: (_k = (_j = admin === null || admin === void 0 ? void 0 : admin.churchRole) === null || _j === void 0 ? void 0 : _j.roleName) !== null && _k !== void 0 ? _k : "Admin",
+            id: (_d = (_c = (_b = (_a = admin === null || admin === void 0 ? void 0 : admin._id) === null || _a === void 0 ? void 0 : _a.toString) === null || _b === void 0 ? void 0 : _b.call(_a)) !== null && _c !== void 0 ? _c : admin === null || admin === void 0 ? void 0 : admin.id) !== null && _d !== void 0 ? _d : '',
+            name: (((_e = admin === null || admin === void 0 ? void 0 : admin.firstName) !== null && _e !== void 0 ? _e : '') + " " + ((_f = admin === null || admin === void 0 ? void 0 : admin.lastName) !== null && _f !== void 0 ? _f : '')).trim() ||
+                'Unknown User',
+            email: (_g = admin === null || admin === void 0 ? void 0 : admin.email) !== null && _g !== void 0 ? _g : '',
+            phone: (_h = admin === null || admin === void 0 ? void 0 : admin.phoneNumber) !== null && _h !== void 0 ? _h : '—',
+            role: (_k = (_j = admin === null || admin === void 0 ? void 0 : admin.churchRole) === null || _j === void 0 ? void 0 : _j.roleName) !== null && _k !== void 0 ? _k : 'Admin',
             status: (_l = admin === null || admin === void 0 ? void 0 : admin.status) !== null && _l !== void 0 ? _l : enums_utils_1.ChurchAdminStatus.ACTIVE,
             lastActive: (_o = (_m = admin === null || admin === void 0 ? void 0 : admin.lastActive) !== null && _m !== void 0 ? _m : admin === null || admin === void 0 ? void 0 : admin.createdAt) !== null && _o !== void 0 ? _o : new Date().toISOString(),
             church: (admin === null || admin === void 0 ? void 0 : admin.churchId) ? {
                 id: (_s = (_r = (_q = (_p = admin.churchId) === null || _p === void 0 ? void 0 : _p._id) === null || _q === void 0 ? void 0 : _q.toString) === null || _r === void 0 ? void 0 : _r.call(_q)) !== null && _s !== void 0 ? _s : (_t = admin.churchId) === null || _t === void 0 ? void 0 : _t.id,
-                name: (_v = (_u = admin.churchId) === null || _u === void 0 ? void 0 : _u.name) !== null && _v !== void 0 ? _v : "—",
-                alias: (_x = (_w = admin.churchId) === null || _w === void 0 ? void 0 : _w.alias) !== null && _x !== void 0 ? _x : "CH"
+                name: (_v = (_u = admin.churchId) === null || _u === void 0 ? void 0 : _u.name) !== null && _v !== void 0 ? _v : '—',
+                alias: (_x = (_w = admin.churchId) === null || _w === void 0 ? void 0 : _w.alias) !== null && _x !== void 0 ? _x : 'CH'
             }
                 : null
         };

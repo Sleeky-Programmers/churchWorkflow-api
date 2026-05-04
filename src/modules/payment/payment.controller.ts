@@ -128,7 +128,7 @@ export class PaymentController {
       throw new BadRequestException('Invalid provider');
     }
 
-    // const metadata = paymentResult.metadata || {};
+    // Const metadata = paymentResult.metadata || {};
 
     if (paymentResult.status === 'success') {
       await this.paymentService.updatePaymentStatus(

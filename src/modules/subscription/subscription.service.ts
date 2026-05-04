@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Subscription } from '../../schemas/subscription.schema';
 import { PaymentService } from '../payment/payment.service';
+import { CouponService } from '../coupon/coupon.service';
 import {
   BillingCycle,
   MemberLimitType,
@@ -19,6 +20,7 @@ export class SubscriptionService {
     private subscriptionModel: Model<Subscription>,
     private paymentService: PaymentService,
     private adminActivityLogService: AdminActivityLogService,
+    private couponService: CouponService,
   ) {}
 
   private readonly planLimits = {
@@ -110,6 +112,7 @@ export class SubscriptionService {
     plan: PlanType;
     billingCycle: BillingCycle;
     autoRenew?: boolean;
+    couponCode?: string;
     providerData?: {
       subscriptionCode?: string;
       emailToken?: string;
@@ -130,10 +133,34 @@ export class SubscriptionService {
       endDate.setFullYear(endDate.getFullYear() + 1);
     }
 
+    const baseAmount = this.getPlanAmount(data.plan, data.billingCycle);
+    let finalAmount = baseAmount;
+    let appliedCoupon = null;
+    let discountAmount = 0;
+
+    if (data.couponCode) {
+      const result = await this.couponService.applyCoupon(
+        data.couponCode,
+        baseAmount,
+      );
+
+      if (!result || typeof result.finalAmount !== 'number') {
+        throw new Error('Invalid coupon result');
+      }
+
+      finalAmount = result.finalAmount;
+      discountAmount = result.discount ?? baseAmount - result.finalAmount;
+      appliedCoupon = result.code;
+    }
+
     const updated = await this.subscriptionModel.findOneAndUpdate(
       { churchId: new Types.ObjectId(data.churchId) },
       {
         plan: data.plan,
+        price: finalAmount,
+        originalPrice: baseAmount,
+        discountAmount,
+        couponCode: appliedCoupon,
         status: SubscriptionStatus.ACTIVE,
         memberLimit: limits.members,
         userLimit: limits.users,
@@ -154,7 +181,9 @@ export class SubscriptionService {
       },
       { new: true, upsert: true },
     );
-
+    if (updated && data.couponCode) {
+      await this.couponService.incrementUsage(data.couponCode);
+    }
     if (!existing) {
       await this.adminActivityLogService.create({
         action: 'SUBSCRIPTION_CREATED',
@@ -414,6 +443,38 @@ export class SubscriptionService {
     return map;
   }
 
+  async calculateSubscriptionAmount(data: {
+    plan: PlanType;
+    billingCycle: BillingCycle;
+    couponCode?: string;
+  }) {
+    const baseAmount = this.getPlanAmount(data.plan, data.billingCycle);
+
+    let finalAmount = baseAmount;
+    let discountAmount = 0;
+    let coupon = null;
+
+    if (data.couponCode) {
+      const result = await this.couponService.applyCoupon(
+        data.couponCode,
+        baseAmount,
+      );
+
+      finalAmount = result.finalAmount;
+      discountAmount = result.discount;
+
+      coupon = {
+        code: result.code,
+      };
+    }
+
+    return {
+      baseAmount,
+      finalAmount,
+      discountAmount,
+      coupon,
+    };
+  }
   async countNewSubscriptionsByPlanBetween(from?: Date, to?: Date) {
     const match: any = {};
     if (from || to) {

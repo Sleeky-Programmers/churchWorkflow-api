@@ -80,19 +80,19 @@ export class ProductAdminController {
     return this.productAdminService.blockAdmin(id);
   }
 
-   @UseGuards(ProductAdminJwtAuthGuard)
+  @UseGuards(ProductAdminJwtAuthGuard)
   @Patch(':id/unblock')
   async unblock(@Param('id') id: string) {
     return this.productAdminService.unblockAdmin(id);
   }
 
-   @UseGuards(ProductAdminJwtAuthGuard)
+  @UseGuards(ProductAdminJwtAuthGuard)
   @Get('stats')
   async stats() {
     return this.productAdminService.stats();
   }
 
-   @UseGuards(ProductAdminJwtAuthGuard)
+  @UseGuards(ProductAdminJwtAuthGuard)
   @Get()
   async list(@Query() query: any) {
     return this.productAdminService.list(query);

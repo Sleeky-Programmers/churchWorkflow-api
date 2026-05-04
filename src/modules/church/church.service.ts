@@ -275,7 +275,7 @@ export class ChurchService {
       const { url, publicId } = await this.fileUploadService.uploadFile(file);
 
       data.logoUrl = url;
-       data.logoPublicId = publicId;
+      (data as any).logoPublicId = publicId;
     }
 
     return await this.churchModel.findByIdAndUpdate(churchId, data, {
