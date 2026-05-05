@@ -1,6 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
-import { ChurchStatus } from 'src/common/utils/enums.utils';
+import { ChurchStatus } from '../common/utils/enums.utils';
 
 @Schema({ timestamps: true })
 export class Church extends Document {

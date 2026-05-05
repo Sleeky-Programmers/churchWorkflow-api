@@ -5,7 +5,7 @@ import { AuthUser } from '../../common/decorators/auth-user.decorator';
 import { Admin } from '../../schemas/admin.schema';
 import { JwtAuthGuard } from '../auth/guard/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
-
+import { PlanType, BillingCycle } from 'src/common/utils/enums.utils';
 @Controller('subscription')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class SubscriptionController {
@@ -17,7 +17,17 @@ export class SubscriptionController {
       new Types.ObjectId(authUser.churchId),
     );
   }
-
+  @Post('preview-pricing')
+  async previewPricing(
+    @Body()
+    dto: {
+      plan: PlanType;
+      billingCycle: BillingCycle;
+      couponCode?: string;
+    },
+  ) {
+    return this.subscriptionService.getSubscriptionPricing(dto);
+  }
   @Post('update')
   update(@Body() body) {
     return this.subscriptionService.updateSubscription(body);

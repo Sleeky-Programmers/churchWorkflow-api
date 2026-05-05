@@ -6,6 +6,7 @@ import { MembersModule } from '../members/members.module';
 import { SubscriptionModule } from '../subscription/subscription.module';
 import { AttendanceModule } from '../attendance/attendance.module';
 import { PaymentModule } from '../payment/payment.module';
+import { AdminActivityLogModule } from '../admin-activity-log/admin-activity-log.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { PaymentModule } from '../payment/payment.module';
     SubscriptionModule,
     AttendanceModule,
     PaymentModule,
+    AdminActivityLogModule,
   ],
   controllers: [AnalyticsController],
   providers: [AnalyticsService],

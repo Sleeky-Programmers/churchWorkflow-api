@@ -60,6 +60,42 @@ export class AdminActivityLogService {
     };
   }
 
+  async recentActivitiesLatestSubscription(filter?: { limit?: number }) {
+    const limit = filter?.limit || 5;
+
+    const activities = await this.adminActivityLogModel
+      .find({
+        action: {
+          $in: [
+            'SUBSCRIPTION_CREATED',
+            'SUBSCRIPTION_UPDATED',
+            'SUBSCRIPTION_UPGRADED',
+          ],
+        },
+        churchId: { $exists: true },
+      })
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .populate('churchId', 'name')
+      .lean<
+        {
+          action: string;
+          details: string;
+          plan: string;
+          churchId?: { name: string };
+          createdAt: Date;
+        }[]
+      >();
+
+    return activities.map((item) => ({
+      action: item.action,
+      details: item.details,
+      plan: item.plan,
+      churchName: item.churchId?.name || 'Unknown Church',
+      createdAt: item.createdAt,
+    }));
+  }
+
   async update(id: string, data: Partial<AdminActivityLog>) {
     return await this.adminActivityLogModel.findByIdAndUpdate(id, data, {
       new: true,

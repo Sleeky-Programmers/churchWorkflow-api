@@ -3,7 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Coupon } from '../../schemas/coupon.schema';
 import { CreateCouponDto } from './dto/create-coupon.dto';
-import { CouponFilter, DiscountType } from 'src/common/utils/enums.utils';
+import { CouponFilter, DiscountType } from '../../common/utils/enums.utils';
 import {
   CouponFilterDto,
   paginationMeta,
@@ -152,25 +152,29 @@ export class CouponService {
   async applyCoupon(code: string, amount: number) {
     const coupon = await this.validateCoupon(code);
 
-    let finalAmount = amount;
+    if (!coupon.discountType) {
+      throw new BadRequestException('Invalid coupon configuration');
+    }
+
+    let discountAmount = 0;
 
     if (coupon.discountType === DiscountType.PERCENTAGE) {
-      finalAmount = amount - (amount * coupon.discount) / 100;
+      discountAmount = Math.round((amount * coupon.discount) / 100);
+    } else if (coupon.discountType === DiscountType.FLAT) {
+      discountAmount = coupon.discount;
     }
 
-    if (coupon.discountType === DiscountType.FLAT) {
-      finalAmount = Math.max(0, amount - coupon.discount);
-    }
+    const finalAmount = Math.max(0, amount - discountAmount);
 
     return {
       originalAmount: amount,
       finalAmount,
+      discountAmount,
+      discountValue: coupon.discount,
       discountType: coupon.discountType,
-      discount: coupon.discount,
       code: coupon.code,
     };
   }
-
   async incrementUsage(code: string) {
     if (!code) {
       return null;

@@ -22,7 +22,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { ChurchFilterDto } from './dto/church-filter.dto';
 import { Types } from 'mongoose';
 
-import { ProductAdminJwtAuthGuard } from '../product-admin/guard/product-jwt-auth.guard';
+// Import { ProductAdminJwtAuthGuard } from '../product-admin/guard/product-jwt-auth.guard';
 
 @Controller('church')
 export class ChurchController {
@@ -34,13 +34,13 @@ export class ChurchController {
     return this.churchService.findCurrentChurch(authUser);
   }
 
-  @UseGuards(ProductAdminJwtAuthGuard)
+  // @UseGuards(ProductAdminJwtAuthGuard)
   @Get()
   getAllChurches(@Query() filter: ChurchFilterDto) {
     return this.churchService.findAll(filter);
   }
 
-  @UseGuards(ProductAdminJwtAuthGuard)
+  // @UseGuards(ProductAdminJwtAuthGuard)
   @Get(':id')
   getChurchById(@Param('id') id: string) {
     return this.churchService.findDetailsById(id);

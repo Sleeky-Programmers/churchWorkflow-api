@@ -48,6 +48,22 @@ export class Subscription extends Document {
 
   @Prop({ type: Object })
   provider: Record<string, any>;
+
+  @Prop({ default: 0 })
+  originalPrice: number;
+
+  @Prop({ default: 0 })
+  price: number;
+
+  @Prop({ default: 0 })
+  discountAmount: number;
+
+  @Prop({ default: 0 })
+  discountValue: number;
+
+  @Prop({ type: String, default: null })
+  couponCode: string;
 }
 
 export const SubscriptionSchema = SchemaFactory.createForClass(Subscription);
+SubscriptionSchema.index({ churchId: 1 });

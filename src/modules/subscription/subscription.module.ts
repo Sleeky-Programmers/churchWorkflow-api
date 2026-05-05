@@ -2,6 +2,7 @@ import { forwardRef, Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { SubscriptionService } from './subscription.service';
 import { SubscriptionController } from './subscription.controller';
+import { CouponModule } from '../coupon/coupon.module';
 import {
   Subscription,
   SubscriptionSchema,
@@ -16,6 +17,7 @@ import { AdminActivityLogModule } from '../admin-activity-log/admin-activity-log
     ]),
     forwardRef(() => PaymentModule),
     AdminActivityLogModule,
+    CouponModule,
   ],
   controllers: [SubscriptionController],
   providers: [SubscriptionService],

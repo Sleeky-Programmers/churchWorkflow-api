@@ -12,7 +12,6 @@ import { FlutterwaveService } from '../flutterwave/flutterwave.service';
 import { CouponService } from '../coupon/coupon.service';
 import { InitializePaymentDto } from './dto/initialize-payment.dto';
 import {
-  DiscountType,
   PaymentProvider,
   PaymentTimeframe,
   PlanType,
@@ -56,37 +55,33 @@ export class PaymentController {
       throw new BadRequestException('Active paid subscription exists');
     }
 
-    const baseAmount = this.subscriptionService.getPlanAmount(
-      body.plan,
-      body.billingCycle,
-    );
-
-    let finalAmount = baseAmount;
-    const metadata: any = {};
+    const pricing = await this.subscriptionService.getSubscriptionPricing({
+      plan: body.plan,
+      billingCycle: body.billingCycle,
+      couponCode: promoCode,
+    });
 
     if (promoCode) {
       const used = await this.paymentService.hasUsedCoupon(
         authUser.churchId,
         promoCode,
       );
+
       if (used) {
         throw new BadRequestException('Coupon already used by this account');
       }
-
-      const coupon: any = await this.couponService.validateCoupon(promoCode);
-
-      let discountAmount = 0;
-      if (coupon.discountType === DiscountType.PERCENTAGE) {
-        discountAmount = (baseAmount * coupon.discount) / 100;
-      } else {
-        discountAmount = coupon.discount;
-      }
-
-      finalAmount = Math.max(0, baseAmount - discountAmount);
-      metadata.promoCode = coupon.code;
-      metadata.originalAmount = baseAmount;
-      metadata.discountAmount = discountAmount;
     }
+
+    const metadata: any = {
+      originalAmount: pricing.baseAmount,
+      finalAmount: pricing.finalAmount,
+      discountAmount: pricing.discountAmount,
+      discountType: pricing.discountType,
+      discountValue: pricing.discountValue,
+      couponCode: pricing.couponCode,
+    };
+
+    const finalAmount = pricing.finalAmount;
 
     const initPayload = {
       email: authUser.email,

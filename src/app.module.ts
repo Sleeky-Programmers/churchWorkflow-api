@@ -36,6 +36,7 @@ import { SubscriptionPlanCodesModule } from './modules/subscription-plan-codes/s
 import { OverviewModule } from './modules/overview/overview.module';
 import { ChurchBlockedGuard } from './common/guards/church-block.guard';
 import { LastActiveInterceptor } from './common/interceptors/last-active.interceptor';
+import { AnalyticsModule } from './modules/analytics/analytics.module';
 
 @Module({
   imports: [
@@ -94,6 +95,7 @@ import { LastActiveInterceptor } from './common/interceptors/last-active.interce
     FlutterwaveModule,
     SubscriptionPlanCodesModule,
     OverviewModule,
+    AnalyticsModule,
   ],
   controllers: [AppController],
   providers: [

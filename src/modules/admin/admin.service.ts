@@ -11,9 +11,7 @@ import { AccountSettingsService } from '../account-settings/account-settings.ser
 import { emailMatcher } from '../../common/helpers/email-matcher.helper';
 import { AdminFilterDto } from '../../common/helpers/pagination.helper';
 
-import {
-  paginationMeta,
-} from '../../common/helpers/pagination.helper';
+import { paginationMeta } from '../../common/helpers/pagination.helper';
 import { ChurchAdminStatus } from '../../common/utils/enums.utils';
 
 @Injectable()

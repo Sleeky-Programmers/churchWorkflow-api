@@ -5,6 +5,7 @@ import { SubscriptionService } from '../subscription/subscription.service';
 import { AttendanceService } from '../attendance/attendance.service';
 import { PaymentService } from '../payment/payment.service';
 import { PlanType } from '../../common/utils/enums.utils';
+import { AdminActivityLogService } from '../admin-activity-log/admin-activity-log.service';
 
 function fmtGrowth(current: number, previous: number) {
   if (previous === 0) {
@@ -23,6 +24,7 @@ export class AnalyticsService {
     private readonly subscriptionService: SubscriptionService,
     private readonly attendanceService: AttendanceService,
     private readonly paymentService: PaymentService,
+    private readonly adminActivityLogService: AdminActivityLogService,
   ) {}
 
   async getOverviewStats() {
@@ -248,7 +250,10 @@ export class AnalyticsService {
       const total = await this.membersService.countMembersUpTo(month.end);
       membersGrowth.push({ month: month.label, active, total });
     }
-
+    const recentActivities =
+      await this.adminActivityLogService.recentActivitiesLatestSubscription({
+        limit: 5,
+      });
     return {
       timestamp: now.toISOString(),
       totalChurches: { count: totalChurches, growth: churchesGrowth },
@@ -274,6 +279,7 @@ export class AnalyticsService {
       revenueSubscriptionData,
       trialToPaidData,
       membersGrowth,
+      recentActivities: recentActivities,
     };
   }
 }

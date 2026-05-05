@@ -10,6 +10,7 @@ import {
   PaymentProvider,
   PlanType,
   SubscriptionStatus,
+  SubscriptionAction,
 } from '../../common/utils/enums.utils';
 import { AdminActivityLogService } from '../admin-activity-log/admin-activity-log.service';
 
@@ -133,34 +134,22 @@ export class SubscriptionService {
       endDate.setFullYear(endDate.getFullYear() + 1);
     }
 
-    const baseAmount = this.getPlanAmount(data.plan, data.billingCycle);
-    let finalAmount = baseAmount;
-    let appliedCoupon = null;
-    let discountAmount = 0;
-
-    if (data.couponCode) {
-      const result = await this.couponService.applyCoupon(
-        data.couponCode,
-        baseAmount,
-      );
-
-      if (!result || typeof result.finalAmount !== 'number') {
-        throw new Error('Invalid coupon result');
-      }
-
-      finalAmount = result.finalAmount;
-      discountAmount = result.discount ?? baseAmount - result.finalAmount;
-      appliedCoupon = result.code;
-    }
+    const pricing = await this.getSubscriptionPricing({
+      plan: data.plan,
+      billingCycle: data.billingCycle,
+      couponCode: data.couponCode,
+    });
 
     const updated = await this.subscriptionModel.findOneAndUpdate(
       { churchId: new Types.ObjectId(data.churchId) },
       {
         plan: data.plan,
-        price: finalAmount,
-        originalPrice: baseAmount,
-        discountAmount,
-        couponCode: appliedCoupon,
+        price: pricing.finalAmount,
+        originalPrice: pricing.baseAmount,
+        discountAmount: pricing.discountAmount,
+        discountType: pricing.discountType,
+        discountValue: pricing.discountValue,
+        couponCode: pricing.couponCode,
         status: SubscriptionStatus.ACTIVE,
         memberLimit: limits.members,
         userLimit: limits.users,
@@ -181,24 +170,29 @@ export class SubscriptionService {
       },
       { new: true, upsert: true },
     );
-    if (updated && data.couponCode) {
-      await this.couponService.incrementUsage(data.couponCode);
+
+    if (updated && pricing.couponCode) {
+      await this.couponService.incrementUsage(pricing.couponCode);
     }
+
     if (!existing) {
       await this.adminActivityLogService.create({
-        action: 'SUBSCRIPTION_CREATED',
+        churchId: new Types.ObjectId(data.churchId),
+        action: SubscriptionAction.CREATED,
         details: `Subscription created for plan ${data.plan}`,
         plan: data.plan as any,
       } as any);
     } else if (existing.plan !== data.plan) {
       await this.adminActivityLogService.create({
-        action: 'SUBSCRIPTION_UPGRADED',
+        churchId: new Types.ObjectId(data.churchId),
+        action: SubscriptionAction.UPGRADED,
         details: `Subscription changed from ${existing.plan} to ${data.plan}`,
         plan: data.plan as any,
       } as any);
     } else {
       await this.adminActivityLogService.create({
-        action: 'SUBSCRIPTION_UPDATED',
+        churchId: new Types.ObjectId(data.churchId),
+        action: SubscriptionAction.UPDATED,
         details: `Subscription updated for plan ${data.plan}`,
         plan: data.plan as any,
       } as any);
@@ -443,7 +437,7 @@ export class SubscriptionService {
     return map;
   }
 
-  async calculateSubscriptionAmount(data: {
+  async getSubscriptionPricing(data: {
     plan: PlanType;
     billingCycle: BillingCycle;
     couponCode?: string;
@@ -452,7 +446,9 @@ export class SubscriptionService {
 
     let finalAmount = baseAmount;
     let discountAmount = 0;
-    let coupon = null;
+    let discountType: string | null = null;
+    let discountValue = 0;
+    let couponCode: string | null = null;
 
     if (data.couponCode) {
       const result = await this.couponService.applyCoupon(
@@ -461,18 +457,20 @@ export class SubscriptionService {
       );
 
       finalAmount = result.finalAmount;
-      discountAmount = result.discount;
-
-      coupon = {
-        code: result.code,
-      };
+      discountAmount = result.discountAmount;
+      discountType = result.discountType;
+      discountValue = result.discountValue;
+      couponCode = result.code;
     }
 
     return {
       baseAmount,
+      originalAmount: baseAmount,
       finalAmount,
       discountAmount,
-      coupon,
+      discountType,
+      discountValue,
+      couponCode,
     };
   }
   async countNewSubscriptionsByPlanBetween(from?: Date, to?: Date) {

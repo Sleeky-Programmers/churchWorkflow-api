@@ -240,3 +240,9 @@ export enum DefaultProductAdminRoles {
   FINANCE_ADMIN = 'FINANCE_ADMIN',
   SUPPORT_ADMIN = 'SUPPORT_ADMIN',
 }
+
+export enum SubscriptionAction {
+  CREATED = 'SUBSCRIPTION_CREATED',
+  UPGRADED = 'SUBSCRIPTION_UPGRADED',
+  UPDATED = 'SUBSCRIPTION_UPDATED',
+}
