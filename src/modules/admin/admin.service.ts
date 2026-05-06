@@ -12,7 +12,7 @@ import { emailMatcher } from '../../common/helpers/email-matcher.helper';
 import { AdminFilterDto } from '../../common/helpers/pagination.helper';
 
 import { paginationMeta } from '../../common/helpers/pagination.helper';
-import { ChurchAdminStatus } from '../../common/utils/enums.utils';
+import { ChurchAdminStatus, UserRole } from '../../common/utils/enums.utils';
 
 @Injectable()
 export class AdminService {
@@ -196,7 +196,7 @@ export class AdminService {
       status: ChurchAdminStatus.BLOCKED,
     });
 
-    const superRole = await this.rolesService.findOne('Super Admin');
+    const superRole = await this.rolesService.findOne(UserRole.SUPER_ADMIN);
 
     const superAdmins = superRole
       ? await this.adminModel.countDocuments({
@@ -235,7 +235,7 @@ export class AdminService {
     }
 
     return {
-      id: admin?._id?.toString?.() ?? admin?.id ?? '',
+      id: admin?._id,
 
       name:
         `${admin?.firstName ?? ''} ${admin?.lastName ?? ''}`.trim() ||

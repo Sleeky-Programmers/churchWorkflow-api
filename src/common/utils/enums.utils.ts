@@ -242,7 +242,17 @@ export enum DefaultProductAdminRoles {
 }
 
 export enum SubscriptionAction {
-  CREATED = 'SUBSCRIPTION_CREATED',
-  UPGRADED = 'SUBSCRIPTION_UPGRADED',
-  UPDATED = 'SUBSCRIPTION_UPDATED',
+  CREATED='SUBSCRIPTION_CREATED',
+   UPGRADED='SUBSCRIPTION_UPGRADED',
+  UPDATED='SUBSCRIPTION_UPDATED',
 }
+
+
+export enum UserRole {
+  SUPER_ADMIN = "Super Admin",
+  ADMIN = "Admin",
+  FINANCE = "Finance",
+  PASTOR = "Pastor",
+  MEMBER = "Member",
+}
+

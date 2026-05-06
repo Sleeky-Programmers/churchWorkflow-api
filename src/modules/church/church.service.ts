@@ -3,6 +3,7 @@ import {
   Inject,
   Injectable,
   NotFoundException,
+  ConflictException
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -238,20 +239,28 @@ export class ChurchService {
     };
   }
 
-  async blockChurch(churchId: Types.ObjectId) {
-    const church = await this.churchModel.findByIdAndUpdate(
-      churchId,
-      { status: ChurchStatus.BLOCKED },
-      { new: true },
-    );
+async blockChurch(churchId: Types.ObjectId) {
+  const church = await this.churchModel.findById(churchId);
 
-    if (!church) {
-      throw new NotFoundException('Church not found');
-    }
-
-    return { message: 'Church blocked successfully' };
+  if (!church) {
+    throw new NotFoundException('Church not found');
   }
 
+  if (church.status === ChurchStatus.BLOCKED) {
+    throw new ConflictException('Church is already blocked');
+  }
+
+  church.status = ChurchStatus.BLOCKED;
+  await church.save();
+
+  return {
+    message: 'Church blocked successfully',
+    data: {
+      id: church._id,
+      status: church.status,
+    },
+  };
+}
   async unblockChurch(churchId: Types.ObjectId) {
     const church = await this.churchModel.findByIdAndUpdate(
       churchId,

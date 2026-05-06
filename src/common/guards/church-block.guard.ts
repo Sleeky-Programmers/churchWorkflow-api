@@ -25,7 +25,7 @@ export class ChurchBlockedGuard implements CanActivate {
 
     const church = await this.churchService.findById(user.churchId);
 
-    if (church?.status == ChurchStatus.BLOCKED) {
+    if (church?.status === ChurchStatus.BLOCKED) {
       throw new ForbiddenException(
         'Your church has been blocked. Contact support.',
       );

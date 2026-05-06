@@ -21,8 +21,9 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { ChurchFilterDto } from './dto/church-filter.dto';
 import { Types } from 'mongoose';
+import { UserRole} from '../../common/utils/enums.utils';
 
-// Import { ProductAdminJwtAuthGuard } from '../product-admin/guard/product-jwt-auth.guard';
+ import { ProductAdminJwtAuthGuard } from '../product-admin/guard/product-jwt-auth.guard';
 
 @Controller('church')
 export class ChurchController {
@@ -34,13 +35,13 @@ export class ChurchController {
     return this.churchService.findCurrentChurch(authUser);
   }
 
-  // @UseGuards(ProductAdminJwtAuthGuard)
+   @UseGuards(ProductAdminJwtAuthGuard)
   @Get()
   getAllChurches(@Query() filter: ChurchFilterDto) {
     return this.churchService.findAll(filter);
   }
 
-  // @UseGuards(ProductAdminJwtAuthGuard)
+   @UseGuards(ProductAdminJwtAuthGuard)
   @Get(':id')
   getChurchById(@Param('id') id: string) {
     return this.churchService.findDetailsById(id);
@@ -48,7 +49,7 @@ export class ChurchController {
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Post()
-  @Roles('Super Admin')
+  @Roles(UserRole.SUPER_ADMIN)
   @UseInterceptors(FileInterceptor('file'))
   createChurch(
     @AuthUser() authUser: Admin,

@@ -5,7 +5,7 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { ChurchStatus } from 'src/common/utils/enums.utils';
+import { ChurchStatus } from '../../common/utils/enums.utils';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
@@ -372,7 +372,7 @@ export class AuthService {
       return;
     }
 
-    if (church.status == ChurchStatus.BLOCKED) {
+    if (church.status === ChurchStatus.BLOCKED) {
       throw new UnauthorizedException(
         'Your church has been blocked. Contact support.',
       );
