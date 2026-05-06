@@ -11,7 +11,7 @@ export class Attendance extends Document {
   churchServiceId: Types.ObjectId;
 
   @Prop()
-  date: Date;
+  date: string;
 
   @Prop({ type: SchemaTypes.ObjectId, ref: Member.name })
   memberId: Types.ObjectId;
