@@ -26,6 +26,149 @@ export class AttendanceService {
     private adminService: AdminService,
   ) {}
 
+  private async replaceAttendanceByStatus(
+    authUser: Admin,
+    serviceId: string,
+    createAttendanceDto: CreateAttendanceDto,
+    status: AttendanceStatus,
+  ) {
+    const service = await this.churchServicesService.findOneInChurch(
+      serviceId,
+      authUser.churchId,
+    );
+
+    if (!service) {
+      throw new NotFoundException('Service not found');
+    }
+
+    const attendanceDate = this.normalizeDate(createAttendanceDto.date);
+
+    const [year, month, day] = attendanceDate.split('-').map(Number);
+    const attendanceDateObj = new Date(year, month - 1, day);
+    attendanceDateObj.setHours(0, 0, 0, 0);
+
+    const now = new Date();
+
+    const todayObj = new Date(now);
+    todayObj.setHours(0, 0, 0, 0);
+
+    if (attendanceDateObj.getTime() > todayObj.getTime()) {
+      throw new BadRequestException(
+        'Cannot mark attendance for a future service',
+      );
+    }
+
+    if (attendanceDateObj.getTime() === todayObj.getTime()) {
+      let startTimeStr: string | undefined;
+
+      if (service?.specialDays?.length) {
+        const matched = service.specialDays.find((specialDay: any) => {
+          if (!specialDay?.date) {
+            return false;
+          }
+
+          const specialDate = this.normalizeDate(specialDay.date);
+          return specialDate === attendanceDate;
+        });
+
+        if (matched?.startTime) {
+          startTimeStr = matched.startTime;
+        }
+      }
+
+      if (!startTimeStr) {
+        startTimeStr = service?.startTime;
+      }
+
+      if (startTimeStr) {
+        const serviceDateTime = this.combineDateAnd12HourTime(
+          attendanceDateObj,
+          startTimeStr,
+        );
+
+        if (serviceDateTime.getTime() > now.getTime()) {
+          throw new BadRequestException(
+            'Cannot mark attendance for a future service',
+          );
+        }
+      }
+    }
+
+    let memberIds = createAttendanceDto.memberIds || [];
+
+    if (createAttendanceDto.isAllPresent) {
+      const members = await this.membersService.findAll(authUser);
+      memberIds = members.map((member) => member._id.toString());
+    }
+
+    await this.attendanceModel.deleteMany({
+      churchServiceId: new Types.ObjectId(serviceId),
+      status,
+      date: attendanceDate,
+    });
+
+    if (!memberIds.length) {
+      return;
+    }
+
+    await this.attendanceModel.insertMany(
+      memberIds.map((memberId) => ({
+        churchServiceId: new Types.ObjectId(serviceId),
+        date: attendanceDate,
+        memberId: new Types.ObjectId(memberId),
+        recordedBy: authUser._id,
+        status,
+      })),
+    );
+  }
+
+  private normalizeDate(dateString: string): string {
+    if (!dateString) {
+      throw new BadRequestException('Date is required');
+    }
+
+    const parts = dateString.split('T')[0].split('-');
+
+    if (parts.length !== 3) {
+      throw new BadRequestException('Invalid date format');
+    }
+
+    const [year, month, day] = parts.map(Number);
+
+    if (!year || !month || !day) {
+      throw new BadRequestException('Invalid date values');
+    }
+
+    return `${year.toString().padStart(4, '0')}-${month
+      .toString()
+      .padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+  }
+
+  private combineDateAnd12HourTime(baseDate: Date, timeString: string): Date {
+    const match = timeString.trim().match(/^(\d{1,2}):(\d{2})\s?(AM|PM)$/i);
+
+    if (!match) {
+      throw new BadRequestException(`Invalid time format: ${timeString}`);
+    }
+
+    let hours = parseInt(match[1], 10);
+    const minutes = parseInt(match[2], 10);
+    const meridian = match[3].toUpperCase();
+
+    if (meridian === 'AM' && hours === 12) {
+      hours = 0;
+    }
+
+    if (meridian === 'PM' && hours !== 12) {
+      hours += 12;
+    }
+
+    const result = new Date(baseDate);
+    result.setHours(hours, minutes, 0, 0);
+
+    return result;
+  }
+
   async markAttendance(
     authUser: Admin,
     serviceId: string,
@@ -493,129 +636,5 @@ export class AttendanceService {
     ]);
 
     return (res[0]?.count as number) || 0;
-  }
-
-  private async replaceAttendanceByStatus(
-    authUser: Admin,
-    serviceId: string,
-    createAttendanceDto: CreateAttendanceDto,
-    status: AttendanceStatus,
-  ) {
-    const service = await this.churchServicesService.findOneInChurch(
-      serviceId,
-      authUser.churchId,
-    );
-
-    if (!service) {
-      throw new NotFoundException('Service not found');
-    }
-
-    const attendanceDate = new Date(createAttendanceDto.date);
-
-    if (isNaN(attendanceDate.getTime())) {
-      throw new BadRequestException('Invalid attendance date');
-    }
-
-    const now = new Date();
-    attendanceDate.setHours(0, 0, 0, 0);
-
-    const today = new Date(now);
-    today.setHours(0, 0, 0, 0);
-
-    if (attendanceDate.getTime() > today.getTime()) {
-      throw new BadRequestException(
-        'Cannot mark attendance for a future service',
-      );
-    }
-
-    if (attendanceDate.getTime() === today.getTime()) {
-      let startTimeStr: string | undefined;
-
-      if (service?.specialDays?.length) {
-        const matched = service.specialDays.find((specialDay: any) => {
-          if (!specialDay?.date) {
-            return false;
-          }
-
-          const specialDayDate = new Date(specialDay.date);
-          specialDayDate.setHours(0, 0, 0, 0);
-
-          return specialDayDate.getTime() === attendanceDate.getTime();
-        });
-
-        if (matched?.startTime) {
-          startTimeStr = matched.startTime;
-        }
-      }
-
-      if (!startTimeStr) {
-        startTimeStr = service?.startTime;
-      }
-
-      if (startTimeStr) {
-        const serviceDateTime = this.combineDateAnd12HourTime(
-          attendanceDate,
-          startTimeStr,
-        );
-
-        if (serviceDateTime.getTime() > now.getTime()) {
-          throw new BadRequestException(
-            'Cannot mark attendance for a future service',
-          );
-        }
-      }
-    }
-
-    let memberIds = createAttendanceDto.memberIds || [];
-
-    if (createAttendanceDto.isAllPresent) {
-      const members = await this.membersService.findAll(authUser);
-      memberIds = members.map((member) => member._id.toString());
-    }
-
-    await this.attendanceModel.deleteMany({
-      churchServiceId: new Types.ObjectId(serviceId),
-      date: attendanceDate,
-      status,
-    });
-
-    if (!memberIds.length) {
-      return;
-    }
-
-    await this.attendanceModel.insertMany(
-      memberIds.map((memberId) => ({
-        churchServiceId: new Types.ObjectId(serviceId),
-        date: attendanceDate,
-        memberId: new Types.ObjectId(memberId),
-        recordedBy: authUser._id,
-        status,
-      })),
-    );
-  }
-
-  private combineDateAnd12HourTime(baseDate: Date, timeStr: string): Date {
-    const match = timeStr.trim().match(/^(\d{1,2}):(\d{2})\s?(AM|PM)$/i);
-
-    if (!match) {
-      throw new BadRequestException(`Invalid time format: ${timeStr}`);
-    }
-
-    let hours = parseInt(match[1], 10);
-    const minutes = parseInt(match[2], 10);
-    const meridian = match[3].toUpperCase();
-
-    if (meridian === 'AM' && hours === 12) {
-      hours = 0;
-    }
-
-    if (meridian === 'PM' && hours !== 12) {
-      hours += 12;
-    }
-
-    const result = new Date(baseDate);
-    result.setHours(hours, minutes, 0, 0);
-
-    return result;
   }
 }
