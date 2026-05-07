@@ -15,6 +15,11 @@ export class AdminController {
     return this.adminService.findAllAdminWithPagination(authUser.churchId, dto);
   }
 
+  @Get('profile')
+  async getAdminProfile(@AuthUser() authUser: Admin) {
+    return this.adminService.findById(authUser._id);
+  }
+
   @UseGuards(JwtAuthGuard)
   @Patch('me')
   async updateProfile(
