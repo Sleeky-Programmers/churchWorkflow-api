@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import * as bcrypt from 'bcryptjs';
@@ -9,6 +13,7 @@ import { CreateAdminDto } from '././dto/create-admin.dto';
 import { RolesService } from '../roles/roles.service';
 import { AccountSettingsService } from '../account-settings/account-settings.service';
 import { emailMatcher } from '../../common/helpers/email-matcher.helper';
+import { SubscriptionService } from '../subscription/subscription.service';
 import {
   PaginationBaseDto,
   paginationMeta,
@@ -21,6 +26,7 @@ export class AdminService {
     private churchService: ChurchService,
     private rolesService: RolesService,
     private accountSettingsService: AccountSettingsService,
+    private readonly subscriptionService: SubscriptionService,
   ) {}
 
   async countAdminsByChurch(churchId: Types.ObjectId) {
@@ -37,6 +43,17 @@ export class AdminService {
 
     if (!church) {
       throw new NotFoundException('Church not found');
+    }
+
+    // Enforce user limit before creating admin
+    const currentUsers = await this.countAdminsByChurch(churchId);
+    const limitCheck = await this.subscriptionService.checkUserLimit(
+      churchId,
+      currentUsers + 1,
+    );
+
+    if (!limitCheck.allowed) {
+      throw new BadRequestException(limitCheck.message || 'User limit reached');
     }
 
     const admin = await this.adminModel.create({

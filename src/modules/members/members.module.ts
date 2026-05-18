@@ -7,6 +7,7 @@ import { ActivityLogModule } from '../activity-log/activity-log.module';
 import { NotificationModule } from '../notification/notification.module';
 import { AttendanceModule } from '../attendance/attendance.module';
 import { ChurchServicesModule } from '../church-services/church-services.module';
+import { SubscriptionModule } from '../subscription/subscription.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { ChurchServicesModule } from '../church-services/church-services.module'
     NotificationModule,
     ChurchServicesModule,
     forwardRef(() => AttendanceModule),
+    SubscriptionModule,
   ],
   controllers: [MembersController],
   providers: [MembersService],

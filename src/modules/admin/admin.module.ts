@@ -6,6 +6,7 @@ import { Admin, AdminSchema } from '../../schemas/admin.schema';
 import { ChurchModule } from '../church/church.module';
 import { RolesModule } from '../roles/roles.module';
 import { AccountSettingsModule } from '../account-settings/account-settings.module';
+import { SubscriptionModule } from '../subscription/subscription.module';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { AccountSettingsModule } from '../account-settings/account-settings.modu
     forwardRef(() => ChurchModule),
     RolesModule,
     AccountSettingsModule,
+    SubscriptionModule,
   ],
   controllers: [AdminController],
   providers: [AdminService],

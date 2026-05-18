@@ -75,6 +75,40 @@ export class SubscriptionService {
       return this.initializeTrialPlan(churchId);
     }
 
+    const now = new Date();
+    if (subscription.endDate && now > subscription.endDate) {
+      if (!subscription.gracePeriodEndDate) {
+        const grace = new Date(subscription.endDate);
+        grace.setDate(grace.getDate() + 7);
+        subscription.gracePeriodEndDate = grace;
+        subscription.status = SubscriptionStatus.GRACE;
+        await subscription.save();
+        return subscription;
+      }
+
+      if (
+        subscription.gracePeriodEndDate &&
+        now <= subscription.gracePeriodEndDate
+      ) {
+        if (subscription.status !== SubscriptionStatus.GRACE) {
+          subscription.status = SubscriptionStatus.GRACE;
+          await subscription.save();
+        }
+        return subscription;
+      }
+
+      if (
+        subscription.gracePeriodEndDate &&
+        now > subscription.gracePeriodEndDate
+      ) {
+        if (subscription.status !== SubscriptionStatus.EXPIRED) {
+          subscription.status = SubscriptionStatus.EXPIRED;
+          await subscription.save();
+        }
+        return subscription;
+      }
+    }
+
     return subscription;
   }
 
@@ -157,19 +191,19 @@ export class SubscriptionService {
 
     if (!existing) {
       await this.adminActivityLogService.create({
-        action: 'SUBSCRIPTION_CREATED',
+        action: 'Subscription Created',
         details: `Subscription created for plan ${data.plan}`,
         plan: data.plan as any,
       } as any);
     } else if (existing.plan !== data.plan) {
       await this.adminActivityLogService.create({
-        action: 'SUBSCRIPTION_UPGRADED',
+        action: 'Subscription Upgraded',
         details: `Subscription changed from ${existing.plan} to ${data.plan}`,
         plan: data.plan as any,
       } as any);
     } else {
       await this.adminActivityLogService.create({
-        action: 'SUBSCRIPTION_UPDATED',
+        action: 'Subscription Updated',
         details: `Subscription updated for plan ${data.plan}`,
         plan: data.plan as any,
       } as any);
@@ -370,7 +404,22 @@ export class SubscriptionService {
       return SubscriptionStatus.ACTIVE;
     }
 
-    if (subscription.endDate && new Date() > subscription.endDate) {
+    const now = new Date();
+
+    if (subscription.endDate && subscription.gracePeriodEndDate) {
+      if (
+        now > subscription.endDate &&
+        now <= subscription.gracePeriodEndDate
+      ) {
+        return SubscriptionStatus.GRACE;
+      }
+
+      if (now > subscription.gracePeriodEndDate) {
+        return SubscriptionStatus.EXPIRED;
+      }
+    }
+
+    if (subscription.endDate && now > subscription.endDate) {
       return SubscriptionStatus.EXPIRED;
     }
 
@@ -455,5 +504,51 @@ export class SubscriptionService {
     const map: Record<string, number> = {};
     res.forEach((r: any) => (map[r._id] = r.count));
     return map;
+  }
+
+  async getDueSubscriptions(): Promise<Subscription[]> {
+    const now = new Date();
+
+    return this.subscriptionModel.find({
+      status: SubscriptionStatus.ACTIVE,
+      isAutoRenew: true,
+      endDate: { $lte: now },
+    });
+  }
+
+  async extendSubscription(data: {
+    churchId: Types.ObjectId;
+    billingCycle: BillingCycle;
+  }): Promise<Subscription | null> {
+    const subscription = await this.subscriptionModel.findOne({
+      churchId: data.churchId,
+    });
+
+    if (!subscription) {
+      return null;
+    }
+
+    const now = new Date();
+    const currentEnd =
+      subscription.endDate && subscription.endDate > now
+        ? subscription.endDate
+        : now;
+
+    const newEnd = new Date(currentEnd);
+
+    if (data.billingCycle === BillingCycle.MONTHLY) {
+      newEnd.setMonth(newEnd.getMonth() + 1);
+    } else {
+      newEnd.setFullYear(newEnd.getFullYear() + 1);
+    }
+
+    subscription.startDate = subscription.startDate || now;
+    subscription.endDate = newEnd;
+    subscription.status = SubscriptionStatus.ACTIVE;
+    subscription.gracePeriodEndDate = null;
+
+    await subscription.save();
+
+    return subscription;
   }
 }

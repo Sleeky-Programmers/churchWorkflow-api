@@ -30,6 +30,7 @@ import { UpdateMemberDto } from './dto/update-member.dto';
 import { paginationMeta } from '../../common/helpers/pagination.helper';
 import { ActivityLogService } from '../activity-log/activity-log.service';
 import { NotificationService } from '../notification/notification.service';
+import { SubscriptionService } from '../subscription/subscription.service';
 import { Admin } from '../../schemas/admin.schema';
 import {
   normalizeDateKey,
@@ -57,6 +58,7 @@ export class MembersService {
     private readonly churchServicesService: ChurchServicesService,
     private readonly activityLogService: ActivityLogService,
     private readonly notificationService: NotificationService,
+    private readonly subscriptionService: SubscriptionService,
   ) {}
 
   async countMembersByChurch(churchId: Types.ObjectId) {
@@ -390,6 +392,20 @@ export class MembersService {
       });
     }
 
+    // Check member limit before bulk inserting
+    const currentMembers = await this.countMembersByChurch(authUser.churchId);
+    const projectedCount = currentMembers + members.length;
+    const limitCheck = await this.subscriptionService.checkMemberLimit(
+      authUser.churchId,
+      projectedCount,
+    );
+
+    if (!limitCheck.allowed && limitCheck.type === 'BLOCK') {
+      throw new BadRequestException(
+        limitCheck.message || 'Member limit reached',
+      );
+    }
+
     const insertedDocs = await this.memberModel.insertMany(members);
 
     await this.activityLogService.create(authUser, {
@@ -452,6 +468,21 @@ export class MembersService {
           'Member with same contact already exists',
         );
       }
+    }
+
+    // Check member limit before creating single member
+    const currentMembersCount = await this.countMembersByChurch(
+      authUser.churchId,
+    );
+    const singleLimitCheck = await this.subscriptionService.checkMemberLimit(
+      authUser.churchId,
+      currentMembersCount + 1,
+    );
+
+    if (!singleLimitCheck.allowed && singleLimitCheck.type === 'BLOCK') {
+      throw new BadRequestException(
+        singleLimitCheck.message || 'Member limit reached',
+      );
     }
 
     const createdMember = await this.memberModel.create({

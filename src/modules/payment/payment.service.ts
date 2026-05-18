@@ -58,7 +58,7 @@ export class PaymentService {
     );
 
     await this.adminActivityLogService.create({
-      action: 'PROVIDER_SUBSCRIPTION_CREATED',
+      action: 'Provider subscription created',
       details: `Provider subscription created: ${providerSubscriptionRef}`,
       plan: updated.plan as any,
     } as any);
@@ -112,8 +112,8 @@ export class PaymentService {
     );
 
     await this.adminActivityLogService.create({
-      action: 'PROVIDER_SUBSCRIPTION_CANCELED',
-      details: `Provider subscription ${code} canceled`,
+      action: 'Provider subscription cancelled',
+      details: `Provider subscription ${code} cancelled`,
     } as any);
 
     return res;
