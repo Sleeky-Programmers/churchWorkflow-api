@@ -47,6 +47,7 @@ export class PaymentController {
     const existingSub: any = await this.subscriptionService.getSubscription(
       authUser.churchId,
     );
+
     if (
       existingSub &&
       existingSub.plan !== PlanType.STARTER &&

@@ -1,22 +1,34 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  UnauthorizedException,
+  Logger,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { lastValueFrom } from 'rxjs';
+import { Types } from 'mongoose';
+
 import { PaymentService } from '../payment/payment.service';
 import { SubscriptionService } from '../subscription/subscription.service';
 import { CouponService } from '../coupon/coupon.service';
+import { AdminActivityLogService } from '../admin-activity-log/admin-activity-log.service';
+
 import {
+  BillingCycle,
+  FlPaymentStatus,
+  PaymentProvider,
   PaymentStatus,
   PlanType,
-  BillingCycle,
-  PaymentProvider,
 } from '../../common/utils/enums.utils';
-import { Types } from 'mongoose';
-import { AdminActivityLogService } from '../admin-activity-log/admin-activity-log.service';
 
 @Injectable()
 export class FlutterwaveService {
+  private readonly logger = new Logger(FlutterwaveService.name);
+
   private readonly secretKey: string;
+  private readonly secretHash: string;
   private readonly baseUrl: string;
 
   constructor(
@@ -28,6 +40,7 @@ export class FlutterwaveService {
     private readonly adminActivityLogService: AdminActivityLogService,
   ) {
     this.secretKey = this.configService.get<string>('flutterwave.secretKey');
+    this.secretHash = this.configService.get<string>('flutterwave.secretHash');
     this.baseUrl = this.configService.get<string>('flutterwave.baseUrl');
   }
 
@@ -50,21 +63,25 @@ export class FlutterwaveService {
     try {
       const tx_ref = `CW-${Date.now()}`;
 
-      const payload: any = {
+      const payload = {
         tx_ref,
         amount: data.amount,
         currency: 'NGN',
         redirect_url:
           this.configService.get<string>('flutterwave.redirectUrl') || '',
+        card_tokenize: 1,
         customer: {
           email: data.email,
+        },
+        customizations: {
+          title: 'Subscription Payment',
         },
         meta: {
           churchId: data.churchId,
           plan: data.plan,
           billingCycle: data.billingCycle,
-          ...(data.metadata || {}),
           autoRenew: data.autoRenew,
+          ...(data.metadata || {}),
         },
       };
 
@@ -74,48 +91,35 @@ export class FlutterwaveService {
         }),
       );
 
-      const respData = response.data.data;
-
-      await this.subscriptionService.getSubscription(
-        new Types.ObjectId(data.churchId),
-      );
-
       await this.paymentService.createPayment({
         churchId: data.churchId as any,
-        reference: tx_ref,
-        transactionId: `TXN_CW_${Date.now()}`,
-        autoRenew: payload.meta.autoRenew || false,
         amount: data.amount,
         plan: data.plan,
         billingCycle: data.billingCycle,
+        autoRenew: !!data.autoRenew,
+        reference: tx_ref,
+        transactionId: `TXN_${Date.now()}`,
         status: PaymentStatus.PENDING,
         paymentGateway: PaymentProvider.FLUTTERWAVE,
         metadata: payload.meta,
       });
 
-      await this.adminActivityLogService.create({
-        action: 'PAYMENT_INITIATED',
-        details: `Reference ${tx_ref} for plan ${data.plan}`,
-        plan: data.plan as any,
-      } as any);
-
       return {
         reference: tx_ref,
-        authorization_url:
-          respData.link || respData.checkout_url || respData.payment_link,
+        authorization_url: response.data.data.link,
       };
     } catch (error: any) {
       throw new InternalServerErrorException(
-        error.response?.data?.message || 'Flutterwave initialization failed',
+        error.response?.data?.message || 'Failed to initialize payment',
       );
     }
   }
 
-  async verifyTransaction(reference: string) {
+  async verifyTransaction(transactionId: string) {
     try {
       const response = await lastValueFrom(
         this.httpService.get(
-          `${this.baseUrl}/transactions/${reference}/verify`,
+          `${this.baseUrl}/transactions/${transactionId}/verify`,
           {
             headers: this.headers,
           },
@@ -124,139 +128,200 @@ export class FlutterwaveService {
 
       const data = response.data.data;
 
-      if (data.status === 'successful' || data.status === 'success') {
-        const paidAt = new Date(data.created_at || Date.now());
-        const meta = data.meta || data.metadata || {};
-
-        await this.paymentService.updatePaymentStatus(
-          reference,
-          PaymentStatus.SUCCESS,
-          paidAt,
-          {
-            transactionId: data.id || reference,
-            paymentMethod: meta.paymentMethod || data.payment_method || null,
-            autoRenew: !!meta.autoRenew,
-          },
-        );
-
-        await this.adminActivityLogService.create({
-          action: 'PAYMENT_SUCCESS',
-          details: `Reference ${reference} paid for plan ${meta.plan}`,
-          plan: meta.plan,
-        } as any);
-
-        await this.subscriptionService.updateSubscription({
-          churchId: meta.churchId,
-          plan: meta.plan as PlanType,
-          billingCycle: meta.billingCycle as BillingCycle,
-          autoRenew: !!meta.autoRenew,
-        });
-
-        const promo = meta.promoCode || meta.promo;
-        if (promo) {
-          await this.couponService.incrementUsage(promo);
-        }
-
-        if (meta && meta.autoRenew) {
-          const providerSubId = await this.createFlutterwaveSubscription(
-            data,
-            meta,
-          );
-          await this.paymentService.createProviderSubscription(
-            reference,
-            PaymentProvider.FLUTTERWAVE,
-            providerSubId || data.customer?.id || reference,
-          );
-        }
-
-        return data;
-      } else {
-        await this.paymentService.updatePaymentStatus(
-          reference,
-          PaymentStatus.FAILED,
-        );
-
-        await this.adminActivityLogService.create({
-          action: 'PAYMENT_FAILED',
-          details: `Reference ${reference} failed`,
-        } as any);
-
-        return data;
+      if (data.status !== FlPaymentStatus.SUCCESS) {
+        throw new UnauthorizedException('Payment not successful');
       }
+
+      const reference = data.tx_ref;
+
+      const payment = await this.paymentService.findByReference(reference);
+
+      if (!payment) {
+        throw new UnauthorizedException('Payment record not found');
+      }
+
+      const meta = payment.metadata || {};
+
+      const paymentType = data.payment_type;
+
+      const reusableToken = data.card?.token;
+
+      const canAutoRenew = paymentType === 'card' && !!reusableToken;
+
+      await this.paymentService.updatePaymentStatus(
+        reference,
+        PaymentStatus.SUCCESS,
+        new Date(),
+        {
+          transactionId: String(data.id),
+          paymentMethod: paymentType,
+          autoRenew: canAutoRenew,
+        },
+      );
+
+      if (canAutoRenew) {
+        await this.paymentService.createProviderSubscription(
+          reference,
+          PaymentProvider.FLUTTERWAVE,
+          reusableToken,
+        );
+      }
+
+      await this.subscriptionService.updateSubscription({
+        churchId: meta.churchId,
+        plan: meta.plan as PlanType,
+        billingCycle: meta.billingCycle as BillingCycle,
+        autoRenew: canAutoRenew,
+      });
+
+      if (meta.promoCode) {
+        await this.couponService.incrementUsage(meta.promoCode);
+      }
+
+      await this.adminActivityLogService.create({
+        action: 'Payment Successful',
+        details: `Reference ${reference} successful`,
+        plan: meta.plan,
+      } as any);
+
+      return {
+        success: true,
+        autoRenew: canAutoRenew,
+        paymentType,
+      };
     } catch (error: any) {
       throw new InternalServerErrorException(
-        error.response?.data?.message || 'Flutterwave verification failed',
+        error.response?.data?.message || 'Verification failed',
       );
     }
   }
 
-  async handleWebhook(payload: any) {
-    const event = payload.event || payload.type;
-    const data = payload.data || payload;
+  async handleWebhook(payload: any, signature: string) {
+    if (!signature || signature !== this.secretHash) {
+      throw new UnauthorizedException('Invalid webhook signature');
+    }
 
-    if (event === 'charge.completed' || data.status === 'successful') {
-      const reference = data.tx_ref || data.reference || data.id;
-      const meta = data.meta || data.metadata || {};
-      if (meta && meta.churchId) {
-        await this.paymentService.updatePaymentStatus(
-          reference,
-          PaymentStatus.SUCCESS,
-          new Date(data.created_at || Date.now()),
-        );
+    if (payload.status !== FlPaymentStatus.SUCCESS) {
+      return {
+        status: FlPaymentStatus.IGNORED,
+      };
+    }
 
-        await this.adminActivityLogService.create({
-          action: 'PAYMENT_SUCCESS',
-          details: `Webhook reference ${reference} succeeded for plan ${meta.plan}`,
-          plan: meta.plan,
-        } as any);
+    const reference = payload.txRef;
 
-        await this.subscriptionService.updateSubscription({
-          churchId: meta.churchId,
-          plan: meta.plan as PlanType,
-          billingCycle: meta.billingCycle as BillingCycle,
-          autoRenew: !!meta.autoRenew,
-        });
+    const payment = await this.paymentService.findByReference(reference);
 
-        if (meta.promoCode) {
-          await this.couponService.incrementUsage(meta.promoCode);
+    if (!payment) {
+      return {
+        status: FlPaymentStatus.PAYMENT_NOT_FOUND,
+      };
+    }
+
+    if (payment.status === PaymentStatus.SUCCESS) {
+      return {
+        status: FlPaymentStatus.ALREADY_PROCESSED,
+      };
+    }
+
+    const updatedPayment = await this.paymentService.updatePaymentStatus(
+      reference,
+      PaymentStatus.SUCCESS,
+      new Date(payload.createdAt || Date.now()),
+    );
+
+    await this.subscriptionService.updateSubscription({
+      churchId: updatedPayment.metadata.churchId,
+      plan: updatedPayment.metadata.plan as PlanType,
+      billingCycle: updatedPayment.metadata.billingCycle as BillingCycle,
+      autoRenew: !!updatedPayment.metadata.autoRenew,
+    });
+
+    return {
+      status: FlPaymentStatus.SUCCESS,
+    };
+  }
+
+  @Cron(CronExpression.EVERY_MINUTE)
+  async processRecurringSubscriptions() {
+    this.logger.log('Processing recurring subscriptions...');
+
+    const dueSubscriptions =
+      await this.subscriptionService.getDueSubscriptions();
+
+    for (const subscription of dueSubscriptions) {
+      try {
+        if (!subscription.isAutoRenew) {
+          continue;
         }
-      }
-    } else if (data.status === 'failed') {
-      await this.paymentService.updatePaymentStatus(
-        data.tx_ref || data.reference,
-        PaymentStatus.FAILED,
-      );
-    }
 
-    return { status: 'success' };
+        if (!subscription.provider?.subscriptionId) {
+          continue;
+        }
+
+        await this.chargeTokenizedCard(subscription);
+      } catch (error) {
+        this.logger.error(`Failed recurring charge for ${subscription._id}`);
+      }
+    }
   }
 
-  private async createFlutterwaveSubscription(
-    data: any,
-    meta: any,
-  ): Promise<string | null> {
+  async chargeTokenizedCard(subscription: any) {
     try {
-      const body: any = {
-        tx_ref: data.tx_ref || data.reference || `CW_SUB_${Date.now()}`,
-        amount: data.amount || meta.amount || 0,
+      const tx_ref = `RENEW_${Date.now()}`;
+
+      const payload = {
+        token: subscription.providerSubscriptionId,
         currency: 'NGN',
-        customer: {
-          email: data.customer?.email || meta.email,
-        },
+        country: 'NG',
+        amount: subscription.amount,
+        email: subscription.email,
+        tx_ref,
       };
 
-      const url = `${this.baseUrl}/subscriptions`;
       const response = await lastValueFrom(
-        this.httpService.post(url, body, {
+        this.httpService.post(`${this.baseUrl}/tokenized-charges`, payload, {
           headers: this.headers,
         }),
       );
 
-      return (
-        response.data.data.id || response.data.data.subscription_id || null
-      );
-    } catch (err) {
-      return null;
+      const data = response.data.data;
+
+      await this.paymentService.createPayment({
+        churchId: subscription.churchId,
+        amount: subscription.amount,
+        reference: tx_ref,
+        transactionId: String(data.id),
+        autoRenew: true,
+        plan: subscription.plan,
+        billingCycle: subscription.billingCycle,
+        status:
+          data.status === FlPaymentStatus.SUCCESS
+            ? PaymentStatus.SUCCESS
+            : PaymentStatus.PENDING,
+        paymentGateway: PaymentProvider.FLUTTERWAVE,
+        metadata: {
+          recurring: true,
+        },
+      });
+
+      if (data.status === FlPaymentStatus.SUCCESS) {
+        await this.subscriptionService.extendSubscription({
+          churchId: subscription.churchId,
+          billingCycle: subscription.billingCycle,
+        });
+
+        await this.adminActivityLogService.create({
+          action: 'Recurring Charge Success',
+          details: `Subscription renewed automatically`,
+          plan: subscription.plan,
+        } as any);
+      }
+
+      return data;
+    } catch (error: any) {
+      this.logger.error(error.response?.data || error.message);
+
+      throw error;
     }
   }
 }

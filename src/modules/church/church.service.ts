@@ -201,7 +201,7 @@ export class ChurchService {
     }
 
     await this.adminActivityLogService.create({
-      action: 'CHURCH_REGISTERED',
+      action: 'Register Church',
       details: `Church ${church.name} registered`,
       plan: PlanType.STARTER,
     } as any);

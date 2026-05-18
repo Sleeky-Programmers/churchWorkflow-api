@@ -113,7 +113,7 @@ export class PaystackService {
       });
 
       await this.adminActivityLogService.create({
-        action: 'PAYMENT_INITIATED',
+        action: 'Payment initiated',
         details: `Reference ${reference} for plan ${data.plan}`,
         plan: data.plan as any,
       } as any);
@@ -156,7 +156,7 @@ export class PaystackService {
         );
 
         await this.adminActivityLogService.create({
-          action: 'PAYMENT_SUCCESS',
+          action: 'Payment success',
           details: `Reference ${reference} paid for plan ${plan}`,
           plan: plan as any,
         } as any);
@@ -193,7 +193,7 @@ export class PaystackService {
         );
 
         await this.adminActivityLogService.create({
-          action: 'PAYMENT_FAILED',
+          action: 'Payment Failed',
           details: `Reference ${reference} failed`,
         } as any);
 
@@ -221,7 +221,7 @@ export class PaystackService {
           );
 
           await this.adminActivityLogService.create({
-            action: 'PAYMENT_SUCCESS',
+            action: 'Payment Success',
             details: `Webhook reference ${reference} succeeded for plan ${metadata.plan}`,
             plan: metadata.plan,
           } as any);
@@ -236,6 +236,7 @@ export class PaystackService {
           if (metadata.promoCode) {
             await this.couponService.incrementUsage(metadata.promoCode);
           }
+
           if (metadata && metadata.autoRenew) {
             const providerSubId = await this.createPaystackSubscription(data);
             await this.paymentService.createProviderSubscription(
@@ -257,7 +258,7 @@ export class PaystackService {
         );
 
         await this.adminActivityLogService.create({
-          action: 'PAYMENT_FAILED',
+          action: 'Payment failed',
           details: `Webhook reference ${data.reference} failed`,
         } as any);
 

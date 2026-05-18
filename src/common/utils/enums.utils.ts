@@ -230,3 +230,32 @@ export enum DefaultProductAdminRoles {
   FINANCE_ADMIN = 'FINANCE_ADMIN',
   SUPPORT_ADMIN = 'SUPPORT_ADMIN',
 }
+
+export enum FlPaymentStatus {
+  SUCCESS = 'successful',
+  FAILED = 'failed',
+  IGNORED = 'ignored',
+  PAYMENT_NOT_FOUND = 'payment not found',
+  ALREADY_PROCESSED = 'already processed',
+}
+
+export enum PaymentType {
+  CARD = 'card',
+  TRANSFER = 'transfer',
+  USSD = 'ussd',
+}
+
+export enum BillingSource {
+  CARD = 'CARD',
+  TRANSFER = 'TRANSFER',
+  USSD = 'USSD',
+  ADMIN = 'ADMIN',
+  PROMO = 'PROMO',
+}
+
+export enum FlPaymentPlanInterval {
+  DAILY = 'daily',
+  WEEKLY = 'weekly',
+  MONTHLY = 'monthly',
+  YEARLY = 'yearly',
+}

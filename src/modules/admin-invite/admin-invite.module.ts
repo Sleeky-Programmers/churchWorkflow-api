@@ -7,6 +7,7 @@ import { ChurchModule } from '../church/church.module';
 import { EmailModule } from '../email/email.module';
 import { RolesModule } from '../roles/roles.module';
 import { AdminModule } from '../admin/admin.module';
+import { SubscriptionModule } from '../subscription/subscription.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { AdminModule } from '../admin/admin.module';
     EmailModule,
     RolesModule,
     AdminModule,
+    SubscriptionModule,
   ],
   controllers: [AdminInviteController],
   providers: [AdminInviteService],

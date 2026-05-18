@@ -20,6 +20,7 @@ import {
   AdminOptions,
   InviteEmailType,
 } from '../../common/utils/enums.utils';
+import { SubscriptionService } from '../subscription/subscription.service';
 
 @Injectable()
 export class AdminInviteService {
@@ -29,6 +30,7 @@ export class AdminInviteService {
     private adminService: AdminService,
     private emailService: EmailService,
     private rolesService: RolesService,
+    private subscriptionService: SubscriptionService,
   ) {}
 
   async sendInviteEmail({
@@ -174,6 +176,24 @@ export class AdminInviteService {
 
     if (!role) {
       throw new NotFoundException('Role not found');
+    }
+
+    const pendingInvites = await this.inviteModel.countDocuments({
+      churchId,
+      status: AdminInviteStatus.PENDING,
+    });
+    const currentUsers = await this.adminService.countAdminsByChurch(churchId);
+
+    const projected = currentUsers + pendingInvites + 1;
+    const userLimitCheck = await this.subscriptionService.checkUserLimit(
+      churchId,
+      projected,
+    );
+
+    if (!userLimitCheck.allowed) {
+      throw new BadRequestException(
+        userLimitCheck.message || 'User limit reached',
+      );
     }
 
     const invite = await this.inviteModel.findOne({ email });

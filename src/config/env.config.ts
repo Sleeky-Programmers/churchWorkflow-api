@@ -24,6 +24,7 @@ export const envConfig = () => ({
   },
   flutterwave: {
     secretKey: process.env.FLUTTERWAVE_SECRET_KEY,
+    secretHash: process.env.FLUTTERWAVE_SECRET_HASH,
     publicKey: process.env.FLUTTERWAVE_PUBLIC_KEY,
     baseUrl: process.env.FLUTTERWAVE_BASE_URL,
     redirectUrl: process.env.FLUTTERWAVE_REDIRECT_URL,

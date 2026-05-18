@@ -7,6 +7,7 @@ import { PaymentModule } from '../payment/payment.module';
 import { SubscriptionModule } from '../subscription/subscription.module';
 import { CouponModule } from '../coupon/coupon.module';
 import { AdminActivityLogModule } from '../admin-activity-log/admin-activity-log.module';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { AdminActivityLogModule } from '../admin-activity-log/admin-activity-log
     forwardRef(() => SubscriptionModule),
     CouponModule,
     AdminActivityLogModule,
+    ScheduleModule.forRoot(),
   ],
   controllers: [FlutterwaveController],
   providers: [FlutterwaveService],
