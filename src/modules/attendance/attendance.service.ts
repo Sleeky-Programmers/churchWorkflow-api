@@ -272,6 +272,66 @@ export class AttendanceService {
     return { totalAttendance };
   }
 
+  async getAttendanceTrend(authUser: Admin, months = 12) {
+    const serviceIds = await this.churchServicesService.getServiceIdsByChurchId(
+      authUser.churchId,
+    );
+
+    if (!serviceIds.length) {
+      return [];
+    }
+
+    const since = new Date();
+    since.setDate(1);
+    since.setMonth(since.getMonth() - (months - 1));
+    const cutoffStr = since.toISOString().split('T')[0];
+
+    const res = await this.attendanceModel.aggregate([
+      {
+        $match: {
+          churchServiceId: { $in: serviceIds },
+          status: AttendanceStatus.PRESENT,
+          date: { $gte: cutoffStr },
+        },
+      },
+      {
+        $addFields: {
+          month: { $substr: ['$date', 0, 7] },
+        },
+      },
+      {
+        $lookup: {
+          from: 'churchservices',
+          localField: 'churchServiceId',
+          foreignField: '_id',
+          as: 'service',
+        },
+      },
+      { $unwind: '$service' },
+      {
+        $group: {
+          _id: { month: '$month', type: '$service.type' },
+          members: { $addToSet: '$memberId' },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          month: '$_id.month',
+          type: '$_id.type',
+          totalMember: { $size: '$members' },
+        },
+      },
+      { $sort: { month: 1, type: 1 } },
+    ]);
+
+    return res.map((r: any) => ({
+      month: r.month,
+      totalMember: r.totalMember,
+      serviceType: r.type === 'SPECIAL' ? 'Special' : 'Regular',
+    }));
+  }
+
   async getMemberAttendanceHistory(
     authUser: Admin,
     memberId: string,
