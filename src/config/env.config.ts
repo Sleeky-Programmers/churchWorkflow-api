@@ -35,5 +35,7 @@ export const envConfig = () => ({
     seedPassword: process.env.PRODUCT_ADMIN_SEED_PASSWORD,
     jwtSecret: process.env.PRODUCT_ADMIN_JWT_SECRET,
     jwtExpiresIn: process.env.PRODUCT_ADMIN_JWT_EXPIRES_IN,
+    jwtRefreshSecret: process.env.PRODUCT_ADMIN_JWT_REFRESH_SECRET,
+    jwtRefreshExpiresIn: process.env.PRODUCT_ADMIN_JWT_REFRESH_EXPIRES_IN,
   },
 });

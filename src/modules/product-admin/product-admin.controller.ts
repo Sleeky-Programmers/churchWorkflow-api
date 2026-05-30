@@ -2,7 +2,6 @@ import {
   Controller,
   Post,
   Body,
-  BadRequestException,
   UseGuards,
   Get,
   Query,
@@ -10,42 +9,22 @@ import {
   Patch,
 } from '@nestjs/common';
 import { ProductAdminService } from './product-admin.service';
-import { JwtService } from '@nestjs/jwt';
-import { ConfigService } from '@nestjs/config';
 import { ProductAdminLoginDto } from './dto/login.dto';
 import { ProductAdminJwtAuthGuard } from './guard/product-jwt-auth.guard';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
 
 @Controller('product-admin')
 export class ProductAdminController {
-  constructor(
-    private readonly productAdminService: ProductAdminService,
-    private readonly jwtService: JwtService,
-    private readonly configService: ConfigService,
-  ) {}
+  constructor(private readonly productAdminService: ProductAdminService) {}
 
   @Post('login')
   async login(@Body() dto: ProductAdminLoginDto) {
-    const user = await this.productAdminService.validateCredentials(
-      dto.email,
-      dto.password,
-    );
+    return this.productAdminService.login(dto);
+  }
 
-    if (!user) {
-      throw new BadRequestException('Invalid credentials');
-    }
-
-    const payload = { sub: user._id };
-
-    const accessToken = this.jwtService.sign(payload, {
-      secret: this.configService.get('productAdmin.jwtSecret'),
-      expiresIn: this.configService.get('productAdmin.jwtExpiresIn'),
-    });
-
-    return {
-      message: 'Login successful',
-      user,
-      accessToken,
-    };
+  @Post('refresh-token')
+  refresh(@Body() dto: RefreshTokenDto) {
+    return this.productAdminService.refreshToken(dto.refreshToken);
   }
 
   @UseGuards(ProductAdminJwtAuthGuard)
