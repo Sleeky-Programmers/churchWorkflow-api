@@ -272,6 +272,90 @@ export class AttendanceService {
     return { totalAttendance };
   }
 
+  async getAttendanceTrend(authUser: Admin, year?: number) {
+    const serviceIdsAndTypes = await this.churchServicesService.findByChurchId(
+      authUser.churchId,
+    );
+
+    if (!serviceIdsAndTypes?.length) {
+      return { regularService: [], specialService: [] };
+    }
+
+    const serviceTypeMap = new Map<string, string>();
+    const serviceIds = serviceIdsAndTypes.map((s: any) => {
+      serviceTypeMap.set(s._id.toString(), s.type);
+      return s._id;
+    });
+
+    const targetYear = year || new Date().getFullYear();
+
+    const attendances = await this.attendanceModel
+      .find({
+        churchServiceId: { $in: serviceIds },
+        status: AttendanceStatus.PRESENT,
+      })
+      .select('churchServiceId date')
+      .lean();
+
+    const monthNames = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
+
+    const regularCounts = new Array(12).fill(0);
+    const specialCounts = new Array(12).fill(0);
+
+    for (const rec of attendances) {
+      const svcId = rec.churchServiceId?.toString?.();
+      if (!svcId) {
+        continue;
+      }
+      const svcType = serviceTypeMap.get(svcId) || 'REGULAR';
+
+      const d = new Date(rec.date);
+      if (isNaN(d.getTime())) {
+        continue;
+      }
+      const y = d.getFullYear();
+      if (y !== targetYear) {
+        continue;
+      }
+      const m = d.getMonth();
+
+      if (
+        svcType === 'SPECIAL' ||
+        svcType === 'Special' ||
+        svcType === 'SPECIAL'
+      ) {
+        specialCounts[m]++;
+      } else {
+        regularCounts[m]++;
+      }
+    }
+
+    const regularService = regularCounts.map((total, idx) => ({
+      month: monthNames[idx],
+      totalAttendance: total,
+    }));
+
+    const specialService = specialCounts.map((total, idx) => ({
+      month: monthNames[idx],
+      totalAttendance: total,
+    }));
+
+    return { regularService, specialService };
+  }
+
   async getMemberAttendanceHistory(
     authUser: Admin,
     memberId: string,
