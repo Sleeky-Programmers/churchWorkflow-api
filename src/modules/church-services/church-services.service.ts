@@ -16,6 +16,7 @@ import {
 } from '../../common/utils/enums.utils';
 
 import { Logger } from '@nestjs/common';
+import { ServiceInstance } from '../../schemas/service-instance.schema';
 
 const DEFAULT_GENERATION_WINDOW = 3;
 
@@ -27,7 +28,7 @@ export class ChurchServicesService {
   constructor(
     @InjectModel(ChurchService.name)
     private churchServiceModel: Model<ChurchService>,
-    @InjectModel('ServiceInstance')
+    @InjectModel(ServiceInstance.name)
     private serviceInstanceModel: Model<any>,
   ) {}
 
