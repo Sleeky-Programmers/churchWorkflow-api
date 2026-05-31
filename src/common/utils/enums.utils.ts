@@ -22,6 +22,33 @@ export enum ServiceType {
   SPECIAL = 'SPECIAL',
 }
 
+export enum Recurrence {
+  NO_REPEAT = 'NO_REPEAT',
+  DAILY = 'DAILY',
+  WEEKLY_MONDAY = 'WEEKLY_MONDAY',
+  MONTHLY_FIRST_MONDAY = 'MONTHLY_FIRST_MONDAY',
+  ANNUALLY = 'ANNUALLY',
+  WEEKDAYS = 'WEEKDAYS',
+}
+
+export enum EventType {
+  WORSHIP_SERVICE = 'WORSHIP_SERVICE',
+  BIRTHDAY = 'BIRTHDAY',
+  MEETING = 'MEETING',
+  WEDDING_ANNIVERSARY = 'WEDDING_ANNIVERSARY',
+  OTHERS = 'OTHERS',
+}
+
+export enum ReminderType {
+  IN_APP = 'IN_APP',
+  EMAIL = 'EMAIL',
+}
+
+export enum ReminderTimeBefore {
+  MINUTES_30 = 'MINUTES_30',
+  HOUR_1 = 'HOUR_1',
+}
+
 export enum Gender {
   MALE = 'MALE',
   FEMALE = 'FEMALE',

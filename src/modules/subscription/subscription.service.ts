@@ -233,7 +233,7 @@ export class SubscriptionService {
       return {
         allowed: false,
         message:
-         'You cannot add more members because it will be more than the member limit for your plan. Upgrade to continue.',
+          'You cannot add more members because it will be more than the member limit for your plan. Upgrade to continue.',
         type: MemberLimitType.BLOCK,
       };
     }

@@ -10,7 +10,14 @@ import {
   ArrayMinSize,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { ServiceDay, ServiceType } from '../../../common/utils/enums.utils';
+import {
+  ServiceDay,
+  ServiceType,
+  Recurrence,
+  EventType,
+  ReminderType,
+  ReminderTimeBefore,
+} from '../../../common/utils/enums.utils';
 
 class SpecialDayDto {
   @IsNotEmpty()
@@ -32,7 +39,7 @@ class SpecialDayDto {
 
 export class CreateChurchServiceDto {
   @IsNotEmpty()
-  serviceName: string;
+  title: string;
 
   @IsNotEmpty()
   @IsEnum(ServiceType)
@@ -85,4 +92,25 @@ export class CreateChurchServiceDto {
 
   @IsOptional()
   location?: string;
+
+  @IsOptional()
+  @IsEnum(Recurrence)
+  recurrence?: Recurrence;
+
+  @IsOptional()
+  @IsEnum(EventType)
+  eventType?: EventType;
+
+  @IsOptional()
+  reminderEnabled?: boolean;
+
+  @ValidateIf((o) => o.reminderEnabled)
+  @IsNotEmpty()
+  @IsEnum(ReminderType)
+  reminderType?: ReminderType;
+
+  @ValidateIf((o) => o.reminderEnabled)
+  @IsNotEmpty()
+  @IsEnum(ReminderTimeBefore)
+  reminderTimeBefore?: ReminderTimeBefore;
 }

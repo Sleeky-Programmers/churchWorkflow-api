@@ -380,10 +380,7 @@ export class AttendanceService {
     );
 
     const serviceMap = new Map(
-      services.map((service: any) => [
-        service._id.toString(),
-        service.serviceName,
-      ]),
+      services.map((service: any) => [service._id.toString(), service.title]),
     );
     const serviceIds = services.map((service: any) => service._id);
 
@@ -617,7 +614,7 @@ export class AttendanceService {
     const [attendances, itemCount] = await Promise.all([
       this.attendanceModel
         .find(query)
-        .populate('churchServiceId', 'serviceName type')
+        .populate('churchServiceId', 'title type')
         .populate('recordedBy', 'firstName lastName')
         .sort({ date: -1 })
         .skip(skip)

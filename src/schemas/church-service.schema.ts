@@ -1,7 +1,14 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, SchemaTypes, Types } from 'mongoose';
 import { Church } from './church.schema';
-import { ServiceDay, ServiceType } from '../common/utils/enums.utils';
+import {
+  ServiceDay,
+  ServiceType,
+  Recurrence,
+  EventType,
+  ReminderType,
+  ReminderTimeBefore,
+} from '../common/utils/enums.utils';
 
 @Schema({ _id: false })
 class SpecialDay {
@@ -21,7 +28,13 @@ export class ChurchService extends Document {
   churchId: Types.ObjectId;
 
   @Prop()
-  serviceName: string;
+  title: string;
+
+  @Prop({ enum: Recurrence })
+  recurrence?: Recurrence;
+
+  @Prop({ enum: EventType })
+  eventType?: EventType;
 
   @Prop({ enum: ServiceType })
   type: ServiceType;
@@ -49,6 +62,15 @@ export class ChurchService extends Document {
 
   @Prop()
   location?: string;
+
+  @Prop({ default: false })
+  reminderEnabled?: boolean;
+
+  @Prop({ enum: ReminderType })
+  reminderType?: ReminderType;
+
+  @Prop({ enum: ReminderTimeBefore })
+  reminderTimeBefore?: ReminderTimeBefore;
 }
 
 export const ChurchServiceSchema = SchemaFactory.createForClass(ChurchService);

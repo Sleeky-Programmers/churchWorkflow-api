@@ -126,7 +126,7 @@ export class MembersService {
       _id: record._id,
       date: record.date,
       status: record.status,
-      serviceName: record.churchServiceId?.serviceName,
+      title: record.churchServiceId?.title,
       serviceType: record.churchServiceId?.type,
       recordedBy: `${record.recordedBy.firstName} ${record.recordedBy.lastName}`,
       timestamp: record.createdAt,
