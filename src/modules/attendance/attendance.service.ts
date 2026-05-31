@@ -11,7 +11,11 @@ import { Attendance } from '../../schemas/attendance.schema';
 import { CreateAttendanceDto } from './dto/create-attendance.dto';
 import { MembersService } from '../members/members.service';
 import { ChurchServicesService } from '../church-services/church-services.service';
-import { AttendanceStatus, Gender } from '../../common/utils/enums.utils';
+import {
+  AttendanceStatus,
+  Gender,
+  ServiceType,
+} from '../../common/utils/enums.utils';
 import { Admin } from '../../schemas/admin.schema';
 import { AdminService } from '../admin/admin.service';
 
@@ -320,26 +324,22 @@ export class AttendanceService {
       if (!serviceId) {
         continue;
       }
-      const serviceType = serviceTypeMap.get(serviceId) || 'REGULAR';
+      const serviceType = serviceTypeMap.get(serviceId) || ServiceType.REGULAR;
 
       const date = new Date(record.date);
       if (isNaN(date.getTime())) {
         continue;
       }
-      const y = date.getFullYear();
-      if (y !== targetYear) {
+      const year = date.getFullYear();
+      if (year !== targetYear) {
         continue;
       }
-      const m = date.getMonth();
+      const month = date.getMonth();
 
-      if (
-        serviceType === 'SPECIAL' ||
-        serviceType === 'Special' ||
-        serviceType === 'SPECIAL'
-      ) {
-        specialCounts[m]++;
+      if (serviceType === ServiceType.SPECIAL) {
+        specialCounts[month]++;
       } else {
-        regularCounts[m]++;
+        regularCounts[month]++;
       }
     }
 
