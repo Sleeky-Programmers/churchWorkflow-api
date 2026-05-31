@@ -11,7 +11,11 @@ import { Attendance } from '../../schemas/attendance.schema';
 import { CreateAttendanceDto } from './dto/create-attendance.dto';
 import { MembersService } from '../members/members.service';
 import { ChurchServicesService } from '../church-services/church-services.service';
-import { AttendanceStatus, Gender } from '../../common/utils/enums.utils';
+import {
+  AttendanceStatus,
+  Gender,
+  ServiceType,
+} from '../../common/utils/enums.utils';
 import { Admin } from '../../schemas/admin.schema';
 import { AdminService } from '../admin/admin.service';
 
@@ -272,6 +276,86 @@ export class AttendanceService {
     return { totalAttendance };
   }
 
+  async getAttendanceTrend(authUser: Admin, year?: number) {
+    const serviceIdsAndTypes = await this.churchServicesService.findByChurchId(
+      authUser.churchId,
+    );
+
+    if (!serviceIdsAndTypes?.length) {
+      return { regularService: [], specialService: [] };
+    }
+
+    const serviceTypeMap = new Map<string, string>();
+    const serviceIds = serviceIdsAndTypes.map((service: any) => {
+      serviceTypeMap.set(service._id.toString(), service.type);
+      return service._id;
+    });
+
+    const targetYear = year || new Date().getFullYear();
+
+    const attendances = await this.attendanceModel
+      .find({
+        churchServiceId: { $in: serviceIds },
+        status: AttendanceStatus.PRESENT,
+      })
+      .select('churchServiceId date')
+      .lean();
+
+    const monthNames = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
+
+    const regularCounts = new Array(12).fill(0);
+    const specialCounts = new Array(12).fill(0);
+
+    for (const record of attendances) {
+      const serviceId = record.churchServiceId?.toString?.();
+      if (!serviceId) {
+        continue;
+      }
+      const serviceType = serviceTypeMap.get(serviceId) || ServiceType.REGULAR;
+
+      const date = new Date(record.date);
+      if (isNaN(date.getTime())) {
+        continue;
+      }
+      const year = date.getFullYear();
+      if (year !== targetYear) {
+        continue;
+      }
+      const month = date.getMonth();
+
+      if (serviceType === ServiceType.SPECIAL) {
+        specialCounts[month]++;
+      } else {
+        regularCounts[month]++;
+      }
+    }
+
+    const regularService = regularCounts.map((total, index) => ({
+      month: monthNames[index],
+      totalAttendance: total,
+    }));
+
+    const specialService = specialCounts.map((total, index) => ({
+      month: monthNames[index],
+      totalAttendance: total,
+    }));
+
+    return { regularService, specialService };
+  }
+
   async getMemberAttendanceHistory(
     authUser: Admin,
     memberId: string,
@@ -296,10 +380,7 @@ export class AttendanceService {
     );
 
     const serviceMap = new Map(
-      services.map((service: any) => [
-        service._id.toString(),
-        service.serviceName,
-      ]),
+      services.map((service: any) => [service._id.toString(), service.title]),
     );
     const serviceIds = services.map((service: any) => service._id);
 
@@ -533,7 +614,7 @@ export class AttendanceService {
     const [attendances, itemCount] = await Promise.all([
       this.attendanceModel
         .find(query)
-        .populate('churchServiceId', 'serviceName type')
+        .populate('churchServiceId', 'title type')
         .populate('recordedBy', 'firstName lastName')
         .sort({ date: -1 })
         .skip(skip)

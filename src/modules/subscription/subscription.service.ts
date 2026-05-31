@@ -222,26 +222,19 @@ export class SubscriptionService {
     );
   }
 
-  async checkMemberLimit(churchId: Types.ObjectId, currentMemberCount: number) {
+  async checkMemberLimit(churchId: Types.ObjectId, projectedCount: number) {
     const sub = await this.getSubscription(churchId);
 
     if (sub.memberLimit === -1) {
       return { allowed: true, type: MemberLimitType.NONE };
     }
 
-    if (currentMemberCount >= sub.memberLimit) {
+    if (projectedCount > sub.memberLimit) {
       return {
         allowed: false,
-        message: `You've reached your ${sub.memberLimit} member limit. Upgrade to continue.`,
+        message:
+          'You cannot add more members because it will be more than the member limit for your plan. Upgrade to continue.',
         type: MemberLimitType.BLOCK,
-      };
-    }
-
-    if (currentMemberCount >= 0.8 * sub.memberLimit) {
-      return {
-        allowed: true,
-        message: `You're close to your member limit (${currentMemberCount}/${sub.memberLimit}).`,
-        type: MemberLimitType.WARNING,
       };
     }
 

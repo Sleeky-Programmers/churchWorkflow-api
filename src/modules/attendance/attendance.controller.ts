@@ -91,4 +91,12 @@ export class AttendanceController {
   async getAttendanceStats(@AuthUser() authUser: Admin) {
     return this.attendanceService.getAttendanceStats(authUser);
   }
+
+  @Get('trend')
+  async getAttendanceTrend(
+    @AuthUser() authUser: Admin,
+    @Query('year') year?: number,
+  ) {
+    return this.attendanceService.getAttendanceTrend(authUser, year);
+  }
 }

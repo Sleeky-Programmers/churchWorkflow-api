@@ -1,9 +1,9 @@
 import { Controller, Patch, Body, Get, Query, UseGuards } from '@nestjs/common';
 import { Admin } from '../../schemas/admin.schema';
 import { AdminService } from './admin.service';
-import { AuthUser } from 'src/common/decorators/auth-user.decorator';
+import { AuthUser } from '../../common/decorators/auth-user.decorator';
 import { JwtAuthGuard } from '../auth/guard/jwt-auth.guard';
-import { PaginationBaseDto } from 'src/common/helpers/pagination.helper';
+import { PaginationBaseDto } from '../../common/helpers/pagination.helper';
 import { UpdateAdminDto } from './dto/update-admin.dto';
 @UseGuards(JwtAuthGuard)
 @Controller('admin')

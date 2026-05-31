@@ -3,7 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Coupon } from '../../schemas/coupon.schema';
 import { CreateCouponDto } from './dto/create-coupon.dto';
-import { CouponFilter } from 'src/common/utils/enums.utils';
+import { CouponFilter } from '../../common/utils/enums.utils';
 import {
   CouponFilterDto,
   paginationMeta,

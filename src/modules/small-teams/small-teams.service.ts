@@ -82,7 +82,7 @@ export class SmallTeamsService {
   async findById(authUser: Admin, id: string) {
     const team = await this.smallTeamModel
       .findOne({ _id: id, churchId: authUser.churchId })
-      .populate('leaderId', 'fullName')
+      .populate('leaderId', 'firstName lastName')
       .populate('memberIds', 'fullName email')
       .lean();
 

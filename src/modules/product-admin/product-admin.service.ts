@@ -1,5 +1,11 @@
-import { Injectable, OnModuleInit, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  OnModuleInit,
+  BadRequestException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
+import { JwtService } from '@nestjs/jwt';
 import { Model, Types } from 'mongoose';
 import * as bcrypt from 'bcryptjs';
 import { ConfigService } from '@nestjs/config';
@@ -16,6 +22,7 @@ import {
   ProductAdminStatus,
 } from '../../common/utils/enums.utils';
 import { EmailService } from '../email/email.service';
+import { ProductAdminLoginDto } from './dto/login.dto';
 
 @Injectable()
 export class ProductAdminService implements OnModuleInit {
@@ -27,7 +34,30 @@ export class ProductAdminService implements OnModuleInit {
     private configService: ConfigService,
     private rolesService: ProductAdminRolesService,
     private emailService: EmailService,
+    private jwtService: JwtService,
   ) {}
+
+  generateTokens(userId: Types.ObjectId) {
+    const accessToken = this.jwtService.sign(
+      { sub: userId },
+      {
+        expiresIn: this.configService.getOrThrow('productAdmin.jwtExpiresIn'),
+        secret: this.configService.getOrThrow('productAdmin.jwtSecret'),
+      },
+    );
+
+    const refreshToken = this.jwtService.sign(
+      { sub: userId },
+      {
+        secret: this.configService.getOrThrow('productAdmin.jwtRefreshSecret'),
+        expiresIn: this.configService.getOrThrow(
+          'productAdmin.jwtRefreshExpiresIn',
+        ),
+      },
+    );
+
+    return { accessToken, refreshToken };
+  }
 
   async onModuleInit() {
     await this.rolesService.seedDefaultRoles();
@@ -76,6 +106,49 @@ export class ProductAdminService implements OnModuleInit {
 
     const { password: _, ...rest } = user.toObject();
     return rest as unknown as ProductAdmin;
+  }
+
+  async login(dto: ProductAdminLoginDto) {
+    const user = await this.validateCredentials(dto.email, dto.password);
+
+    if (!user) {
+      throw new BadRequestException('Invalid credentials');
+    }
+
+    const { accessToken, refreshToken } = this.generateTokens(user._id);
+
+    return {
+      message: 'Login successful',
+      user,
+      accessToken,
+      refreshToken,
+    };
+  }
+
+  async refreshToken(refreshToken: string) {
+    if (!refreshToken) {
+      throw new UnauthorizedException('Refresh token missing');
+    }
+
+    let payload: any;
+
+    try {
+      payload = this.jwtService.verify(refreshToken, {
+        secret: this.configService.getOrThrow('JWT_REFRESH_SECRET'),
+      });
+    } catch {
+      throw new UnauthorizedException('Invalid or expired refresh token');
+    }
+
+    const user = await this.findById(payload.sub);
+
+    if (!user) {
+      throw new UnauthorizedException('User no longer exists');
+    }
+
+    const tokens = this.generateTokens(user._id);
+
+    return tokens;
   }
 
   async inviteAdmin(email: string, roleId: string) {

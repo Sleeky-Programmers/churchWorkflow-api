@@ -61,6 +61,28 @@ export class ChurchServicesController {
     );
   }
 
+  @Get('search')
+  @RequirePermissions({
+    section: ModuleSections.EVENTS,
+    level: AccessLevel.VIEW,
+  })
+  getServicesFiltered(
+    @AuthUser() authUser: Admin,
+    @Query('year') year?: string,
+    @Query('month') month?: string,
+    @Query('day') day?: string,
+  ) {
+    const serviceYear = year ? parseInt(year, 10) : undefined;
+    const serviceMonth = month ? parseInt(month, 10) : undefined;
+    const serviceDay = day ? parseInt(day, 10) : undefined;
+    return this.churchServicesService.getServicesFiltered(
+      authUser.churchId,
+      serviceYear,
+      serviceMonth,
+      serviceDay,
+    );
+  }
+
   @Get(':id')
   @RequirePermissions({
     section: ModuleSections.EVENTS,
@@ -89,5 +111,14 @@ export class ChurchServicesController {
   })
   deleteChurchService(@Param('id') id: string) {
     return this.churchServicesService.delete(id);
+  }
+
+  @Post(':id/regenerate-instances')
+  @RequirePermissions({
+    section: ModuleSections.EVENTS,
+    level: AccessLevel.MANAGE,
+  })
+  regenerateInstances(@Param('id') id: string) {
+    return this.churchServicesService.regenerateInstancesForService(id);
   }
 }
