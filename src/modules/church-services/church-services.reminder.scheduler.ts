@@ -32,11 +32,11 @@ export class ChurchServicesReminderScheduler {
         })
         .lean();
 
-      for (const inst of candidates) {
+      for (const instance of candidates) {
         const sendTime = this.computeSendTime(
-          inst.date,
-          inst.startTime,
-          inst.reminderTimeBefore,
+          instance.date,
+          instance.startTime,
+          instance.reminderTimeBefore,
         );
         if (!sendTime) {
           continue;
@@ -44,15 +44,15 @@ export class ChurchServicesReminderScheduler {
 
         if (sendTime >= windowStart && sendTime <= windowEnd) {
           const admins = await this.adminService.findAll(
-            new Types.ObjectId(inst.churchId),
+            new Types.ObjectId(instance.churchId),
           );
           const emails = admins.map((a) => a.email).filter(Boolean);
           if (emails.length === 0) {
             continue;
           }
 
-          const subject = `Reminder: ${inst.title} - ${new Date(inst.date).toDateString()}`;
-          const html = `<p>This is a reminder for <strong>${inst.title}</strong> scheduled on ${new Date(inst.date).toLocaleString()}.</p>`;
+          const subject = `Reminder: ${instance.title} - ${new Date(instance.date).toDateString()}`;
+          const html = `<p>This is a reminder for <strong>${instance.title}</strong> scheduled on ${new Date(instance.date).toLocaleString()}.</p>`;
 
           for (const to of emails) {
             try {
@@ -63,11 +63,11 @@ export class ChurchServicesReminderScheduler {
           }
 
           await this.serviceInstanceModel.updateOne(
-            { _id: inst._id },
+            { _id: instance._id },
             { $set: { reminderSent: true } },
           );
           this.logger.log(
-            `Sent reminder for instance ${inst._id} to ${emails.length} admins`,
+            `Sent reminder for instance ${instance._id} to ${emails.length} admins`,
           );
         }
       }

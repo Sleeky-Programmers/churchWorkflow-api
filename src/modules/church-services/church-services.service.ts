@@ -199,14 +199,14 @@ export class ChurchServicesService {
       `Generating instances for master ${masterServiceId} from ${generationStart.toISOString()} to ${generationEnd.toISOString()}`,
     );
 
-    const ops: Array<Promise<any>> = [];
+    const operations: Array<Promise<any>> = [];
 
     for (
-      let d = new Date(generationStart);
-      d <= generationEnd;
-      d.setDate(d.getDate() + 1)
+      let date = new Date(generationStart);
+      date <= generationEnd;
+      date.setDate(date.getDate() + 1)
     ) {
-      const current = new Date(d);
+      const current = new Date(date);
       if (!this.isServiceOnDate(master, current)) {
         continue;
       }
@@ -227,7 +227,7 @@ export class ChurchServicesService {
         reminderSent: false,
       };
 
-      ops.push(
+      operations.push(
         this.serviceInstanceModel.findOneAndUpdate(
           { masterServiceId: master._id, date: instanceDoc.date },
           { $set: instanceDoc },
@@ -237,7 +237,7 @@ export class ChurchServicesService {
     }
 
     try {
-      const res = await Promise.all(ops);
+      const res = await Promise.all(operations);
       this.logger.log(
         `Upserted ${res.length} instances for master ${masterServiceId}`,
       );
@@ -283,8 +283,11 @@ export class ChurchServicesService {
       .find({ churchId, recurrence: { $ne: Recurrence.NO_REPEAT } })
       .lean();
 
-    for (const m of masters) {
-      await this.generateInstancesForService(m._id.toString(), monthsWindow);
+    for (const master of masters) {
+      await this.generateInstancesForService(
+        master._id.toString(),
+        monthsWindow,
+      );
     }
   }
 
@@ -296,8 +299,11 @@ export class ChurchServicesService {
       .find({ churchId, recurrence: { $ne: Recurrence.NO_REPEAT } })
       .lean();
 
-    for (const m of masters) {
-      await this.regenerateInstancesForService(m._id.toString(), monthsWindow);
+    for (const master of masters) {
+      await this.regenerateInstancesForService(
+        master._id.toString(),
+        monthsWindow,
+      );
     }
   }
 
@@ -329,17 +335,13 @@ export class ChurchServicesService {
 
     const services = await this.churchServiceModel.find({ churchId }).lean();
 
-    const result = services.filter((svc: any) =>
-      this.isServiceOnDate(svc, date),
+    const result = services.filter((service: any) =>
+      this.isServiceOnDate(service, date),
     );
 
     return result;
   }
 
-  /**
-   * Get services (instances + generated occurrences) filtered by year/month/day.
-   * If `month` is provided, `year` defaults to current year. If only `year` is provided, returns whole year.
-   */
   async getServicesFiltered(
     churchId: Types.ObjectId,
     year?: number,
@@ -393,8 +395,12 @@ export class ChurchServicesService {
     const masters = await this.churchServiceModel.find({ churchId }).lean();
 
     for (const master of masters) {
-      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-        const current = new Date(d);
+      for (
+        let date = new Date(start);
+        date <= end;
+        date.setDate(date.getDate() + 1)
+      ) {
+        const current = new Date(date);
         if (!this.isServiceOnDate(master, current)) {
           continue;
         }
@@ -419,12 +425,12 @@ export class ChurchServicesService {
     }
 
     results.sort((a, b) => {
-      const da = new Date(a.date).toISOString();
-      const db = new Date(b.date).toISOString();
-      if (da === db) {
+      const dateA = new Date(a.date).toISOString();
+      const dateB = new Date(b.date).toISOString();
+      if (dateA === dateB) {
         return (a.title || '').localeCompare(b.title || '');
       }
-      return da.localeCompare(db);
+      return dateA.localeCompare(dateB);
     });
 
     return results;
@@ -436,11 +442,11 @@ export class ChurchServicesService {
     const endOfDay = new Date(date);
     endOfDay.setHours(23, 59, 59, 999);
 
-    const withinStartEnd = (svc: any) => {
-      if (svc.startDate && new Date(svc.startDate) > endOfDay) {
+    const withinStartEnd = (service: any) => {
+      if (service.startDate && new Date(service.startDate) > endOfDay) {
         return false;
       }
-      if (svc.endDate && new Date(svc.endDate) < startOfDay) {
+      if (service.endDate && new Date(service.endDate) < startOfDay) {
         return false;
       }
       return true;
@@ -453,10 +459,10 @@ export class ChurchServicesService {
     const dayIndex = date.getDay();
 
     if (service.specialDays?.length) {
-      for (const sd of service.specialDays) {
-        const sdDate = new Date(sd.date);
-        sdDate.setHours(0, 0, 0, 0);
-        if (sdDate.getTime() === startOfDay.getTime()) {
+      for (const specialDay of service.specialDays) {
+        const specialDayDate = new Date(specialDay.date);
+        specialDayDate.setHours(0, 0, 0, 0);
+        if (specialDayDate.getTime() === startOfDay.getTime()) {
           return true;
         }
       }
@@ -468,9 +474,9 @@ export class ChurchServicesService {
       case Recurrence.NO_REPEAT: {
         if (service.type === ServiceType.SPECIAL) {
           if (service.startDate) {
-            const s = new Date(service.startDate);
-            s.setHours(0, 0, 0, 0);
-            return s.getTime() === startOfDay.getTime();
+            const serviceDate = new Date(service.startDate);
+            serviceDate.setHours(0, 0, 0, 0);
+            return serviceDate.getTime() === startOfDay.getTime();
           }
           return false;
         }
@@ -510,9 +516,10 @@ export class ChurchServicesService {
         if (!service.startDate) {
           return false;
         }
-        const s = new Date(service.startDate);
+        const serviceDate = new Date(service.startDate);
         return (
-          s.getDate() === date.getDate() && s.getMonth() === date.getMonth()
+          serviceDate.getDate() === date.getDate() &&
+          serviceDate.getMonth() === date.getMonth()
         );
       }
       default:

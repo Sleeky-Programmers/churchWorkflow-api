@@ -18,9 +18,9 @@ export class ChurchServicesScheduler {
         await this.churchServicesService.findAllMastersForRegen();
 
       const churchIdSet = new Set<string>();
-      for (const s of services) {
-        if (s.churchId) {
-          churchIdSet.add(s.churchId.toString());
+      for (const service of services) {
+        if (service.churchId) {
+          churchIdSet.add(service.churchId.toString());
         }
       }
 

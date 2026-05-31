@@ -282,9 +282,9 @@ export class AttendanceService {
     }
 
     const serviceTypeMap = new Map<string, string>();
-    const serviceIds = serviceIdsAndTypes.map((s: any) => {
-      serviceTypeMap.set(s._id.toString(), s.type);
-      return s._id;
+    const serviceIds = serviceIdsAndTypes.map((service: any) => {
+      serviceTypeMap.set(service._id.toString(), service.type);
+      return service._id;
     });
 
     const targetYear = year || new Date().getFullYear();
@@ -315,27 +315,27 @@ export class AttendanceService {
     const regularCounts = new Array(12).fill(0);
     const specialCounts = new Array(12).fill(0);
 
-    for (const rec of attendances) {
-      const svcId = rec.churchServiceId?.toString?.();
-      if (!svcId) {
+    for (const record of attendances) {
+      const serviceId = record.churchServiceId?.toString?.();
+      if (!serviceId) {
         continue;
       }
-      const svcType = serviceTypeMap.get(svcId) || 'REGULAR';
+      const serviceType = serviceTypeMap.get(serviceId) || 'REGULAR';
 
-      const d = new Date(rec.date);
-      if (isNaN(d.getTime())) {
+      const date = new Date(record.date);
+      if (isNaN(date.getTime())) {
         continue;
       }
-      const y = d.getFullYear();
+      const y = date.getFullYear();
       if (y !== targetYear) {
         continue;
       }
-      const m = d.getMonth();
+      const m = date.getMonth();
 
       if (
-        svcType === 'SPECIAL' ||
-        svcType === 'Special' ||
-        svcType === 'SPECIAL'
+        serviceType === 'SPECIAL' ||
+        serviceType === 'Special' ||
+        serviceType === 'SPECIAL'
       ) {
         specialCounts[m]++;
       } else {
@@ -343,13 +343,13 @@ export class AttendanceService {
       }
     }
 
-    const regularService = regularCounts.map((total, idx) => ({
-      month: monthNames[idx],
+    const regularService = regularCounts.map((total, index) => ({
+      month: monthNames[index],
       totalAttendance: total,
     }));
 
-    const specialService = specialCounts.map((total, idx) => ({
-      month: monthNames[idx],
+    const specialService = specialCounts.map((total, index) => ({
+      month: monthNames[index],
       totalAttendance: total,
     }));
 

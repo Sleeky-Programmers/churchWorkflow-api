@@ -72,14 +72,14 @@ export class ChurchServicesController {
     @Query('month') month?: string,
     @Query('day') day?: string,
   ) {
-    const y = year ? parseInt(year, 10) : undefined;
-    const m = month ? parseInt(month, 10) : undefined;
-    const d = day ? parseInt(day, 10) : undefined;
+    const serviceYear = year ? parseInt(year, 10) : undefined;
+    const serviceMonth = month ? parseInt(month, 10) : undefined;
+    const serviceDay = day ? parseInt(day, 10) : undefined;
     return this.churchServicesService.getServicesFiltered(
       authUser.churchId,
-      y,
-      m,
-      d,
+      serviceYear,
+      serviceMonth,
+      serviceDay,
     );
   }
 
