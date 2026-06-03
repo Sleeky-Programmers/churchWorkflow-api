@@ -1,22 +1,26 @@
+import { Model, Types } from 'mongoose';
+
 import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
-import { Church } from '../../schemas/church.schema';
-import { Admin } from '../../schemas/admin.schema';
-import { ChurchIdentityDto } from './dto/church-identity.dto';
+
 import {
   PaginationBaseDto,
   paginationMeta,
 } from '../../common/helpers/pagination.helper';
-import { ChurchFilterDto } from './dto/church-filter.dto';
-import { FileUploadService } from '../file-upload/file-upload.service';
-import { AdminService } from '../admin/admin.service';
-import { SubscriptionService } from '../subscription/subscription.service';
-import { MembersService } from '../members/members.service';
-import { AdminActivityLogService } from '../admin-activity-log/admin-activity-log.service';
-import { PlanType } from '../../common/utils/enums.utils';
+import {
+  ChurchSubscriptionStatus,
+  PlanType,
+} from '../../common/utils/enums.utils';
 import { ChurchDetails } from '../../common/utils/types.utils';
-import { ChurchSubscriptionStatus } from '../../common/utils/enums.utils';
+import { Admin } from '../../schemas/admin.schema';
+import { Church } from '../../schemas/church.schema';
+import { AdminActivityLogService } from '../admin-activity-log/admin-activity-log.service';
+import { AdminService } from '../admin/admin.service';
+import { FileUploadService } from '../file-upload/file-upload.service';
+import { MembersService } from '../members/members.service';
+import { SubscriptionService } from '../subscription/subscription.service';
+import { ChurchFilterDto } from './dto/church-filter.dto';
+import { ChurchIdentityDto } from './dto/church-identity.dto';
 
 @Injectable()
 export class ChurchService {

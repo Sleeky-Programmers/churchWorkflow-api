@@ -1,27 +1,29 @@
+import * as bcrypt from 'bcryptjs';
+import { Model, Types } from 'mongoose';
+
 import {
+  BadRequestException,
   Injectable,
   OnModuleInit,
-  BadRequestException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { JwtService } from '@nestjs/jwt';
-import { Model, Types } from 'mongoose';
-import * as bcrypt from 'bcryptjs';
 import { ConfigService } from '@nestjs/config';
-import { ProductAdmin } from '../../schemas/product-admin.schema';
-import { ProductAdminRolesService } from '../product-admin-roles/product-admin-roles.service';
-import { ProductAdminInvite } from '../../schemas/product-admin-invite.schema';
+import { JwtService } from '@nestjs/jwt';
+import { InjectModel } from '@nestjs/mongoose';
+
 import {
-  paginationMeta,
   PaginationBaseDto,
+  paginationMeta,
 } from '../../common/helpers/pagination.helper';
 import {
   DefaultProductAdminRoles,
   ProductAdminInviteStatus,
   ProductAdminStatus,
 } from '../../common/utils/enums.utils';
+import { ProductAdminInvite } from '../../schemas/product-admin-invite.schema';
+import { ProductAdmin } from '../../schemas/product-admin.schema';
 import { EmailService } from '../email/email.service';
+import { ProductAdminRolesService } from '../product-admin-roles/product-admin-roles.service';
 import { ProductAdminLoginDto } from './dto/login.dto';
 
 @Injectable()
