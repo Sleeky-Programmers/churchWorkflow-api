@@ -2,24 +2,25 @@ import {
   Body,
   Controller,
   Get,
-  Post,
+  Param,
   Patch,
+  Post,
+  Query,
   UploadedFile,
   UseGuards,
   UseInterceptors,
-  Query,
-  Param,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ChurchService } from './church.service';
+
 import { AuthUser } from '../../common/decorators/auth-user.decorator';
-import { Admin } from '../../schemas/admin.schema';
-import { ChurchIdentityDto } from './dto/church-identity.dto';
-import { JwtAuthGuard } from '../auth/guard/jwt-auth.guard';
-import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
-import { ChurchFilterDto } from './dto/church-filter.dto';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Admin } from '../../schemas/admin.schema';
+import { JwtAuthGuard } from '../auth/guard/jwt-auth.guard';
 import { ProductAdminJwtAuthGuard } from '../product-admin/guard/product-jwt-auth.guard';
+import { ChurchService } from './church.service';
+import { ChurchFilterDto } from './dto/church-filter.dto';
+import { ChurchIdentityDto } from './dto/church-identity.dto';
 
 @Controller('church')
 export class ChurchController {
@@ -28,6 +29,12 @@ export class ChurchController {
   @UseGuards(JwtAuthGuard)
   @Get('me')
   getMyChurch(@AuthUser() authUser: Admin) {
+    return this.churchService.findCurrentChurch(authUser);
+  }
+
+  @UseGuards(ProductAdminJwtAuthGuard)
+  @Get('admin/me')
+  getMyAdminChurch(@AuthUser() authUser: Admin) {
     return this.churchService.findCurrentChurch(authUser);
   }
 
