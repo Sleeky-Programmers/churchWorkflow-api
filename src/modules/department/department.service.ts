@@ -1,26 +1,28 @@
+import { Model, Types } from 'mongoose';
+
 import {
   BadRequestException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { FilterQuery, Model, Types } from 'mongoose';
-import { Department } from '../../schemas/department.schema';
+
+import { paginationMeta } from '../../common/helpers/pagination.helper';
+import {
+  DepartmentMemberAction,
+  DepartmentStatus,
+  ModuleSections,
+} from '../../common/utils/enums.utils';
 import { Admin } from '../../schemas/admin.schema';
+import { Department } from '../../schemas/department.schema';
+import { ActivityLogService } from '../activity-log/activity-log.service';
+import { AdminService } from '../admin/admin.service';
+import { MembersService } from '../members/members.service';
 import { CreateDepartmentDto } from './dto/create-department.dto';
-import { UpdateDepartmentDto } from './dto/update-department.dto';
 import { DepartmentFilterDto } from './dto/department-filter.dto';
 import { UpdateDepartmentMembersDto } from './dto/update-department-members.dto';
 import { UpdateDepartmentStatusDto } from './dto/update-department-status.dto';
-import { MembersService } from '../members/members.service';
-import { AdminService } from '../admin/admin.service';
-import { ActivityLogService } from '../activity-log/activity-log.service';
-import {
-  ModuleSections,
-  DepartmentStatus,
-  DepartmentMemberAction,
-} from '../../common/utils/enums.utils';
-import { paginationMeta } from '../../common/helpers/pagination.helper';
+import { UpdateDepartmentDto } from './dto/update-department.dto';
 
 @Injectable()
 export class DepartmentService {
@@ -61,31 +63,76 @@ export class DepartmentService {
     const { page = 1, limit = 20, search, name, hod, status } = dto;
     const skip = (page - 1) * limit;
 
-    const query: FilterQuery<Department> = { churchId: authUser.churchId };
+    const matchStage: any = { churchId: authUser.churchId };
 
     if (search) {
-      query.$or = [{ name: { $regex: search, $options: 'i' } }];
+      matchStage.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        {
+          $expr: {
+            $regexMatch: {
+              input: { $concat: ['$hod.firstName', ' ', '$hod.lastName'] },
+              regex: search,
+              options: 'i',
+            },
+          },
+        },
+      ];
     }
+
     if (name) {
-      query.name = { $regex: name, $options: 'i' };
+      matchStage.name = { $regex: name, $options: 'i' };
     }
     if (hod) {
-      query.hod = new Types.ObjectId(hod);
+      matchStage.hod = new Types.ObjectId(hod);
     }
     if (status) {
-      query.status = status;
+      matchStage.status = status;
     }
 
     const [departments, itemCount] = await Promise.all([
-      this.departmentModel
-        .find(query)
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .populate('hod', 'firstName lastName email')
-        .populate('members', 'fullName email')
-        .lean(),
-      this.departmentModel.countDocuments(query),
+      this.departmentModel.aggregate([
+        { $match: { churchId: authUser.churchId } },
+        {
+          $lookup: {
+            from: 'admins',
+            localField: 'hod',
+            foreignField: '_id',
+            as: 'hodInfo',
+          },
+        },
+        { $unwind: { path: '$hodInfo', preserveNullAndEmptyArrays: true } },
+        {
+          $addFields: {
+            hod: '$hodInfo',
+            hodFullName: {
+              $concat: ['$hodInfo.firstName', ' ', '$hodInfo.lastName'],
+            },
+          },
+        },
+        {
+          $match: search
+            ? {
+                $or: [
+                  { name: { $regex: search, $options: 'i' } },
+                  { hodFullName: { $regex: search, $options: 'i' } },
+                ],
+              }
+            : {},
+        },
+        { $skip: skip },
+        { $limit: limit },
+        { $sort: { createdAt: -1 } },
+        {
+          $lookup: {
+            from: 'members',
+            localField: 'members',
+            foreignField: '_id',
+            as: 'members',
+          },
+        },
+      ]),
+      this.departmentModel.countDocuments(matchStage),
     ]);
 
     return {

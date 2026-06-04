@@ -1,10 +1,11 @@
 import { Injectable } from '@nestjs/common';
+
+import { PlanType } from '../../common/utils/enums.utils';
+import { AttendanceService } from '../attendance/attendance.service';
 import { ChurchService } from '../church/church.service';
 import { MembersService } from '../members/members.service';
-import { SubscriptionService } from '../subscription/subscription.service';
-import { AttendanceService } from '../attendance/attendance.service';
 import { PaymentService } from '../payment/payment.service';
-import { PlanType } from '../../common/utils/enums.utils';
+import { SubscriptionService } from '../subscription/subscription.service';
 
 function fmtGrowth(current: number, previous: number) {
   if (previous === 0) {
@@ -40,6 +41,9 @@ export class AnalyticsService {
         this.subscriptionService.getCountsByPlan(),
       ]);
 
+    // Get attendance trend for the last 6 months
+    const attendanceTrend = await this.getAttendanceTrendForOverview();
+
     return {
       totalChurches,
       newChurchesLast30Days,
@@ -47,7 +51,20 @@ export class AnalyticsService {
       totalActivePlans,
       totalStarterPlans,
       churchesByPlan: countsByPlan,
+      attendanceTrend,
     };
+  }
+
+  // Alternative: Get attendance trend by service type (regular vs special)
+  async getAttendanceTrendByType(year?: number) {
+    const targetYear = year || new Date().getFullYear();
+
+    // Use the new platform-wide method
+    const attendanceData =
+      await this.attendanceService.getPlatformWideAttendanceTrend(targetYear);
+
+    // Format for frontend if needed
+    return attendanceData;
   }
 
   async getAnalytics() {
@@ -275,5 +292,63 @@ export class AnalyticsService {
       trialToPaidData,
       membersGrowth,
     };
+  }
+
+  // Analytics.service.ts
+  private async getAttendanceTrendForOverview() {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+
+    // Get last 6 months of data
+    const startMonth = Math.max(0, currentMonth - 5);
+    const months = [];
+
+    for (let i = startMonth; i <= currentMonth; i++) {
+      months.push({
+        month: new Date(currentYear, i, 1).toLocaleString('default', {
+          month: 'short',
+        }),
+        monthIndex: i,
+      });
+    }
+
+    const trendData = [];
+
+    for (let i = 0; i < months.length; i++) {
+      const currentMonthIndex = months[i].monthIndex;
+      const currentMonthStart = new Date(currentYear, currentMonthIndex, 1);
+      const currentMonthEnd = new Date(currentYear, currentMonthIndex + 1, 1);
+
+      const currentMonthAttendance =
+        await this.attendanceService.getPlatformWideAttendanceCount(
+          currentMonthStart,
+          currentMonthEnd,
+        );
+
+      let previousMonthAttendance = 0;
+      if (currentMonthIndex > 0) {
+        const previousMonthStart = new Date(
+          currentYear,
+          currentMonthIndex - 1,
+          1,
+        );
+        const previousMonthEnd = new Date(currentYear, currentMonthIndex, 1);
+
+        previousMonthAttendance =
+          await this.attendanceService.getPlatformWideAttendanceCount(
+            previousMonthStart,
+            previousMonthEnd,
+          );
+      }
+
+      trendData.push({
+        month: months[i].month,
+        thisMonth: currentMonthAttendance,
+        lastMonth: previousMonthAttendance,
+      });
+    }
+
+    return trendData;
   }
 }

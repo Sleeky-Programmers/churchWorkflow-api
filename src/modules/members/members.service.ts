@@ -1,37 +1,17 @@
-import {
-  Injectable,
-  BadRequestException,
-  Inject,
-  forwardRef,
-} from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { AttendanceService } from '../attendance/attendance.service';
-import { ChurchServicesService } from '../church-services/church-services.service';
-import { Model, Types } from 'mongoose';
-import {
-  MemberAttendanceFilterDto,
-  MemberAttendanceStatsFilterDto,
-} from './dto/member-attendance-filter.dto';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
+import { Model, Types } from 'mongoose';
 import { Readable } from 'stream';
-import { Member } from '../../schemas/member.schema';
-import { MembersFilterDto } from '../../common/helpers/pagination.helper';
+
 import {
-  MemberFilter,
-  Gender,
-  MaritalStatus,
-  MembershipStatus,
-  ModuleSections,
-  NotificationType,
-} from '../../common/utils/enums.utils';
-import { CreateMemberDto } from './dto/create-member.dto';
-import { UpdateMemberDto } from './dto/update-member.dto';
-import { paginationMeta } from '../../common/helpers/pagination.helper';
-import { ActivityLogService } from '../activity-log/activity-log.service';
-import { NotificationService } from '../notification/notification.service';
-import { SubscriptionService } from '../subscription/subscription.service';
-import { Admin } from '../../schemas/admin.schema';
+  BadRequestException,
+  forwardRef,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+
 import {
   normalizeDateKey,
   normalizeKey,
@@ -40,11 +20,38 @@ import {
   parseOptionalDate,
 } from '../../common/helpers/normalize.helper';
 import {
+  MembersFilterDto,
+  paginationMeta,
+} from '../../common/helpers/pagination.helper';
+import {
   GENDER_MAP,
   MARITAL_STATUS_MAP,
   MEMBERSHIP_STATUS_MAP,
   TITLE_MAP,
 } from '../../common/utils/const.utils';
+import {
+  Gender,
+  MaritalStatus,
+  MemberFilter,
+  MembershipStatus,
+  ModuleSections,
+  NotificationType,
+} from '../../common/utils/enums.utils';
+import { Admin } from '../../schemas/admin.schema';
+import { Member } from '../../schemas/member.schema';
+import { ActivityLogService } from '../activity-log/activity-log.service';
+import { AttendanceService } from '../attendance/attendance.service';
+import { ChurchServicesService } from '../church-services/church-services.service';
+import { NotificationService } from '../notification/notification.service';
+import { SubscriptionService } from '../subscription/subscription.service';
+import { CreateMemberDto } from './dto/create-member.dto';
+import {
+  MemberAttendanceFilterDto,
+  MemberAttendanceStatsFilterDto,
+} from './dto/member-attendance-filter.dto';
+import { MemberManagementDto } from './dto/member-management.dto';
+import { UpdateMemberDto } from './dto/update-member.dto';
+
 const csv = require('csv-parser');
 
 @Injectable()
@@ -779,5 +786,372 @@ export class MembersService {
 
   async deleteMember(id: string) {
     return await this.memberModel.findByIdAndDelete(id);
+  }
+
+  // Members.service.ts - Updated methods
+
+  async getAllMembersForManagement(
+    authUser: Admin,
+    filters: MemberManagementDto,
+  ) {
+    const { churchId, limit, page, membershipStatus, search, status } = filters;
+    const skip = (page - 1) * limit;
+    const query: any = {};
+
+    // If admin has a churchId (church admin), only show their church members
+    if (authUser.churchId) {
+      query.churchId = authUser.churchId;
+    }
+
+    // Apply church filter
+    if (churchId && churchId !== 'all' && !authUser.churchId) {
+      query.churchId = new Types.ObjectId(churchId);
+    }
+
+    // Apply membership status filter
+    if (membershipStatus) {
+      query.membershipStatus = membershipStatus;
+    }
+
+    // Filter by active status (status is boolean: true = active, false = inactive)
+    if (status !== undefined && status !== null) {
+      query.isActive = status;
+    }
+
+    // Search functionality
+    if (search) {
+      query.$or = [
+        { fullName: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } },
+        { phoneNumber: { $regex: search, $options: 'i' } },
+      ];
+    }
+
+    const [members, totalCount] = await Promise.all([
+      this.memberModel
+        .find(query)
+        .populate('churchId', 'name')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      this.memberModel.countDocuments(query),
+    ]);
+
+    // Get all churches for church filter dropdown (only for platform admins)
+    let churches = [];
+    if (!authUser.churchId) {
+      churches = await this.memberModel.aggregate([
+        { $group: { _id: '$churchId' } },
+        {
+          $lookup: {
+            from: 'churches',
+            localField: '_id',
+            foreignField: '_id',
+            as: 'church',
+          },
+        },
+        { $unwind: '$church' },
+        { $project: { id: '$_id', name: '$church.name' } },
+        { $sort: { name: 1 } },
+      ]);
+    }
+
+    // Format member data for frontend
+    const formattedMembers = members.map((member) => {
+      const memberChurch = member.churchId as any as {
+        _id: Types.ObjectId;
+        name: string;
+      };
+      return {
+        id: member._id,
+        name: member.fullName,
+        email: member.email,
+        phone: member.phoneNumber,
+        membershipStatus: member.membershipStatus,
+        role: this.getMemberRoleFromStatus(member.membershipStatus),
+        isActive: member.isActive,
+        lastActive: member.updatedAt,
+        churchId: memberChurch?._id,
+        churchName: memberChurch?.name,
+        churchInitials: this.getInitials(memberChurch?.name),
+        churchInitBg: this.getRandomBgColor(),
+        churchInitColor: 'text-white',
+        dateJoined: member.dateJoined,
+        gender: member.gender,
+        createdAt: member.createdAt,
+      };
+    });
+
+    return {
+      data: formattedMembers,
+      churches,
+      pagination: {
+        page,
+        limit,
+        totalCount,
+        totalPages: Math.ceil(totalCount / limit),
+        hasNextPage: page < Math.ceil(totalCount / limit),
+        hasPreviousPage: page > 1,
+      },
+    };
+  }
+
+  async getMemberManagementStats(authUser: Admin) {
+    const query: any = {};
+
+    if (authUser.churchId) {
+      query.churchId = authUser.churchId;
+    }
+
+    const [
+      totalMembers,
+      activeMembers,
+      inactiveMembers,
+      membersByChurch,
+      membersByStatus,
+      newMembersLast30Days,
+      genderDistribution,
+    ] = await Promise.all([
+      this.memberModel.countDocuments(query),
+      // Active members (isActive = true)
+      this.memberModel.countDocuments({
+        ...query,
+        isActive: true,
+      }),
+      // Inactive members (isActive = false)
+      this.memberModel.countDocuments({
+        ...query,
+        isActive: false,
+      }),
+      // Members by church (only for platform admins)
+      !authUser.churchId
+        ? this.memberModel.aggregate([
+            { $match: query },
+            { $group: { _id: '$churchId', count: { $sum: 1 } } },
+            {
+              $lookup: {
+                from: 'churches',
+                localField: '_id',
+                foreignField: '_id',
+                as: 'church',
+              },
+            },
+            { $unwind: '$church' },
+            { $project: { churchName: '$church.name', count: 1 } },
+            { $sort: { count: -1 } },
+            { $limit: 5 },
+          ])
+        : Promise.resolve([]),
+      // Members by membership status
+      this.memberModel.aggregate([
+        { $match: query },
+        { $group: { _id: '$membershipStatus', count: { $sum: 1 } } },
+      ]),
+      // New members in last 30 days
+      this.memberModel.countDocuments({
+        ...query,
+        createdAt: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
+      }),
+      // Gender distribution
+      this.memberModel.aggregate([
+        { $match: query },
+        { $group: { _id: '$gender', count: { $sum: 1 } } },
+      ]),
+    ]);
+
+    return {
+      totalMembers,
+      activeMembers,
+      inactiveMembers,
+      newMembersLast30Days,
+      membersByChurch: membersByChurch.map((c) => ({
+        churchName: c.churchName,
+        count: c.count,
+      })),
+      membersByStatus: membersByStatus.map((s) => ({
+        status: s._id || 'UNKNOWN',
+        count: s.count,
+      })),
+      genderDistribution: genderDistribution.map((g) => ({
+        gender: g._id,
+        count: g.count,
+      })),
+    };
+  }
+
+  async updateMemberStatus(
+    authUser: Admin,
+    memberId: string,
+    isActive: boolean,
+  ) {
+    const query: any = { _id: new Types.ObjectId(memberId) };
+
+    if (authUser.churchId) {
+      query.churchId = authUser.churchId;
+    }
+
+    const member = await this.memberModel.findOne(query);
+
+    if (!member) {
+      throw new NotFoundException('Member not found');
+    }
+
+    await this.memberModel.findByIdAndUpdate(memberId, {
+      isActive,
+      ...(!isActive
+        ? { deactivatedAt: new Date() }
+        : { reactivatedAt: new Date() }),
+    });
+
+    // Log activity
+    await this.activityLogService.create(authUser, {
+      action: isActive ? 'Activated Member' : 'Deactivated Member',
+      module: ModuleSections.MEMBERS,
+      details: `${isActive ? 'Activated' : 'Deactivated'} member: ${member.fullName}`,
+    });
+
+    // Send notification
+    await this.notificationService.createNotification(member.churchId, {
+      title: isActive ? 'Member Activated' : 'Member Deactivated',
+      body: `${member.fullName} has been ${isActive ? 'activated' : 'deactivated'}.`,
+      type: NotificationType.MEMBER,
+    });
+
+    return {
+      success: true,
+      message: `Member ${isActive ? 'activated' : 'deactivated'} successfully`,
+      isActive,
+    };
+  }
+
+  async getMemberDetailsForManagement(authUser: Admin, memberId: string) {
+    const query: any = { _id: new Types.ObjectId(memberId) };
+
+    if (authUser.churchId) {
+      query.churchId = authUser.churchId;
+    }
+
+    const member = await this.memberModel
+      .findOne(query)
+      .populate('churchId', 'name email phone address')
+      .lean();
+
+    if (!member) {
+      throw new NotFoundException('Member not found');
+    }
+
+    // Get attendance statistics
+    const attendanceStats =
+      await this.attendanceService.getMemberAttendanceStatsFilter(memberId, 30);
+
+    // Get recent attendance records
+    const recentAttendance =
+      await this.attendanceService.getMemberAttendanceFilter(
+        memberId,
+        5,
+        0,
+        undefined,
+      );
+
+    const memberChurch = member.churchId as any as {
+      _id: Types.ObjectId;
+      name: string;
+      email: string;
+      address: string;
+      phone: string;
+    };
+
+    return {
+      id: member._id,
+      name: member.fullName,
+      email: member.email,
+      phone: member.phoneNumber,
+      gender: member.gender,
+      title: member.title,
+      birthday: member.birthday,
+      maritalStatus: member.maritalStatus,
+      dateOfMarriage: member.dateOfMarriage,
+      occupation: member.occupation,
+      educationalBackground: member.educationalBackground,
+      address: member.address,
+      membershipStatus: member.membershipStatus,
+      isActive: member.isActive,
+      dateJoined: member.dateJoined,
+      previousChurchMembership: member.previousChurchMembership,
+      isBaptized: member.isBaptized,
+      ministries: member.ministries,
+      volunteerPreferences: member.volunteerPreferences,
+      cellGroupName: member.cellGroupName,
+      createdAt: member.createdAt,
+      updatedAt: member.updatedAt,
+      church: memberChurch
+        ? {
+            id: memberChurch._id,
+            name: memberChurch.name,
+            email: memberChurch.email,
+            phone: memberChurch.phone,
+            address: memberChurch.address,
+          }
+        : null,
+      stats: {
+        attendanceRate: attendanceStats?.attendanceRate || 0,
+        totalServicesAttended: attendanceStats?.totalServicesAttended || 0,
+        totalServicesMissed: attendanceStats?.totalServicesMissed || 0,
+        totalEvaluated: attendanceStats?.totalEvaluated || 0,
+      },
+      recentAttendance:
+        recentAttendance.attendances?.map((att: any) => ({
+          date: att.date,
+          status: att.status,
+          serviceTitle: att.churchServiceId?.title,
+          serviceType: att.churchServiceId?.type,
+          recordedBy: att.recordedBy
+            ? `${att.recordedBy.firstName} ${att.recordedBy.lastName}`
+            : 'System',
+        })) || [],
+    };
+  }
+
+  private getMemberRoleFromStatus(status: MembershipStatus): string {
+    const roleMap: Record<MembershipStatus, string> = {
+      [MembershipStatus.LEADER]: 'Leader',
+      [MembershipStatus.VOLUNTEER]: 'Volunteer',
+      [MembershipStatus.WORKER]: 'Worker',
+      [MembershipStatus.MEMBER]: 'Member',
+      [MembershipStatus.VISITOR]: 'Visitor',
+      [MembershipStatus.CONVERT]: 'New Convert',
+    };
+    return roleMap[status] || 'Member';
+  }
+
+  private getInitials(name: string): string {
+    if (!name) {
+      return 'CH';
+    }
+    return name
+      .split(' ')
+      .map((word) => word[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  }
+
+  private getRandomBgColor(): string {
+    const colors = [
+      'bg-blue-500',
+      'bg-green-500',
+      'bg-amber-500',
+      'bg-purple-500',
+      'bg-pink-500',
+      'bg-indigo-500',
+      'bg-red-500',
+      'bg-teal-500',
+      'bg-orange-500',
+      'bg-cyan-500',
+      'bg-emerald-500',
+      'bg-rose-500',
+    ];
+    return colors[Math.floor(Math.random() * colors.length)];
   }
 }
