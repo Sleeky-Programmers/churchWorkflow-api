@@ -1,23 +1,25 @@
+import { Model, Types } from 'mongoose';
+
 import {
   BadRequestException,
-  Injectable,
-  Inject,
   forwardRef,
+  Inject,
+  Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
-import { Attendance } from '../../schemas/attendance.schema';
-import { CreateAttendanceDto } from './dto/create-attendance.dto';
-import { MembersService } from '../members/members.service';
-import { ChurchServicesService } from '../church-services/church-services.service';
+
 import {
   AttendanceStatus,
   Gender,
   ServiceType,
 } from '../../common/utils/enums.utils';
 import { Admin } from '../../schemas/admin.schema';
+import { Attendance } from '../../schemas/attendance.schema';
 import { AdminService } from '../admin/admin.service';
+import { ChurchServicesService } from '../church-services/church-services.service';
+import { MembersService } from '../members/members.service';
+import { CreateAttendanceDto } from './dto/create-attendance.dto';
 
 @Injectable()
 export class AttendanceService {
@@ -717,5 +719,200 @@ export class AttendanceService {
     ]);
 
     return (res[0]?.count as number) || 0;
+  }
+
+  async getPlatformWideAttendanceCount(
+    startDate: Date,
+    endDate: Date,
+  ): Promise<number> {
+    const result = await this.attendanceModel.aggregate([
+      {
+        $match: {
+          status: AttendanceStatus.PRESENT,
+          date: {
+            $gte: startDate.toISOString(),
+            $lt: endDate.toISOString(),
+          },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          uniqueMembers: { $addToSet: '$memberId' },
+        },
+      },
+      {
+        $project: {
+          count: { $size: '$uniqueMembers' },
+        },
+      },
+    ]);
+
+    return result.length > 0 ? result[0].count : 0;
+  }
+
+  // Add this method - Get attendance trend across ALL churches by month
+  async getPlatformWideAttendanceTrend(year: number) {
+    const monthNames = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+
+    // First, get all attendance records for the year
+    const startDate = new Date(year, 0, 1);
+    const endDate = new Date(year, 11, 31);
+
+    const attendances = await this.attendanceModel
+      .find({
+        status: AttendanceStatus.PRESENT,
+        date: {
+          $gte: startDate.toISOString(),
+          $lte: endDate.toISOString(),
+        },
+      })
+      .select('date churchServiceId')
+      .lean();
+
+    // Get all church services to determine their types
+    const serviceIds = [
+      ...new Set(
+        attendances.map((a) => a.churchServiceId?.toString()).filter(Boolean),
+      ),
+    ];
+    const services = await this.churchServicesService.findByIds(serviceIds);
+    const serviceTypeMap = new Map(
+      services.map((s) => [s._id.toString(), s.type]),
+    );
+
+    // Initialize counters for each month
+    const regularCounts = new Array(12).fill(0);
+    const specialCounts = new Array(12).fill(0);
+
+    // Count attendance by month and service type
+    for (const record of attendances) {
+      const serviceId = record.churchServiceId?.toString();
+      if (!serviceId) {
+        continue;
+      }
+
+      const serviceType = serviceTypeMap.get(serviceId) || ServiceType.REGULAR;
+      const date = new Date(record.date);
+      if (isNaN(date.getTime())) {
+        continue;
+      }
+
+      const recordYear = date.getFullYear();
+      if (recordYear !== year) {
+        continue;
+      }
+
+      const month = date.getMonth();
+
+      if (serviceType === ServiceType.SPECIAL) {
+        specialCounts[month]++;
+      } else {
+        regularCounts[month]++;
+      }
+    }
+
+    const regularService = regularCounts.map((total, index) => ({
+      month: monthNames[index],
+      totalAttendance: total,
+    }));
+
+    const specialService = specialCounts.map((total, index) => ({
+      month: monthNames[index],
+      totalAttendance: total,
+    }));
+
+    return { regularService, specialService };
+  }
+
+  // Alternative: Get unique member attendance per month (distinct members)
+  async getPlatformWideUniqueMemberAttendanceTrend(year: number) {
+    const monthNames = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    const trendData = [];
+
+    for (let month = 0; month < 12; month++) {
+      const startDate = new Date(year, month, 1);
+      const endDate = new Date(year, month + 1, 1);
+
+      const uniqueMembers = await this.attendanceModel.aggregate([
+        {
+          $match: {
+            status: AttendanceStatus.PRESENT,
+            date: {
+              $gte: startDate.toISOString(),
+              $lt: endDate.toISOString(),
+            },
+          },
+        },
+        {
+          $group: {
+            _id: '$memberId',
+          },
+        },
+        {
+          $count: 'count',
+        },
+      ]);
+
+      const previousMonthStart = new Date(year, month - 1, 1);
+      const previousMonthEnd = new Date(year, month, 1);
+
+      const previousUniqueMembers =
+        month > 0
+          ? await this.attendanceModel.aggregate([
+              {
+                $match: {
+                  status: AttendanceStatus.PRESENT,
+                  date: {
+                    $gte: previousMonthStart.toISOString(),
+                    $lt: previousMonthEnd.toISOString(),
+                  },
+                },
+              },
+              {
+                $group: {
+                  _id: '$memberId',
+                },
+              },
+              {
+                $count: 'count',
+              },
+            ])
+          : [{ count: 0 }];
+
+      trendData.push({
+        month: monthNames[month],
+        thisMonth: uniqueMembers[0]?.count || 0,
+        lastMonth: previousUniqueMembers[0]?.count || 0,
+      });
+    }
+
+    return trendData;
   }
 }

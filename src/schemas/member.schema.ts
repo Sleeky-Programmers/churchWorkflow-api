@@ -1,5 +1,7 @@
+import { Document, SchemaTypes, Types } from 'mongoose';
+
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, SchemaTypes } from 'mongoose';
+
 import {
   Gender,
   MaritalStatus,
@@ -7,7 +9,6 @@ import {
   MemberTitle,
 } from '../common/utils/enums.utils';
 import { Church } from './church.schema';
-import { Types } from 'mongoose';
 
 @Schema({ timestamps: true })
 export class Member extends Document {
@@ -67,6 +68,12 @@ export class Member extends Document {
 
   @Prop({ default: null })
   cellGroupName: string;
+
+  @Prop({ default: false })
+  isActive: boolean;
+
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export const MemberSchema = SchemaFactory.createForClass(Member);

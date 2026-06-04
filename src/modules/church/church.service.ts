@@ -38,6 +38,10 @@ export class ChurchService {
     return await this.churchModel.findById(id);
   }
 
+  async findAllChurches() {
+    return await this.churchModel.find().lean();
+  }
+
   async findAll(paginationBaseDto: ChurchFilterDto | PaginationBaseDto) {
     const {
       page = 1,

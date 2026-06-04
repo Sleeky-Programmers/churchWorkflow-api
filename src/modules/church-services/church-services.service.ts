@@ -1,22 +1,22 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { ChurchService } from '../../schemas/church-service.schema';
-import { Admin } from '../../schemas/admin.schema';
-import { CreateChurchServiceDto } from './dto/create-church-service.dto';
+
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+
 import {
   PaginationBaseDto,
   paginationMeta,
 } from '../../common/helpers/pagination.helper';
-import { UpdateChurchServiceDto } from './dto/update-church-service.dto';
 import {
+  Recurrence,
   ServiceDay,
   ServiceType,
-  Recurrence,
 } from '../../common/utils/enums.utils';
-
-import { Logger } from '@nestjs/common';
+import { Admin } from '../../schemas/admin.schema';
+import { ChurchService } from '../../schemas/church-service.schema';
 import { ServiceInstance } from '../../schemas/service-instance.schema';
+import { CreateChurchServiceDto } from './dto/create-church-service.dto';
+import { UpdateChurchServiceDto } from './dto/update-church-service.dto';
 
 const DEFAULT_GENERATION_WINDOW = 3;
 
@@ -134,6 +134,16 @@ export class ChurchServicesService {
 
   async findById(id: string) {
     return await this.churchServiceModel.findById(id);
+  }
+
+  async findByIds(ids: string[]) {
+    if (!ids || ids.length === 0) {
+      return [];
+    }
+    const objectIds = ids.map((id) => new Types.ObjectId(id));
+    return await this.churchServiceModel
+      .find({ _id: { $in: objectIds } })
+      .lean();
   }
 
   async findOneInChurch(serviceId: string, churchId: Types.ObjectId) {
