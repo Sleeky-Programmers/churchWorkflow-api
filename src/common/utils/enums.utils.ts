@@ -177,6 +177,7 @@ export enum CouponFilter {
   ACTIVE = 'active',
   INACTIVE = 'inactive',
   EXPIRED = 'expired',
+  EXPIRING_SOON = 'expiring_soon',
 }
 export enum AttendanceStatus {
   PRESENT = 'PRESENT',
@@ -208,10 +209,11 @@ export enum PlanType {
 }
 
 export enum SubscriptionStatus {
-  ACTIVE = 'ACTIVE',
-  GRACE = 'GRACE',
-  EXPIRED = 'EXPIRED',
   TRIAL = 'TRIAL',
+  GRACE = 'GRACE',
+  ACTIVE = 'ACTIVE',
+  EXPIRED = 'EXPIRED',
+  SUSPENDED = 'SUSPENDED',
 }
 
 export enum ChurchSubscriptionStatus {
@@ -285,4 +287,25 @@ export enum FlPaymentPlanInterval {
   WEEKLY = 'weekly',
   MONTHLY = 'monthly',
   YEARLY = 'yearly',
+}
+
+export enum CouponType {
+  WELCOME = 'WELCOME_COUPON',
+  FIRST_FREE = 'FIRST_FREE',
+  GROWTH_25 = 'GROWTH_25',
+  ENTERPRISE_50K = 'ENTERPRISE_50K',
+  BLACK_FRIDAY = 'BLACK_FRIDAY',
+  BULK_10 = 'BULK_10',
+  SAVE_15 = 'SAVE_15',
+  CUSTOM = 'CUSTOM',
+}
+
+export enum CouponStatus {
+  DRAFT = 'DRAFT',
+  PUBLISHED = 'PUBLISHED',
+  ACTIVE = 'ACTIVE',
+  EXPIRING_SOON = 'EXPIRING_SOON',
+  EXPIRED = 'EXPIRED',
+  DISABLED = 'DISABLED',
+  FULLY_USED = 'FULLY_USED',
 }

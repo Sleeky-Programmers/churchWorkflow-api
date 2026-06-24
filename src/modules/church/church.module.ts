@@ -1,13 +1,16 @@
 import { forwardRef, Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
-import { ChurchService } from './church.service';
-import { ChurchController } from './church.controller';
+
 import { Church, ChurchSchema } from '../../schemas/church.schema';
-import { MembersModule } from '../members/members.module';
-import { FileUploadModule } from '../file-upload/file-upload.module';
-import { AdminModule } from '../admin/admin.module';
-import { SubscriptionModule } from '../subscription/subscription.module';
+import { ActivityLogModule } from '../activity-log/activity-log.module';
 import { AdminActivityLogModule } from '../admin-activity-log/admin-activity-log.module';
+import { AdminModule } from '../admin/admin.module';
+import { EmailModule } from '../email/email.module';
+import { FileUploadModule } from '../file-upload/file-upload.module';
+import { MembersModule } from '../members/members.module';
+import { SubscriptionModule } from '../subscription/subscription.module';
+import { ChurchController } from './church.controller';
+import { ChurchService } from './church.service';
 
 @Module({
   imports: [
@@ -17,6 +20,8 @@ import { AdminActivityLogModule } from '../admin-activity-log/admin-activity-log
     SubscriptionModule,
     AdminActivityLogModule,
     MembersModule,
+    forwardRef(() => ActivityLogModule),
+    forwardRef(() => EmailModule),
   ],
 
   controllers: [ChurchController],

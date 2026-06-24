@@ -1,24 +1,26 @@
+import * as CryptoJS from 'crypto-js';
+import { Types } from 'mongoose';
+import { lastValueFrom } from 'rxjs';
+
+import { HttpService } from '@nestjs/axios';
 import {
   BadRequestException,
   Injectable,
   InternalServerErrorException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { HttpService } from '@nestjs/axios';
-import * as CryptoJS from 'crypto-js';
-import { lastValueFrom } from 'rxjs';
-import { PaymentService } from '../payment/payment.service';
-import { CouponService } from '../coupon/coupon.service';
+
 import {
   BillingCycle,
-  PlanType,
-  PaymentStatus,
   PaymentProvider,
+  PaymentStatus,
+  PlanType,
 } from '../../common/utils/enums.utils';
-import { SubscriptionService } from '../subscription/subscription.service';
-import { SubscriptionPlanCodesService } from '../subscription-plan-codes/subscription-plan-codes.service';
-import { Types } from 'mongoose';
 import { AdminActivityLogService } from '../admin-activity-log/admin-activity-log.service';
+import { CouponService } from '../coupon/coupon.service';
+import { PaymentService } from '../payment/payment.service';
+import { SubscriptionPlanCodesService } from '../subscription-plan-codes/subscription-plan-codes.service';
+import { SubscriptionService } from '../subscription/subscription.service';
 
 @Injectable()
 export class PaystackService {
@@ -156,6 +158,7 @@ export class PaystackService {
         );
 
         await this.adminActivityLogService.create({
+          adminId: null, // System action
           action: 'Payment success',
           details: `Reference ${reference} paid for plan ${plan}`,
           plan: plan as any,
@@ -173,7 +176,7 @@ export class PaystackService {
           };
         }
 
-        await this.subscriptionService.updateSubscription({
+        const subscription = await this.subscriptionService.updateSubscription({
           churchId,
           plan: plan as PlanType,
           billingCycle: billingCycle as BillingCycle,
@@ -181,8 +184,23 @@ export class PaystackService {
           providerData,
         });
 
+        // Update coupon usage if promo code was applied
         if (data.metadata && data.metadata.promoCode) {
-          await this.couponService.incrementUsage(data.metadata.promoCode);
+          try {
+            const originalAmount =
+              data.metadata.originalAmount || data.amount || 0;
+            const discountedAmount = data.amount || 0;
+
+            await this.couponService.incrementUsage(data.metadata.promoCode, {
+              churchId: new Types.ObjectId(churchId),
+              subscriptionId: subscription._id,
+              planType: plan,
+              originalAmount: originalAmount,
+              discountedAmount: discountedAmount,
+            });
+          } catch (error) {
+            throw error;
+          }
         }
 
         return data;
@@ -193,6 +211,7 @@ export class PaystackService {
         );
 
         await this.adminActivityLogService.create({
+          adminId: null, // System action
           action: 'Payment Failed',
           details: `Reference ${reference} failed`,
         } as any);
@@ -209,6 +228,7 @@ export class PaystackService {
   async handleWebhook(payload: any) {
     const event = payload.event;
     const data = payload.data;
+
     switch (event) {
       case 'charge.success': {
         const { reference, metadata, paid_at } = data;
@@ -221,20 +241,37 @@ export class PaystackService {
           );
 
           await this.adminActivityLogService.create({
+            adminId: null, // System action
             action: 'Payment Success',
             details: `Webhook reference ${reference} succeeded for plan ${metadata.plan}`,
             plan: metadata.plan,
           } as any);
 
-          await this.subscriptionService.updateSubscription({
-            churchId: metadata.churchId,
-            plan: metadata.plan as PlanType,
-            billingCycle: metadata.billingCycle as BillingCycle,
-            autoRenew: !!metadata.autoRenew,
-          });
+          const subscription =
+            await this.subscriptionService.updateSubscription({
+              churchId: metadata.churchId,
+              plan: metadata.plan as PlanType,
+              billingCycle: metadata.billingCycle as BillingCycle,
+              autoRenew: !!metadata.autoRenew,
+            });
 
+          // Update coupon usage if promo code was applied
           if (metadata.promoCode) {
-            await this.couponService.incrementUsage(metadata.promoCode);
+            try {
+              const originalAmount =
+                metadata.originalAmount || metadata.amount || 0;
+              const discountedAmount = metadata.amount || 0;
+
+              await this.couponService.incrementUsage(metadata.promoCode, {
+                churchId: new Types.ObjectId(metadata.churchId),
+                subscriptionId: subscription._id,
+                planType: metadata.plan,
+                originalAmount: originalAmount,
+                discountedAmount: discountedAmount,
+              });
+            } catch (error) {
+              throw error;
+            }
           }
 
           if (metadata && metadata.autoRenew) {
@@ -251,18 +288,22 @@ export class PaystackService {
         }
         break;
       }
-      case 'charge.failed':
+
+      case 'charge.failed': {
         await this.paymentService.updatePaymentStatus(
           data.reference,
           PaymentStatus.FAILED,
         );
 
         await this.adminActivityLogService.create({
+          adminId: null, // System action
           action: 'Payment failed',
           details: `Webhook reference ${data.reference} failed`,
         } as any);
 
         break;
+      }
+
       case 'subscription.create': {
         const paymentRecord =
           await this.paymentService.findByProviderSubscriptionCode(
@@ -293,7 +334,67 @@ export class PaystackService {
         }
         break;
       }
+
+      // Add subscription renewal webhook handling
+      case 'subscription.renewal': {
+        const { subscription_code, amount } = data;
+        const paymentRecord =
+          await this.paymentService.findByProviderSubscriptionCode(
+            subscription_code,
+          );
+
+        if (paymentRecord) {
+          // Update subscription with new renewal info
+          await this.subscriptionService.updateSubscription({
+            churchId: paymentRecord.metadata.churchId,
+            plan: paymentRecord.metadata?.plan,
+            billingCycle: paymentRecord.metadata?.billingCycle,
+            autoRenew: true,
+            providerData: {
+              subscriptionCode: subscription_code,
+            },
+          });
+
+          await this.adminActivityLogService.create({
+            adminId: null,
+            action: 'Subscription Renewed',
+            details: `Subscription ${subscription_code} renewed for ${amount}`,
+            plan: paymentRecord.metadata?.plan,
+          } as any);
+        }
+        break;
+      }
+
+      // Add subscription cancellation webhook handling
+      case 'subscription.not_renew': {
+        const { subscription_code } = data;
+        const paymentRecord =
+          await this.paymentService.findByProviderSubscriptionCode(
+            subscription_code,
+          );
+
+        if (paymentRecord) {
+          await this.subscriptionService.updateSubscription({
+            churchId: paymentRecord.metadata.churchId,
+            plan: paymentRecord.metadata?.plan,
+            billingCycle: paymentRecord.metadata?.billingCycle,
+            autoRenew: false,
+            providerData: {
+              subscriptionCode: subscription_code,
+            },
+          });
+
+          await this.adminActivityLogService.create({
+            adminId: null,
+            action: 'Subscription Not Renewed',
+            details: `Subscription ${subscription_code} will not renew`,
+            plan: paymentRecord.metadata?.plan,
+          } as any);
+        }
+        break;
+      }
     }
+
     return { status: 'success' };
   }
 
