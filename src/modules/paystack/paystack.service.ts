@@ -96,7 +96,6 @@ export class PaystackService {
           },
         ),
       );
-
       const { reference, authorization_url } = response.data.data;
 
       await this.subscriptionService.getSubscription(data.churchId);

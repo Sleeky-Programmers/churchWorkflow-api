@@ -20,9 +20,6 @@ import { UpdateChurchServiceDto } from './dto/update-church-service.dto';
 
 const DEFAULT_GENERATION_WINDOW = 3;
 
-const escapeRegExp = (value: string) =>
-  value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
 @Injectable()
 export class ChurchServicesService {
   constructor(
@@ -43,40 +40,144 @@ export class ChurchServicesService {
     const normalizedStartTime = createChurchServiceDto.startTime
       ?.trim()
       .toUpperCase();
+    const normalizedEndTime = createChurchServiceDto.endTime
+      ?.trim()
+      .toUpperCase();
 
-    if (normalizedStartTime) {
-      const duplicateFilter: any = {
+    if (createChurchServiceDto.type === ServiceType.REGULAR) {
+      const overlapFilter: any = {
         churchId: authUser.churchId,
-        title: {
-          $regex: `^${escapeRegExp(normalizedName)}$`,
-          $options: 'i',
-        },
-        startTime: normalizedStartTime,
+        type: ServiceType.REGULAR,
+        day: createChurchServiceDto.day,
       };
-      duplicateFilter.location = normalizedLocation
-        ? {
-            $regex: `^${escapeRegExp(normalizedLocation)}$`,
-            $options: 'i',
-          }
-        : { $in: [null, ''] };
 
-      if (createChurchServiceDto.type) {
-        duplicateFilter.type = createChurchServiceDto.type;
+      if (normalizedStartTime && normalizedEndTime) {
+        overlapFilter.$or = [
+          {
+            startTime: { $gte: normalizedStartTime, $lt: normalizedEndTime },
+          },
+          {
+            endTime: { $gt: normalizedStartTime, $lte: normalizedEndTime },
+          },
+          {
+            startTime: { $lte: normalizedStartTime },
+            endTime: { $gte: normalizedEndTime },
+          },
+          {
+            startTime: { $gte: normalizedStartTime },
+            endTime: { $lte: normalizedEndTime },
+          },
+        ];
+      } else if (normalizedStartTime) {
+        overlapFilter.$or = [
+          { startTime: normalizedStartTime },
+          {
+            startTime: { $lte: normalizedStartTime },
+            endTime: { $gt: normalizedStartTime },
+          },
+        ];
       }
 
-      if (createChurchServiceDto.day) {
-        duplicateFilter.day = createChurchServiceDto.day;
-      }
+      const overlappingService =
+        await this.churchServiceModel.findOne(overlapFilter);
+      if (overlappingService) {
+        const conflictMessage = normalizedEndTime
+          ? `A ${overlappingService.type} service already exists on ${overlappingService.day} from ${overlappingService.startTime} to ${overlappingService.endTime || 'ongoing'}. Please choose a non-overlapping schedule.`
+          : `A ${overlappingService.type} service already exists on ${overlappingService.day} at ${overlappingService.startTime}. Please choose a different schedule.`;
 
+        throw new BadRequestException(conflictMessage);
+      }
+    }
+
+    if (createChurchServiceDto.type === ServiceType.SPECIAL) {
       if (createChurchServiceDto.startDate) {
-        duplicateFilter.startDate = new Date(createChurchServiceDto.startDate);
+        const startDate = new Date(createChurchServiceDto.startDate);
+        const duplicateFilter: any = {
+          churchId: authUser.churchId,
+          type: ServiceType.SPECIAL,
+          startDate: {
+            $gte: new Date(startDate.setHours(0, 0, 0, 0)),
+            $lt: new Date(startDate.setHours(23, 59, 59, 999)),
+          },
+        };
+
+        if (normalizedStartTime && normalizedEndTime) {
+          duplicateFilter.$or = [
+            {
+              startTime: { $gte: normalizedStartTime, $lt: normalizedEndTime },
+            },
+            { endTime: { $gt: normalizedStartTime, $lte: normalizedEndTime } },
+            {
+              startTime: { $lte: normalizedStartTime },
+              endTime: { $gte: normalizedEndTime },
+            },
+            {
+              startTime: { $gte: normalizedStartTime },
+              endTime: { $lte: normalizedEndTime },
+            },
+          ];
+        } else if (normalizedStartTime) {
+          duplicateFilter.startTime = normalizedStartTime;
+        }
+
+        const existing = await this.churchServiceModel.findOne(duplicateFilter);
+        if (existing) {
+          throw new BadRequestException(
+            `A special event already exists on ${createChurchServiceDto.startDate} at ${normalizedStartTime}${normalizedEndTime ? ` to ${normalizedEndTime}` : ''}. Please choose a different date or time.`,
+          );
+        }
       }
 
-      const existing = await this.churchServiceModel.findOne(duplicateFilter);
-      if (existing) {
-        throw new BadRequestException(
-          'Event with same name and time already exists',
-        );
+      if (
+        createChurchServiceDto.specialDays &&
+        createChurchServiceDto.specialDays.length > 0
+      ) {
+        for (const specialDay of createChurchServiceDto.specialDays) {
+          const date = new Date(specialDay.date);
+          const dayStartTime = specialDay.startTime?.trim().toUpperCase();
+          const dayEndTime = specialDay.endTime?.trim().toUpperCase();
+
+          const duplicateFilter: any = {
+            churchId: authUser.churchId,
+            type: ServiceType.SPECIAL,
+            'specialDays.date': {
+              $gte: new Date(date.setHours(0, 0, 0, 0)),
+              $lt: new Date(date.setHours(23, 59, 59, 999)),
+            },
+          };
+
+          if (dayStartTime && dayEndTime) {
+            duplicateFilter.$or = [
+              {
+                'specialDays.startTime': {
+                  $gte: dayStartTime,
+                  $lt: dayEndTime,
+                },
+              },
+              {
+                'specialDays.endTime': { $gt: dayStartTime, $lte: dayEndTime },
+              },
+              {
+                'specialDays.startTime': { $lte: dayStartTime },
+                'specialDays.endTime': { $gte: dayEndTime },
+              },
+              {
+                'specialDays.startTime': { $gte: dayStartTime },
+                'specialDays.endTime': { $lte: dayEndTime },
+              },
+            ];
+          } else if (dayStartTime) {
+            duplicateFilter['specialDays.startTime'] = dayStartTime;
+          }
+
+          const existingSpecialDay =
+            await this.churchServiceModel.findOne(duplicateFilter);
+          if (existingSpecialDay) {
+            throw new BadRequestException(
+              `A special event already exists on ${specialDay.date} at ${dayStartTime}${dayEndTime ? ` to ${dayEndTime}` : ''}. Please choose a different date or time.`,
+            );
+          }
+        }
       }
     }
 
@@ -84,6 +185,7 @@ export class ChurchServicesService {
       ...createChurchServiceDto,
       title: normalizedName,
       startTime: normalizedStartTime,
+      endTime: normalizedEndTime,
       location: normalizedLocation || undefined,
       churchId: authUser.churchId,
     });
