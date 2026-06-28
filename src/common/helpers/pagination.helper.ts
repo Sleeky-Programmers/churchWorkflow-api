@@ -1,6 +1,13 @@
-import { IsInt, Max, Min, IsOptional, IsString } from 'class-validator';
 import { Type } from 'class-transformer';
-import { MemberFilter, CouponFilter } from '../utils/enums.utils';
+import { IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+
+import {
+  CouponFilter,
+  CouponStatus,
+  CouponType,
+  MemberFilter,
+} from '../utils/enums.utils';
+
 interface PaginationMetaInterface {
   page: number;
   limit: number;
@@ -48,7 +55,27 @@ export class MembersFilterDto extends PaginationBaseDto {
 }
 
 export class CouponFilterDto extends PaginationBaseDto {
-  @IsOptional()
   @IsString()
+  @IsOptional()
+  search?: string;
+
+  @IsEnum(CouponFilter)
+  @IsOptional()
   filter?: CouponFilter;
+
+  @IsEnum(CouponType)
+  @IsOptional()
+  type?: CouponType;
+
+  @IsEnum(CouponStatus)
+  @IsOptional()
+  status?: CouponStatus;
+
+  @IsString()
+  @IsOptional()
+  sortBy?: string;
+
+  @IsEnum(['ASC', 'DESC'])
+  @IsOptional()
+  sortOrder?: 'ASC' | 'DESC' = 'DESC';
 }

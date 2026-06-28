@@ -549,7 +549,13 @@ export class MembersService {
 
     const skip = (page - 1) * limit;
 
-    const query: any = { churchId: authUser.churchId };
+    if (!authUser.churchId) {
+      throw new BadRequestException('Church ID is required');
+    }
+
+    const query: any = {
+      churchId: new Types.ObjectId(authUser.churchId),
+    };
 
     if (search) {
       query.$or = [
@@ -599,7 +605,6 @@ export class MembersService {
       case MemberFilter.IS_BAPTIZED:
         query.isBaptized = true;
         break;
-
       case MemberFilter.NEW_MEMBERS:
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -610,8 +615,13 @@ export class MembersService {
     }
 
     const [members, itemCount] = await Promise.all([
-      this.memberModel.find(query).skip(skip).limit(limit),
-      this.memberModel.countDocuments(query),
+      this.memberModel
+        .find(query)
+        .skip(skip)
+        .limit(limit)
+        .lean() // Use lean() for better performance
+        .exec(),
+      this.memberModel.countDocuments(query).exec(),
     ]);
 
     return {
@@ -789,7 +799,6 @@ export class MembersService {
   }
 
   // Members.service.ts - Updated methods
-
   async getAllMembersForManagement(
     authUser: Admin,
     filters: MemberManagementDto,

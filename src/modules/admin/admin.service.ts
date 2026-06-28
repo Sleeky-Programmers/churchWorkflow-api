@@ -1,23 +1,25 @@
+import * as bcrypt from 'bcryptjs';
+import { Model, Types } from 'mongoose';
+
 import {
+  BadRequestException,
   Injectable,
   NotFoundException,
-  BadRequestException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
-import * as bcrypt from 'bcryptjs';
-import { CreateSuperAdminDto } from './dto/create-super-admin.dto';
-import { Admin } from '../../schemas/admin.schema';
-import { ChurchService } from '../church/church.service';
-import { CreateAdminDto } from '././dto/create-admin.dto';
-import { RolesService } from '../roles/roles.service';
-import { AccountSettingsService } from '../account-settings/account-settings.service';
+
 import { emailMatcher } from '../../common/helpers/email-matcher.helper';
-import { SubscriptionService } from '../subscription/subscription.service';
 import {
   PaginationBaseDto,
   paginationMeta,
 } from '../../common/helpers/pagination.helper';
+import { Admin } from '../../schemas/admin.schema';
+import { AccountSettingsService } from '../account-settings/account-settings.service';
+import { ChurchService } from '../church/church.service';
+import { RolesService } from '../roles/roles.service';
+import { SubscriptionService } from '../subscription/subscription.service';
+import { CreateAdminDto } from './dto/create-admin.dto';
+import { CreateSuperAdminDto } from './dto/create-super-admin.dto';
 
 @Injectable()
 export class AdminService {
@@ -241,5 +243,15 @@ export class AdminService {
       _id: new Types.ObjectId(adminId),
       churchId,
     });
+  }
+
+  async findByChurchId(churchId: Types.ObjectId) {
+    return await this.adminModel.find({ churchId }).select('_id name email');
+  }
+
+  async findSuperAdmins() {
+    return await this.adminModel
+      .find({ role: 'SUPER_ADMIN' })
+      .select('_id name email');
   }
 }

@@ -1,19 +1,15 @@
+import { Types } from 'mongoose';
+import { lastValueFrom } from 'rxjs';
+
+import { HttpService } from '@nestjs/axios';
 import {
   Injectable,
   InternalServerErrorException,
-  UnauthorizedException,
   Logger,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { HttpService } from '@nestjs/axios';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { lastValueFrom } from 'rxjs';
-import { Types } from 'mongoose';
-
-import { PaymentService } from '../payment/payment.service';
-import { SubscriptionService } from '../subscription/subscription.service';
-import { CouponService } from '../coupon/coupon.service';
-import { AdminActivityLogService } from '../admin-activity-log/admin-activity-log.service';
 
 import {
   BillingCycle,
@@ -22,6 +18,10 @@ import {
   PaymentStatus,
   PlanType,
 } from '../../common/utils/enums.utils';
+import { AdminActivityLogService } from '../admin-activity-log/admin-activity-log.service';
+import { CouponService } from '../coupon/coupon.service';
+import { PaymentService } from '../payment/payment.service';
+import { SubscriptionService } from '../subscription/subscription.service';
 
 @Injectable()
 export class FlutterwaveService {
@@ -167,18 +167,33 @@ export class FlutterwaveService {
         );
       }
 
-      await this.subscriptionService.updateSubscription({
+      const subscription = await this.subscriptionService.updateSubscription({
         churchId: meta.churchId,
         plan: meta.plan as PlanType,
         billingCycle: meta.billingCycle as BillingCycle,
         autoRenew: canAutoRenew,
       });
 
+      // Update coupon usage if promo code was applied
       if (meta.promoCode) {
-        await this.couponService.incrementUsage(meta.promoCode);
+        try {
+          const originalAmount = meta.originalAmount || meta.amount || 0;
+          const discountedAmount = meta.discountedAmount || meta.amount || 0;
+
+          await this.couponService.incrementUsage(meta.promoCode, {
+            churchId: new Types.ObjectId(meta.churchId),
+            subscriptionId: subscription._id,
+            planType: meta.plan,
+            originalAmount: originalAmount,
+            discountedAmount: discountedAmount,
+          });
+        } catch (error) {
+          throw error;
+        }
       }
 
       await this.adminActivityLogService.create({
+        adminId: null, // System action
         action: 'Payment Successful',
         details: `Reference ${reference} successful`,
         plan: meta.plan,

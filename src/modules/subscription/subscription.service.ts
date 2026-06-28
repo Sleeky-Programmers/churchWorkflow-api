@@ -1,8 +1,8 @@
+import { Model, Types } from 'mongoose';
+
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
-import { Subscription } from '../../schemas/subscription.schema';
-import { PaymentService } from '../payment/payment.service';
+
 import {
   BillingCycle,
   MemberLimitType,
@@ -10,7 +10,9 @@ import {
   PlanType,
   SubscriptionStatus,
 } from '../../common/utils/enums.utils';
+import { Subscription } from '../../schemas/subscription.schema';
 import { AdminActivityLogService } from '../admin-activity-log/admin-activity-log.service';
+import { PaymentService } from '../payment/payment.service';
 
 @Injectable()
 export class SubscriptionService {
@@ -543,5 +545,23 @@ export class SubscriptionService {
     await subscription.save();
 
     return subscription;
+  }
+
+  async pauseSubscription(churchId: Types.ObjectId) {
+    const subscription = await this.subscriptionModel.findOne({ churchId });
+    if (subscription) {
+      subscription.status = SubscriptionStatus.SUSPENDED;
+      subscription.pausedAt = new Date();
+      await subscription.save();
+    }
+  }
+
+  async resumeSubscription(churchId: Types.ObjectId) {
+    const subscription = await this.subscriptionModel.findOne({ churchId });
+    if (subscription) {
+      subscription.status = SubscriptionStatus.ACTIVE;
+      subscription.pausedAt = null;
+      await subscription.save();
+    }
   }
 }

@@ -1,38 +1,90 @@
 import {
+  IsArray,
+  IsBoolean,
+  IsDateString,
   IsEnum,
   IsNotEmpty,
   IsNumber,
+  IsObject,
   IsOptional,
   IsString,
-  IsBoolean,
-  IsDateString,
+  Min,
+  ValidateIf,
 } from 'class-validator';
-import { DiscountType } from '../../../common/utils/enums.utils';
+import {
+  CouponStatus,
+  CouponType,
+  DiscountType,
+  PlanType,
+} from 'src/common/utils/enums.utils';
 
 export class CreateCouponDto {
   @IsString()
   @IsNotEmpty()
-  code: string;
+  @IsOptional()
+  code?: string;
 
   @IsString()
-  @IsOptional()
-  description?: string;
+  @IsNotEmpty()
+  description: string;
+
+  @IsEnum(CouponType)
+  @IsNotEmpty()
+  type: CouponType;
 
   @IsEnum(DiscountType)
+  @IsNotEmpty()
   discountType: DiscountType;
 
   @IsNumber()
+  @Min(0.01)
+  @IsNotEmpty()
   discount: number;
 
+  @IsDateString()
+  @IsNotEmpty()
+  @ValidateIf((o) => o.validFrom !== undefined)
+  validFrom?: string;
+
+  @IsDateString()
+  @IsNotEmpty()
+  expiryDate: string;
+
   @IsNumber()
+  @Min(0)
   @IsOptional()
   maxUsage?: number;
 
-  @IsDateString()
+  @IsEnum(PlanType)
   @IsOptional()
-  expiryDate?: string;
+  minPlanTier?: PlanType;
+
+  @IsArray()
+  @IsEnum(PlanType, { each: true })
+  @IsOptional()
+  excludedPlans?: PlanType[];
+
+  @IsBoolean()
+  @IsOptional()
+  isStackable?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  isTransferable?: boolean;
+
+  @IsEnum(CouponStatus)
+  @IsOptional()
+  status?: CouponStatus;
 
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;
+
+  @IsObject()
+  @IsOptional()
+  metadata?: Record<string, any>;
+
+  @IsBoolean()
+  @IsOptional()
+  isSystemGenerated?: boolean;
 }

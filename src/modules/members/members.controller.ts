@@ -43,10 +43,7 @@ export class MembersController {
     level: AccessLevel.MANAGE,
   })
   @UseInterceptors(FileInterceptor('file'))
-  createMembersByCsv(
-    @AuthUser() authUser: Admin,
-    @UploadedFile() file: Express.Multer.File,
-  ) {
+  createMembersByCsv(@AuthUser() authUser: Admin, @UploadedFile() file: any) {
     if (!file) {
       throw new BadRequestException('CSV file is required');
     }
