@@ -564,4 +564,61 @@ export class SubscriptionService {
       await subscription.save();
     }
   }
+
+  async getActiveSubscription(churchId: Types.ObjectId) {
+    return await this.subscriptionModel
+      .findOne({
+        churchId,
+        status: SubscriptionStatus.ACTIVE,
+      })
+      .lean();
+  }
+
+  async getPlanMemberLimit(plan: PlanType): Promise<number> {
+    return this.planLimits[plan].members || 0;
+  }
+
+  async updateGracePeriod(churchId: Types.ObjectId, gracePeriodEndDate: Date) {
+    return await this.subscriptionModel.findOneAndUpdate(
+      { churchId, status: SubscriptionStatus.ACTIVE },
+      { gracePeriodEndDate },
+      { new: true },
+    );
+  }
+
+  async getGracePeriodStatus(churchId: Types.ObjectId) {
+    const subscription = await this.subscriptionModel
+      .findOne({
+        churchId,
+        status: SubscriptionStatus.ACTIVE,
+      })
+      .lean();
+
+    if (!subscription) {
+      return { hasGracePeriod: false, gracePeriodEndDate: null };
+    }
+
+    return {
+      hasGracePeriod: !!subscription.gracePeriodEndDate,
+      gracePeriodEndDate: subscription.gracePeriodEndDate,
+      isWithinGracePeriod: subscription.gracePeriodEndDate
+        ? new Date() < subscription.gracePeriodEndDate
+        : false,
+    };
+  }
+
+  async getMemberLimitForChurch(churchId: Types.ObjectId): Promise<number> {
+    const subscription = await this.subscriptionModel
+      .findOne({
+        churchId,
+        status: SubscriptionStatus.ACTIVE,
+      })
+      .lean();
+
+    if (!subscription) {
+      return this.getPlanMemberLimit(PlanType.STARTER);
+    }
+
+    return this.getPlanMemberLimit(subscription.plan);
+  }
 }

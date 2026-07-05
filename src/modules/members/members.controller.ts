@@ -145,6 +145,19 @@ export class MembersController {
     return { success: true, ...result };
   }
 
+  @Get('member-limit-status')
+  @RequirePermissions({
+    section: ModuleSections.MEMBERS,
+    level: AccessLevel.VIEW,
+  })
+  async getMemberLimitStatus(@AuthUser() authUser: Admin) {
+    const status = await this.membersService.getMemberLimitStatus(authUser);
+    return {
+      success: true,
+      data: status,
+    };
+  }
+
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Get('/:id')
   @RequirePermissions({
