@@ -36,6 +36,7 @@ import {
   MembershipStatus,
   ModuleSections,
   NotificationType,
+  PlanType,
 } from '../../common/utils/enums.utils';
 import { Admin } from '../../schemas/admin.schema';
 import { Member } from '../../schemas/member.schema';
@@ -1122,6 +1123,98 @@ export class MembersService {
     };
   }
 
+  async getMemberLimitStatus(authUser: Admin) {
+    const churchId = authUser.churchId;
+
+    // Get current member count
+    const currentMembers = await this.memberModel.countDocuments({ churchId });
+
+    // Get subscription and plan limit
+    const subscription =
+      await this.subscriptionService.getActiveSubscription(churchId);
+
+    if (!subscription) {
+      const defaultLimit = await this.subscriptionService.getPlanMemberLimit(
+        PlanType.STARTER,
+      );
+      const percentage =
+        defaultLimit > 0 ? (currentMembers / defaultLimit) * 100 : 0;
+
+      return {
+        currentMembers,
+        limit: defaultLimit,
+        percentage: Math.min(percentage, 100),
+        isOverLimit: defaultLimit > 0 && currentMembers > defaultLimit,
+        isWithinGracePeriod: false,
+        gracePeriodEnds: null,
+        planName: PlanType.STARTER,
+        needsAction: false,
+        isNearLimit: percentage >= 80 && percentage < 100,
+        daysRemaining: null,
+      };
+    }
+
+    // Get plan limit
+    const planLimit = await this.subscriptionService.getPlanMemberLimit(
+      subscription.plan,
+    );
+    const percentage = planLimit > 0 ? (currentMembers / planLimit) * 100 : 0;
+    const isOverLimit = planLimit > 0 && currentMembers > planLimit;
+
+    // Check grace period
+    let isWithinGracePeriod = false;
+    let daysRemaining = null;
+
+    if (subscription.gracePeriodEndDate) {
+      const now = new Date();
+      isWithinGracePeriod = now < subscription.gracePeriodEndDate;
+
+      if (isWithinGracePeriod) {
+        const diff = subscription.gracePeriodEndDate.getTime() - now.getTime();
+        daysRemaining = Math.ceil(diff / (1000 * 3600 * 24));
+      }
+    }
+
+    // If over limit and no grace period set, start one
+    if (isOverLimit && !subscription.gracePeriodEndDate) {
+      const gracePeriodEndDate = new Date();
+      gracePeriodEndDate.setDate(gracePeriodEndDate.getDate() + 7); // 7 days grace period
+
+      await this.subscriptionService.updateGracePeriod(
+        churchId,
+        gracePeriodEndDate,
+      );
+
+      return {
+        currentMembers,
+        limit: planLimit,
+        percentage: Math.min(percentage, 100),
+        isOverLimit,
+        isWithinGracePeriod: true,
+        gracePeriodEnds: gracePeriodEndDate,
+        planName: subscription.plan,
+        needsAction: true,
+        isNearLimit: false,
+        daysRemaining: 7,
+      };
+    }
+
+    // Determine if action is needed
+    const needsAction = isOverLimit && isWithinGracePeriod;
+
+    return {
+      currentMembers,
+      limit: planLimit,
+      percentage: Math.min(percentage, 100),
+      isOverLimit,
+      isWithinGracePeriod,
+      gracePeriodEnds: subscription.gracePeriodEndDate || null,
+      planName: subscription.plan,
+      needsAction,
+      isNearLimit: percentage >= 80 && percentage < 100 && !isOverLimit,
+      daysRemaining,
+    };
+  }
   private getMemberRoleFromStatus(status: MembershipStatus): string {
     const roleMap: Record<MembershipStatus, string> = {
       [MembershipStatus.LEADER]: 'Leader',

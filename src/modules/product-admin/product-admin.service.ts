@@ -119,6 +119,11 @@ export class ProductAdminService implements OnModuleInit {
 
     const { accessToken, refreshToken } = this.generateTokens(user._id);
 
+    const role = await this.rolesService.findById(user.role.toString());
+    if (!role) {
+      throw new BadRequestException('Invalid role');
+    }
+
     return {
       message: 'Login successful',
       user,

@@ -29,6 +29,7 @@ export enum Recurrence {
   MONTHLY_FIRST_MONDAY = 'MONTHLY_FIRST_MONDAY',
   ANNUALLY = 'ANNUALLY',
   WEEKDAYS = 'WEEKDAYS',
+  SUNDAY = 'SUNDAY',
 }
 
 export enum EventType {
