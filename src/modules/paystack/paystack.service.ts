@@ -78,6 +78,8 @@ export class PaystackService {
       const payload = {
         email: data.email,
         amount: data.amount * 100,
+        callback_url:
+          this.configService.get<string>('flutterwave.redirectUrl') || '',
         metadata: {
           churchId: data.churchId,
           plan: data.plan,

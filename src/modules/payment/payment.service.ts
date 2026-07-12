@@ -1,14 +1,16 @@
+import { Model, Types } from 'mongoose';
+
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
-import { Payment } from '../../schemas/payment.schema';
+
+import { paginationMeta } from '../../common/helpers/pagination.helper';
 import {
   PaymentStatus,
   PaymentTimeframe,
 } from '../../common/utils/enums.utils';
+import { Payment } from '../../schemas/payment.schema';
 import { AdminActivityLogService } from '../admin-activity-log/admin-activity-log.service';
 import { PaymentFilterDto } from './dto/payment-filter.dto';
-import { paginationMeta } from '../../common/helpers/pagination.helper';
 
 @Injectable()
 export class PaymentService {
@@ -23,6 +25,10 @@ export class PaymentService {
 
   async findByReference(reference: string) {
     return await this.paymentModel.findOne({ reference });
+  }
+
+  async findByTransactionId(transactionId: string) {
+    return await this.paymentModel.findOne({ transactionId });
   }
 
   async updatePaymentStatus(
