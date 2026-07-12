@@ -150,6 +150,9 @@ export class SubscriptionService {
       subscriptionCode?: string;
       emailToken?: string;
       customerCode?: string;
+      provider?: PaymentProvider;
+      transactionId?: string;
+      paymentType?: string;
     };
   }) {
     const existing = await this.subscriptionModel.findOne({
@@ -181,10 +184,11 @@ export class SubscriptionService {
 
         ...(data.providerData && {
           provider: {
-            name: PaymentProvider.PAYSTACK,
+            name: data.providerData.provider || PaymentProvider.PAYSTACK,
             subscriptionCode: data.providerData.subscriptionCode,
             emailToken: data.providerData.emailToken,
             customerCode: data.providerData.customerCode,
+            transactionId: data.providerData.transactionId || null,
           },
         }),
       },

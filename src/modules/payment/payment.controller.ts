@@ -1,16 +1,14 @@
 import {
+  BadRequestException,
+  Body,
   Controller,
   Get,
   Post,
-  Body,
-  BadRequestException,
+  Query,
   UseGuards,
 } from '@nestjs/common';
-import { PaymentService } from './payment.service';
-import { PaystackService } from '../paystack/paystack.service';
-import { FlutterwaveService } from '../flutterwave/flutterwave.service';
-import { CouponService } from '../coupon/coupon.service';
-import { InitializePaymentDto } from './dto/initialize-payment.dto';
+
+import { AuthUser } from '../../common/decorators/auth-user.decorator';
 import {
   DiscountType,
   PaymentProvider,
@@ -18,13 +16,16 @@ import {
   PlanType,
   SubscriptionStatus,
 } from '../../common/utils/enums.utils';
-import { SubscriptionService } from '../subscription/subscription.service';
-import { JwtAuthGuard } from '../auth/guard/jwt-auth.guard';
-import { AuthUser } from '../../common/decorators/auth-user.decorator';
 import { Admin } from '../../schemas/admin.schema';
-import { Query } from '@nestjs/common';
-import { PaymentFilterDto } from './dto/payment-filter.dto';
+import { JwtAuthGuard } from '../auth/guard/jwt-auth.guard';
+import { CouponService } from '../coupon/coupon.service';
+import { FlutterwaveService } from '../flutterwave/flutterwave.service';
+import { PaystackService } from '../paystack/paystack.service';
 import { ProductAdminJwtAuthGuard } from '../product-admin/guard/product-jwt-auth.guard';
+import { SubscriptionService } from '../subscription/subscription.service';
+import { InitializePaymentDto } from './dto/initialize-payment.dto';
+import { PaymentFilterDto } from './dto/payment-filter.dto';
+import { PaymentService } from './payment.service';
 
 @Controller('payment')
 export class PaymentController {
@@ -109,10 +110,13 @@ export class PaymentController {
     throw new BadRequestException('Invalid payment provider');
   }
 
+  // Payment.controller.ts
   @UseGuards(JwtAuthGuard)
   @Post('verify')
-  async manualVerify(@Body() body: { reference: string; provider: any }) {
-    const { reference, provider } = body as any;
+  async manualVerify(
+    @Body() body: { reference: string; provider: any; transactionId?: string },
+  ) {
+    const { reference, provider, transactionId } = body;
 
     if (!reference) {
       throw new BadRequestException('Missing payment reference');
@@ -123,7 +127,8 @@ export class PaymentController {
     }
 
     if (provider === PaymentProvider.FLUTTERWAVE) {
-      return await this.flutterwaveService.verifyTransaction(reference);
+      const idToVerify = transactionId || reference;
+      return await this.flutterwaveService.verifyTransaction(idToVerify);
     }
 
     throw new BadRequestException('Invalid payment provider');
