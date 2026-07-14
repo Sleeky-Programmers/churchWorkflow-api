@@ -21,6 +21,14 @@ module.exports = {
     '@typescript-eslint/explicit-function-return-type': 'off',
     '@typescript-eslint/explicit-module-boundary-types': 'off',
     '@typescript-eslint/no-explicit-any': 'off',
+    '@typescript-eslint/no-var-requires': 'off',
+    '@typescript-eslint/no-unused-vars': [
+      'error',
+      {
+        argsIgnorePattern: '^_',
+        varsIgnorePattern: '^_'
+      }
+    ],
     'prettier/prettier': [
       'error',
       {
@@ -28,5 +36,23 @@ module.exports = {
       },
     ],
     'no-console': 'error',
+    curly: ['error', 'all'],
+    'no-lonely-if': 'error',
+    'brace-style': ['error', '1tbs'],
+		'no-warning-comments': [
+			'warn',
+			{
+				'terms': ['todo', 'fixme'],
+				'location': 'start'
+			}
+		],
+		'capitalized-comments': ['error', 'always'],
+    '@typescript-eslint/ban-ts-comment': [
+      'error',
+      {
+        'ts-ignore': 'allow-with-description',
+        'minimumDescriptionLength': 10
+      }
+    ],
   },
 };

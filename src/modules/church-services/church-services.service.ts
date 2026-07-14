@@ -1,0 +1,642 @@
+import { Model, Types } from 'mongoose';
+
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+
+import {
+  PaginationBaseDto,
+  paginationMeta,
+} from '../../common/helpers/pagination.helper';
+import {
+  Recurrence,
+  ServiceDay,
+  ServiceType,
+} from '../../common/utils/enums.utils';
+import { Admin } from '../../schemas/admin.schema';
+import { ChurchService } from '../../schemas/church-service.schema';
+import { ServiceInstance } from '../../schemas/service-instance.schema';
+import { CreateChurchServiceDto } from './dto/create-church-service.dto';
+import { UpdateChurchServiceDto } from './dto/update-church-service.dto';
+
+const DEFAULT_GENERATION_WINDOW = 3;
+
+@Injectable()
+export class ChurchServicesService {
+  constructor(
+    @InjectModel(ChurchService.name)
+    private churchServiceModel: Model<ChurchService>,
+    @InjectModel(ServiceInstance.name)
+    private serviceInstanceModel: Model<any>,
+  ) {}
+
+  private readonly logger = new Logger(ChurchServicesService.name);
+
+  async create(
+    authUser: Admin,
+    createChurchServiceDto: CreateChurchServiceDto,
+  ) {
+    const normalizedName = createChurchServiceDto.title.trim();
+    const normalizedLocation = (createChurchServiceDto.location || '').trim();
+    const normalizedStartTime = createChurchServiceDto.startTime
+      ?.trim()
+      .toUpperCase();
+    const normalizedEndTime = createChurchServiceDto.endTime
+      ?.trim()
+      .toUpperCase();
+
+    if (createChurchServiceDto.type === ServiceType.REGULAR) {
+      const overlapFilter: any = {
+        churchId: authUser.churchId,
+        type: ServiceType.REGULAR,
+        day: createChurchServiceDto.day,
+      };
+
+      if (normalizedStartTime && normalizedEndTime) {
+        overlapFilter.$or = [
+          {
+            startTime: { $gte: normalizedStartTime, $lt: normalizedEndTime },
+          },
+          {
+            endTime: { $gt: normalizedStartTime, $lte: normalizedEndTime },
+          },
+          {
+            startTime: { $lte: normalizedStartTime },
+            endTime: { $gte: normalizedEndTime },
+          },
+          {
+            startTime: { $gte: normalizedStartTime },
+            endTime: { $lte: normalizedEndTime },
+          },
+        ];
+      } else if (normalizedStartTime) {
+        overlapFilter.$or = [
+          { startTime: normalizedStartTime },
+          {
+            startTime: { $lte: normalizedStartTime },
+            endTime: { $gt: normalizedStartTime },
+          },
+        ];
+      }
+
+      const overlappingService =
+        await this.churchServiceModel.findOne(overlapFilter);
+      if (overlappingService) {
+        const conflictMessage = normalizedEndTime
+          ? `A ${overlappingService.type} service already exists on ${overlappingService.day} from ${overlappingService.startTime} to ${overlappingService.endTime || 'ongoing'}. Please choose a non-overlapping schedule.`
+          : `A ${overlappingService.type} service already exists on ${overlappingService.day} at ${overlappingService.startTime}. Please choose a different schedule.`;
+
+        throw new BadRequestException(conflictMessage);
+      }
+    }
+
+    if (createChurchServiceDto.type === ServiceType.SPECIAL) {
+      if (createChurchServiceDto.startDate) {
+        const startDate = new Date(createChurchServiceDto.startDate);
+        const duplicateFilter: any = {
+          churchId: authUser.churchId,
+          type: ServiceType.SPECIAL,
+          startDate: {
+            $gte: new Date(startDate.setHours(0, 0, 0, 0)),
+            $lt: new Date(startDate.setHours(23, 59, 59, 999)),
+          },
+        };
+
+        if (normalizedStartTime && normalizedEndTime) {
+          duplicateFilter.$or = [
+            {
+              startTime: { $gte: normalizedStartTime, $lt: normalizedEndTime },
+            },
+            { endTime: { $gt: normalizedStartTime, $lte: normalizedEndTime } },
+            {
+              startTime: { $lte: normalizedStartTime },
+              endTime: { $gte: normalizedEndTime },
+            },
+            {
+              startTime: { $gte: normalizedStartTime },
+              endTime: { $lte: normalizedEndTime },
+            },
+          ];
+        } else if (normalizedStartTime) {
+          duplicateFilter.startTime = normalizedStartTime;
+        }
+
+        const existing = await this.churchServiceModel.findOne(duplicateFilter);
+        if (existing) {
+          throw new BadRequestException(
+            `A special event already exists on ${createChurchServiceDto.startDate} at ${normalizedStartTime}${normalizedEndTime ? ` to ${normalizedEndTime}` : ''}. Please choose a different date or time.`,
+          );
+        }
+      }
+
+      if (
+        createChurchServiceDto.specialDays &&
+        createChurchServiceDto.specialDays.length > 0
+      ) {
+        for (const specialDay of createChurchServiceDto.specialDays) {
+          const date = new Date(specialDay.date);
+          const dayStartTime = specialDay.startTime?.trim().toUpperCase();
+          const dayEndTime = specialDay.endTime?.trim().toUpperCase();
+
+          const duplicateFilter: any = {
+            churchId: authUser.churchId,
+            type: ServiceType.SPECIAL,
+            'specialDays.date': {
+              $gte: new Date(date.setHours(0, 0, 0, 0)),
+              $lt: new Date(date.setHours(23, 59, 59, 999)),
+            },
+          };
+
+          if (dayStartTime && dayEndTime) {
+            duplicateFilter.$or = [
+              {
+                'specialDays.startTime': {
+                  $gte: dayStartTime,
+                  $lt: dayEndTime,
+                },
+              },
+              {
+                'specialDays.endTime': { $gt: dayStartTime, $lte: dayEndTime },
+              },
+              {
+                'specialDays.startTime': { $lte: dayStartTime },
+                'specialDays.endTime': { $gte: dayEndTime },
+              },
+              {
+                'specialDays.startTime': { $gte: dayStartTime },
+                'specialDays.endTime': { $lte: dayEndTime },
+              },
+            ];
+          } else if (dayStartTime) {
+            duplicateFilter['specialDays.startTime'] = dayStartTime;
+          }
+
+          const existingSpecialDay =
+            await this.churchServiceModel.findOne(duplicateFilter);
+          if (existingSpecialDay) {
+            throw new BadRequestException(
+              `A special event already exists on ${specialDay.date} at ${dayStartTime}${dayEndTime ? ` to ${dayEndTime}` : ''}. Please choose a different date or time.`,
+            );
+          }
+        }
+      }
+    }
+
+    const created = await this.churchServiceModel.create({
+      ...createChurchServiceDto,
+      title: normalizedName,
+      startTime: normalizedStartTime,
+      endTime: normalizedEndTime,
+      location: normalizedLocation || undefined,
+      churchId: authUser.churchId,
+    });
+
+    try {
+      if (created.recurrence && created.recurrence !== Recurrence.NO_REPEAT) {
+        const sync = process.env.SYNC_GENERATE_INSTANCES === 'true';
+        if (sync) {
+          await this.generateInstancesForService(
+            created._id.toString(),
+            DEFAULT_GENERATION_WINDOW,
+          );
+        } else {
+          this.generateInstancesForService(
+            created._id.toString(),
+            DEFAULT_GENERATION_WINDOW,
+          ).catch((err) => this.logger.error('Generation error', err as any));
+        }
+      }
+    } catch (e) {
+      this.logger.error('Error triggering generation', e as any);
+    }
+
+    return created;
+  }
+
+  async findAll(authUser: Admin, paginationBaseDto: PaginationBaseDto) {
+    const { page, limit } = paginationBaseDto;
+
+    const skip = (page - 1) * limit;
+
+    const filter = { churchId: authUser.churchId };
+
+    const [services, itemCount] = await Promise.all([
+      this.churchServiceModel.find(filter).skip(skip).limit(limit),
+      this.churchServiceModel.countDocuments(filter),
+    ]);
+
+    return {
+      data: services,
+      pagination: paginationMeta({
+        page,
+        limit,
+        itemCount,
+      }),
+    };
+  }
+
+  async findById(id: string) {
+    return await this.churchServiceModel.findById(id);
+  }
+
+  async findByIds(ids: string[]) {
+    if (!ids || ids.length === 0) {
+      return [];
+    }
+    const objectIds = ids.map((id) => new Types.ObjectId(id));
+    return await this.churchServiceModel
+      .find({ _id: { $in: objectIds } })
+      .lean();
+  }
+
+  async findOneInChurch(serviceId: string, churchId: Types.ObjectId) {
+    return await this.churchServiceModel
+      .findOne({
+        _id: serviceId,
+        churchId,
+      })
+      .lean();
+  }
+
+  async findByChurchId(churchId: Types.ObjectId) {
+    return await this.churchServiceModel
+      .find({ churchId })
+      .select('_id title type')
+      .lean();
+  }
+
+  async getServiceIdsByChurchId(churchId: Types.ObjectId) {
+    const services = await this.churchServiceModel
+      .find({ churchId })
+      .select('_id')
+      .lean();
+    return services.map((service) => service._id);
+  }
+
+  async update(id: string, updateChurchServiceDto: UpdateChurchServiceDto) {
+    return await this.churchServiceModel.findByIdAndUpdate(
+      id,
+      updateChurchServiceDto,
+      {
+        new: true,
+      },
+    );
+  }
+
+  async generateInstancesForService(
+    masterServiceId: string,
+    monthsWindow = DEFAULT_GENERATION_WINDOW,
+  ): Promise<void> {
+    if (!Types.ObjectId.isValid(masterServiceId)) {
+      return;
+    }
+
+    const master = await this.churchServiceModel
+      .findById(masterServiceId)
+      .lean();
+    if (!master) {
+      return;
+    }
+
+    const today = new Date();
+    const startDate = master.startDate ? new Date(master.startDate) : today;
+    const generationStart = new Date(
+      Math.max(startDate.getTime(), today.getTime()),
+    );
+    generationStart.setHours(0, 0, 0, 0);
+
+    const generationEnd = new Date(generationStart);
+    generationEnd.setMonth(generationEnd.getMonth() + monthsWindow);
+    generationEnd.setHours(23, 59, 59, 999);
+
+    this.logger.log(
+      `Generating instances for master ${masterServiceId} from ${generationStart.toISOString()} to ${generationEnd.toISOString()}`,
+    );
+
+    const operations: Array<Promise<any>> = [];
+
+    for (
+      let date = new Date(generationStart);
+      date <= generationEnd;
+      date.setDate(date.getDate() + 1)
+    ) {
+      const current = new Date(date);
+      if (!this.isServiceOnDate(master, current)) {
+        continue;
+      }
+
+      const instanceDoc = {
+        masterServiceId: master._id,
+        churchId: master.churchId,
+        date: new Date(current),
+        title: master.title,
+        startTime: master.startTime,
+        endTime: master.endTime,
+        location: master.location,
+        type: master.type,
+        createdFromRecurring: true,
+        reminderEnabled: master.reminderEnabled || false,
+        reminderType: master.reminderType || null,
+        reminderTimeBefore: master.reminderTimeBefore || null,
+        reminderSent: false,
+      };
+
+      operations.push(
+        this.serviceInstanceModel.findOneAndUpdate(
+          { masterServiceId: master._id, date: instanceDoc.date },
+          { $set: instanceDoc },
+          { upsert: true, new: true },
+        ),
+      );
+    }
+
+    try {
+      const res = await Promise.all(operations);
+      this.logger.log(
+        `Upserted ${res.length} instances for master ${masterServiceId}`,
+      );
+    } catch (err) {
+      this.logger.error('Error generating instances', err as any);
+      throw err;
+    }
+  }
+
+  async regenerateInstancesForService(
+    masterServiceId: string,
+    monthsWindow = DEFAULT_GENERATION_WINDOW,
+  ) {
+    if (!Types.ObjectId.isValid(masterServiceId)) {
+      return;
+    }
+    const master = await this.churchServiceModel
+      .findById(masterServiceId)
+      .lean();
+    if (!master) {
+      return;
+    }
+
+    const generationStart = new Date();
+    generationStart.setHours(0, 0, 0, 0);
+    const generationEnd = new Date(generationStart);
+    generationEnd.setMonth(generationEnd.getMonth() + monthsWindow);
+    generationEnd.setHours(23, 59, 59, 999);
+
+    await this.serviceInstanceModel.deleteMany({
+      masterServiceId: new Types.ObjectId(masterServiceId),
+      date: { $gte: generationStart, $lte: generationEnd },
+    });
+
+    await this.generateInstancesForService(masterServiceId, monthsWindow);
+  }
+
+  async generateInstancesForChurch(
+    churchId: Types.ObjectId,
+    monthsWindow = DEFAULT_GENERATION_WINDOW,
+  ) {
+    const masters = await this.churchServiceModel
+      .find({ churchId, recurrence: { $ne: Recurrence.NO_REPEAT } })
+      .lean();
+
+    for (const master of masters) {
+      await this.generateInstancesForService(
+        master._id.toString(),
+        monthsWindow,
+      );
+    }
+  }
+
+  async regenerateInstancesForChurch(
+    churchId: Types.ObjectId,
+    monthsWindow = DEFAULT_GENERATION_WINDOW,
+  ) {
+    const masters = await this.churchServiceModel
+      .find({ churchId, recurrence: { $ne: Recurrence.NO_REPEAT } })
+      .lean();
+
+    for (const master of masters) {
+      await this.regenerateInstancesForService(
+        master._id.toString(),
+        monthsWindow,
+      );
+    }
+  }
+
+  async findAllMastersForRegen() {
+    return await this.churchServiceModel
+      .find({ recurrence: { $ne: Recurrence.NO_REPEAT } })
+      .select('_id churchId')
+      .lean();
+  }
+
+  async delete(id: string) {
+    return await this.churchServiceModel.findByIdAndDelete(id);
+  }
+
+  async getServiceIdsByType(type: string) {
+    const services = await this.churchServiceModel
+      .find({ type })
+      .select('_id')
+      .lean();
+    return services.map((s) => s._id);
+  }
+
+  async getServicesByDate(date: Date, churchId: Types.ObjectId) {
+    const startOfDay = new Date(date);
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const endOfDay = new Date(date);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const services = await this.churchServiceModel.find({ churchId }).lean();
+
+    const result = services.filter((service: any) =>
+      this.isServiceOnDate(service, date),
+    );
+
+    return result;
+  }
+
+  async getServicesFiltered(
+    churchId: Types.ObjectId,
+    year?: number,
+    month?: number,
+    day?: number,
+  ) {
+    const now = new Date();
+    const y = year || now.getFullYear();
+
+    let start: Date;
+    let end: Date;
+
+    if (month) {
+      start = new Date(y, month - 1, day || 1);
+      if (day) {
+        end = new Date(y, month - 1, day);
+      } else {
+        end = new Date(y, month, 0);
+      }
+    } else {
+      start = new Date(y, 0, 1);
+      end = new Date(y, 11, 31);
+    }
+
+    start.setHours(0, 0, 0, 0);
+    end.setHours(23, 59, 59, 999);
+
+    const instances = await this.serviceInstanceModel
+      .find({ churchId, date: { $gte: start, $lte: end } })
+      .lean();
+
+    const instanceMap = new Set<string>();
+    const results: any[] = [];
+
+    for (const inst of instances) {
+      const dayKey = new Date(inst.date).toISOString().split('T')[0];
+      instanceMap.add(`${inst.masterServiceId?.toString() || ''}|${dayKey}`);
+      results.push({
+        id: inst._id,
+        masterServiceId: inst.masterServiceId,
+        date: inst.date,
+        title: inst.title,
+        startTime: inst.startTime,
+        endTime: inst.endTime,
+        location: inst.location,
+        type: inst.type,
+        generated: true,
+      });
+    }
+
+    const masters = await this.churchServiceModel.find({ churchId }).lean();
+
+    for (const master of masters) {
+      for (
+        let date = new Date(start);
+        date <= end;
+        date.setDate(date.getDate() + 1)
+      ) {
+        const current = new Date(date);
+        if (!this.isServiceOnDate(master, current)) {
+          continue;
+        }
+
+        const dayKey = current.toISOString().split('T')[0];
+        const mapKey = `${master._id.toString()}|${dayKey}`;
+        if (instanceMap.has(mapKey)) {
+          continue;
+        }
+
+        results.push({
+          masterServiceId: master._id,
+          date: new Date(current),
+          title: master.title,
+          startTime: master.startTime,
+          endTime: master.endTime,
+          location: master.location,
+          type: master.type,
+          generated: false,
+        });
+      }
+    }
+
+    results.sort((a, b) => {
+      const dateA = new Date(a.date).toISOString();
+      const dateB = new Date(b.date).toISOString();
+      if (dateA === dateB) {
+        return (a.title || '').localeCompare(b.title || '');
+      }
+      return dateA.localeCompare(dateB);
+    });
+
+    return results;
+  }
+
+  private isServiceOnDate(service: any, date: Date) {
+    const startOfDay = new Date(date);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(date);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const withinStartEnd = (service: any) => {
+      if (service.startDate && new Date(service.startDate) > endOfDay) {
+        return false;
+      }
+      if (service.endDate && new Date(service.endDate) < startOfDay) {
+        return false;
+      }
+      return true;
+    };
+
+    if (!withinStartEnd(service)) {
+      return false;
+    }
+
+    const dayIndex = date.getDay();
+
+    if (service.specialDays?.length) {
+      for (const specialDay of service.specialDays) {
+        const specialDayDate = new Date(specialDay.date);
+        specialDayDate.setHours(0, 0, 0, 0);
+        if (specialDayDate.getTime() === startOfDay.getTime()) {
+          return true;
+        }
+      }
+    }
+
+    const recurrence: Recurrence = service.recurrence || Recurrence.NO_REPEAT;
+
+    switch (recurrence) {
+      case Recurrence.NO_REPEAT: {
+        if (service.type === ServiceType.SPECIAL) {
+          if (service.startDate) {
+            const serviceDate = new Date(service.startDate);
+            serviceDate.setHours(0, 0, 0, 0);
+            return serviceDate.getTime() === startOfDay.getTime();
+          }
+          return false;
+        }
+
+        if (service.day) {
+          const weekdayMap = {
+            0: ServiceDay.SUNDAY,
+            1: ServiceDay.MONDAY,
+            2: ServiceDay.TUESDAY,
+            3: ServiceDay.WEDNESDAY,
+            4: ServiceDay.THURSDAY,
+            5: ServiceDay.FRIDAY,
+            6: ServiceDay.SATURDAY,
+          } as const;
+          return service.day === weekdayMap[dayIndex];
+        }
+
+        return false;
+      }
+      case Recurrence.DAILY: {
+        return true;
+      }
+      case Recurrence.WEEKDAYS: {
+        return dayIndex >= 1 && dayIndex <= 5;
+      }
+      case Recurrence.WEEKLY_MONDAY: {
+        return dayIndex === 1;
+      }
+      case Recurrence.MONTHLY_FIRST_MONDAY: {
+        if (dayIndex !== 1) {
+          return false;
+        }
+        const dayOfMonth = date.getDate();
+        return dayOfMonth <= 7;
+      }
+      case Recurrence.ANNUALLY: {
+        if (!service.startDate) {
+          return false;
+        }
+        const serviceDate = new Date(service.startDate);
+        return (
+          serviceDate.getDate() === date.getDate() &&
+          serviceDate.getMonth() === date.getMonth()
+        );
+      }
+      default:
+        return false;
+    }
+  }
+}
