@@ -6,11 +6,19 @@ export class EmailService {
   constructor(private mailerService: MailerService) {}
 
   async sendEmail(email: string, subject: string, html: string) {
-    await this.mailerService.sendMail({
-      from: process.env.SMTP_FROM,
-      to: email,
-      subject,
-      html,
-    });
+    try {
+      const result = await this.mailerService.sendMail({
+        from: process.env.SMTP_FROM,
+        to: email,
+        subject,
+        html,
+      });
+
+      console.log('Email sent:', result);
+      return result;
+    } catch (error) {
+      console.error('Email error:', error);
+      throw error;
+    }
   }
 }
