@@ -4,39 +4,20 @@ import { Model, Types } from 'mongoose';
 import { Readable } from 'stream';
 
 import {
-  BadRequestException,
-  forwardRef,
-  Inject,
-  Injectable,
-  NotFoundException,
+    BadRequestException, forwardRef, Inject, Injectable, NotFoundException
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 
 import {
-  normalizeDateKey,
-  normalizeKey,
-  normalizeText,
-  parseBoolean,
-  parseOptionalDate,
+    normalizeDateKey, normalizeKey, normalizeText, parseBoolean, parseOptionalDate
 } from '../../common/helpers/normalize.helper';
+import { MembersFilterDto, paginationMeta } from '../../common/helpers/pagination.helper';
 import {
-  MembersFilterDto,
-  paginationMeta,
-} from '../../common/helpers/pagination.helper';
-import {
-  GENDER_MAP,
-  MARITAL_STATUS_MAP,
-  MEMBERSHIP_STATUS_MAP,
-  TITLE_MAP,
+    GENDER_MAP, MARITAL_STATUS_MAP, MEMBERSHIP_STATUS_MAP, TITLE_MAP
 } from '../../common/utils/const.utils';
 import {
-  Gender,
-  MaritalStatus,
-  MemberFilter,
-  MembershipStatus,
-  ModuleSections,
-  NotificationType,
-  PlanType,
+    Gender, MaritalStatus, MemberFilter, MembershipStatus, ModuleSections, NotificationType,
+    PlanType
 } from '../../common/utils/enums.utils';
 import { Admin } from '../../schemas/admin.schema';
 import { Member } from '../../schemas/member.schema';
@@ -47,8 +28,7 @@ import { NotificationService } from '../notification/notification.service';
 import { SubscriptionService } from '../subscription/subscription.service';
 import { CreateMemberDto } from './dto/create-member.dto';
 import {
-  MemberAttendanceFilterDto,
-  MemberAttendanceStatsFilterDto,
+    MemberAttendanceFilterDto, MemberAttendanceStatsFilterDto
 } from './dto/member-attendance-filter.dto';
 import { MemberManagementDto } from './dto/member-management.dto';
 import { UpdateMemberDto } from './dto/update-member.dto';
@@ -799,12 +779,12 @@ export class MembersService {
     return await this.memberModel.findByIdAndDelete(id);
   }
 
-  // Members.service.ts - Updated methods
   async getAllMembersForManagement(
     authUser: Admin,
     filters: MemberManagementDto,
   ) {
-    const { churchId, limit, page, membershipStatus, search, status } = filters;
+    const { churchId, limit, page, membershipStatus, search, status, role } =
+      filters;
     const skip = (page - 1) * limit;
     const query: any = {};
 
@@ -823,9 +803,18 @@ export class MembersService {
       query.membershipStatus = membershipStatus;
     }
 
+    if (role) {
+      query.membershipStatus = role.toUpperCase();
+    }
+
     // Filter by active status (status is boolean: true = active, false = inactive)
-    if (status !== undefined && status !== null) {
-      query.isActive = status;
+    if (status !== undefined && status !== null && status !== '') {
+      // status comes as string from query params
+      if (typeof status === 'string') {
+        query.isActive = status === 'true';
+      } else {
+        query.isActive = status;
+      }
     }
 
     // Search functionality
@@ -843,7 +832,8 @@ export class MembersService {
         .populate('churchId', 'name')
         .sort({ createdAt: -1 })
         .skip(skip)
-        .limit(limit)
+        .limit(2)
+        // .limit(limit)
         .lean(),
       this.memberModel.countDocuments(query),
     ]);
@@ -1215,6 +1205,7 @@ export class MembersService {
       daysRemaining,
     };
   }
+
   private getMemberRoleFromStatus(status: MembershipStatus): string {
     const roleMap: Record<MembershipStatus, string> = {
       [MembershipStatus.LEADER]: 'Leader',

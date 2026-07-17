@@ -1,11 +1,4 @@
-import { Type } from 'class-transformer';
-import {
-  IsBoolean,
-  IsEnum,
-  IsMongoId,
-  IsOptional,
-  IsString,
-} from 'class-validator';
+import { IsEnum, IsMongoId, IsOptional, IsString } from 'class-validator';
 import { PaginationBaseDto } from 'src/common/helpers/pagination.helper';
 
 import { MembershipStatus } from '../../../common/utils/enums.utils';
@@ -16,9 +9,8 @@ export class MemberManagementDto extends PaginationBaseDto {
   churchId?: string;
 
   @IsOptional()
-  @IsBoolean()
-  @Type(() => Boolean)
-  status?: boolean;
+  @IsString()
+  status?: string;
 
   @IsOptional()
   @IsEnum(MembershipStatus)
