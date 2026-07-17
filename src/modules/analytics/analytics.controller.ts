@@ -1,6 +1,8 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
-import { AnalyticsService } from './analytics.service';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+
 import { ProductAdminJwtAuthGuard } from '../product-admin/guard/product-jwt-auth.guard';
+import { AnalyticsService } from './analytics.service';
+import { AnalyticsFilterDto } from './dto/analytics-filter.dto';
 
 @UseGuards(ProductAdminJwtAuthGuard)
 @Controller('analytics')
@@ -13,7 +15,7 @@ export class AnalyticsController {
   }
 
   @Get()
-  async getAnalytics() {
-    return this.analyticsService.getAnalytics();
+  async getAnalytics(@Query() filterDto: AnalyticsFilterDto) {
+    return this.analyticsService.getAnalytics(filterDto);
   }
 }
