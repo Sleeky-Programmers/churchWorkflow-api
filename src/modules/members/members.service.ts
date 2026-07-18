@@ -4,20 +4,39 @@ import { Model, Types } from 'mongoose';
 import { Readable } from 'stream';
 
 import {
-    BadRequestException, forwardRef, Inject, Injectable, NotFoundException
+  BadRequestException,
+  forwardRef,
+  Inject,
+  Injectable,
+  NotFoundException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 
 import {
-    normalizeDateKey, normalizeKey, normalizeText, parseBoolean, parseOptionalDate
+  normalizeDateKey,
+  normalizeKey,
+  normalizeText,
+  parseBoolean,
+  parseOptionalDate,
 } from '../../common/helpers/normalize.helper';
-import { MembersFilterDto, paginationMeta } from '../../common/helpers/pagination.helper';
 import {
-    GENDER_MAP, MARITAL_STATUS_MAP, MEMBERSHIP_STATUS_MAP, TITLE_MAP
+  MembersFilterDto,
+  paginationMeta,
+} from '../../common/helpers/pagination.helper';
+import {
+  GENDER_MAP,
+  MARITAL_STATUS_MAP,
+  MEMBERSHIP_STATUS_MAP,
+  TITLE_MAP,
 } from '../../common/utils/const.utils';
 import {
-    Gender, MaritalStatus, MemberFilter, MembershipStatus, ModuleSections, NotificationType,
-    PlanType
+  Gender,
+  MaritalStatus,
+  MemberFilter,
+  MembershipStatus,
+  ModuleSections,
+  NotificationType,
+  PlanType,
 } from '../../common/utils/enums.utils';
 import { Admin } from '../../schemas/admin.schema';
 import { Member } from '../../schemas/member.schema';
@@ -28,7 +47,8 @@ import { NotificationService } from '../notification/notification.service';
 import { SubscriptionService } from '../subscription/subscription.service';
 import { CreateMemberDto } from './dto/create-member.dto';
 import {
-    MemberAttendanceFilterDto, MemberAttendanceStatsFilterDto
+  MemberAttendanceFilterDto,
+  MemberAttendanceStatsFilterDto,
 } from './dto/member-attendance-filter.dto';
 import { MemberManagementDto } from './dto/member-management.dto';
 import { UpdateMemberDto } from './dto/update-member.dto';
@@ -809,7 +829,7 @@ export class MembersService {
 
     // Filter by active status (status is boolean: true = active, false = inactive)
     if (status !== undefined && status !== null && status !== '') {
-      // status comes as string from query params
+      // Status comes as string from query params
       if (typeof status === 'string') {
         query.isActive = status === 'true';
       } else {

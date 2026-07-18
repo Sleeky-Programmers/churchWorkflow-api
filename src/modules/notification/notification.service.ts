@@ -1,12 +1,14 @@
+import { Model, Types } from 'mongoose';
+
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
-import { NotificationDto } from './dto/notification.dto';
-import { Notification } from '../../schemas/notification.schema';
+
 import {
   PaginationBaseDto,
   paginationMeta,
 } from '../../common/helpers/pagination.helper';
+import { Notification } from '../../schemas/notification.schema';
+import { NotificationDto } from './dto/notification.dto';
 
 @Injectable()
 export class NotificationService {
@@ -66,6 +68,46 @@ export class NotificationService {
   async markAllAsRead(churchId: Types.ObjectId) {
     return await this.notificationModel.updateMany(
       { churchId, isRead: false },
+      { isRead: true },
+    );
+  }
+
+  async getAllNotifications(paginationBaseDto: PaginationBaseDto) {
+    const { page, limit } = paginationBaseDto;
+
+    const skip = (page - 1) * limit;
+
+    const [notifications, itemCount] = await Promise.all([
+      this.notificationModel
+        .find()
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit),
+
+      this.notificationModel.countDocuments(),
+    ]);
+
+    return {
+      data: notifications,
+      pagination: paginationMeta({
+        page,
+        limit,
+        itemCount,
+      }),
+    };
+  }
+
+  async markAllAsReadSystem(notificationId: string) {
+    return await this.notificationModel.findByIdAndUpdate(
+      notificationId,
+      { isRead: true },
+      { new: true },
+    );
+  }
+
+  async markAsReadAdmin() {
+    return await this.notificationModel.updateMany(
+      { isRead: false },
       { isRead: true },
     );
   }
