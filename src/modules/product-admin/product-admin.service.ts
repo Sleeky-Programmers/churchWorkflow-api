@@ -4,6 +4,8 @@ import { Model, Types } from 'mongoose';
 import {
   BadRequestException,
   Injectable,
+  InternalServerErrorException,
+  NotFoundException,
   OnModuleInit,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -22,6 +24,7 @@ import {
 } from '../../common/utils/enums.utils';
 import { ProductAdminInvite } from '../../schemas/product-admin-invite.schema';
 import { ProductAdmin } from '../../schemas/product-admin.schema';
+import { ResetPasswordDto } from '../auth/dto/reset-password.dto';
 import { EmailService } from '../email/email.service';
 import { ProductAdminRolesService } from '../product-admin-roles/product-admin-roles.service';
 import { ProductAdminLoginDto } from './dto/login.dto';
@@ -88,7 +91,15 @@ export class ProductAdminService implements OnModuleInit {
   }
 
   async findOne(email: string) {
-    return await this.productAdminModel.findOne({ email });
+    return await this.productAdminModel
+      .findOne({ email: email.toLowerCase().trim() })
+      .populate('role', 'name -_id');
+  }
+
+  async findByEmail(email: string) {
+    return await this.productAdminModel
+      .findOne({ email: email.toLowerCase().trim() })
+      .select('+password');
   }
 
   async findById(id: string) {
@@ -96,7 +107,7 @@ export class ProductAdminService implements OnModuleInit {
   }
 
   async validateCredentials(email: string, password: string) {
-    const user = await this.findOne(email);
+    const user = await this.findByEmail(email);
     if (!user) {
       return null;
     }
@@ -111,25 +122,29 @@ export class ProductAdminService implements OnModuleInit {
   }
 
   async login(dto: ProductAdminLoginDto) {
-    const user = await this.validateCredentials(dto.email, dto.password);
+    try {
+      const user = await this.validateCredentials(dto.email, dto.password);
 
-    if (!user) {
-      throw new BadRequestException('Invalid credentials');
+      if (!user) {
+        throw new BadRequestException('Invalid credentials');
+      }
+
+      const { accessToken, refreshToken } = this.generateTokens(user._id);
+
+      const role = await this.rolesService.findById(user.role.toString());
+      if (!role) {
+        throw new BadRequestException('Invalid role');
+      }
+
+      return {
+        message: 'Login successful',
+        user,
+        accessToken,
+        refreshToken,
+      };
+    } catch (error) {
+      throw new InternalServerErrorException(error);
     }
-
-    const { accessToken, refreshToken } = this.generateTokens(user._id);
-
-    const role = await this.rolesService.findById(user.role.toString());
-    if (!role) {
-      throw new BadRequestException('Invalid role');
-    }
-
-    return {
-      message: 'Login successful',
-      user,
-      accessToken,
-      refreshToken,
-    };
   }
 
   async refreshToken(refreshToken: string) {
@@ -353,5 +368,52 @@ export class ProductAdminService implements OnModuleInit {
       data: adminData,
       pagination: paginationMeta({ page, limit, itemCount }),
     };
+  }
+
+  async updateAdminProfile(
+    id: Types.ObjectId,
+    updateData: Partial<ProductAdmin>,
+  ) {
+    const updated = await this.productAdminModel
+      .findByIdAndUpdate(
+        id,
+        {
+          $set: {
+            ...updateData,
+            ...(updateData.email && {
+              email: updateData.email.toLowerCase().trim(),
+            }),
+          },
+        },
+        {
+          new: true,
+          runValidators: true,
+        },
+      )
+      .lean();
+
+    if (!updated) {
+      throw new NotFoundException('Product Admin not found');
+    }
+
+    return {
+      id: updated._id.toString(),
+      firstName: updated.name,
+      email: updated.email,
+    };
+  }
+
+  async resetPassword(authUser: ProductAdmin, dto: ResetPasswordDto) {
+    const { newPassword, confirmNewPassword } = dto;
+
+    if (newPassword !== confirmNewPassword) {
+      throw new BadRequestException('Passwords do not match');
+    }
+
+    await this.productAdminModel.findByIdAndUpdate(authUser._id, {
+      password: bcrypt.hashSync(newPassword, 10),
+    });
+
+    return { message: 'Password reset successful' };
   }
 }
