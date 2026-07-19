@@ -127,8 +127,11 @@ export class PaymentController {
     }
 
     if (provider === PaymentProvider.FLUTTERWAVE) {
-      const idToVerify = transactionId || reference;
-      return await this.flutterwaveService.verifyTransaction(idToVerify);
+      const idToVerify = reference;
+      return await this.flutterwaveService.verifyTransaction(
+        idToVerify,
+        transactionId,
+      );
     }
 
     throw new BadRequestException('Invalid payment provider');
