@@ -128,7 +128,7 @@ export class FlutterwaveService {
   }
 
   // Flutterwave.service.ts
-  async verifyTransaction(identifier: string) {
+  async verifyTransaction(identifier: string, transactionId: string) {
     try {
       this.logger.log(`Verifying Flutterwave transaction: ${identifier}`);
 
@@ -147,25 +147,11 @@ export class FlutterwaveService {
         throw new UnauthorizedException('Payment record not found');
       }
 
-      const isFlutterwaveId = /^\d+$/.test(identifier);
-      let verifyId: string;
-
-      if (isFlutterwaveId) {
-        verifyId = identifier;
-      } else if (payment.transactionId && /^\d+$/.test(payment.transactionId)) {
-        verifyId = payment.transactionId;
-      } else {
-        this.logger.warn(
-          `No valid Flutterwave transaction ID found. Using identifier: ${identifier}`,
-        );
-        verifyId = identifier;
-      }
-
-      this.logger.log(`Verifying with Flutterwave ID: ${verifyId}`);
+      this.logger.log(`Verifying with Flutterwave ID: ${transactionId}`);
 
       const response = await lastValueFrom(
         this.httpService.get(
-          `${this.baseUrl}/transactions/${verifyId}/verify`,
+          `${this.baseUrl}/transactions/${transactionId}/verify`,
           {
             headers: this.headers,
           },
