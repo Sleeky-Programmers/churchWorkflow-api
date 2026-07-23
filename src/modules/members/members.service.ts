@@ -852,8 +852,7 @@ export class MembersService {
         .populate('churchId', 'name')
         .sort({ createdAt: -1 })
         .skip(skip)
-        .limit(2)
-        // .limit(limit)
+        .limit(limit)
         .lean(),
       this.memberModel.countDocuments(query),
     ]);
