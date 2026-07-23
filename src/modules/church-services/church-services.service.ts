@@ -31,6 +31,39 @@ export class ChurchServicesService {
 
   private readonly logger = new Logger(ChurchServicesService.name);
 
+  private parseTimeToMinutes(time?: string | null): number | null {
+    if (!time) {
+      return null;
+    }
+    const match = time
+      .trim()
+      .toUpperCase()
+      .match(/^(\d{1,2}):(\d{2})\s?(AM|PM)$/);
+    if (!match) {
+      return null;
+    }
+    let hours = parseInt(match[1], 10);
+    const minutes = parseInt(match[2], 10);
+    const period = match[3];
+    if (period === 'AM' && hours === 12) {
+      hours = 0;
+    } else if (period === 'PM' && hours !== 12) {
+      hours += 12;
+    }
+    return hours * 60 + minutes;
+  }
+
+  private timeRangesOverlap(
+    startA: number,
+    endA: number | null,
+    startB: number,
+    endB: number | null,
+  ): boolean {
+    const a2 = endA ?? startA + 1;
+    const b2 = endB ?? startB + 1;
+    return startA < b2 && startB < a2;
+  }
+
   async create(
     authUser: Admin,
     createChurchServiceDto: CreateChurchServiceDto,
@@ -45,41 +78,31 @@ export class ChurchServicesService {
       .toUpperCase();
 
     if (createChurchServiceDto.type === ServiceType.REGULAR) {
-      const overlapFilter: any = {
-        churchId: authUser.churchId,
-        type: ServiceType.REGULAR,
-        day: createChurchServiceDto.day,
-      };
+      const newStart = this.parseTimeToMinutes(normalizedStartTime);
+      const newEnd = this.parseTimeToMinutes(normalizedEndTime);
 
-      if (normalizedStartTime && normalizedEndTime) {
-        overlapFilter.$or = [
-          {
-            startTime: { $gte: normalizedStartTime, $lt: normalizedEndTime },
-          },
-          {
-            endTime: { $gt: normalizedStartTime, $lte: normalizedEndTime },
-          },
-          {
-            startTime: { $lte: normalizedStartTime },
-            endTime: { $gte: normalizedEndTime },
-          },
-          {
-            startTime: { $gte: normalizedStartTime },
-            endTime: { $lte: normalizedEndTime },
-          },
-        ];
-      } else if (normalizedStartTime) {
-        overlapFilter.$or = [
-          { startTime: normalizedStartTime },
-          {
-            startTime: { $lte: normalizedStartTime },
-            endTime: { $gt: normalizedStartTime },
-          },
-        ];
-      }
+      const candidates = await this.churchServiceModel
+        .find({
+          churchId: authUser.churchId,
+          type: ServiceType.REGULAR,
+          day: createChurchServiceDto.day,
+        })
+        .lean();
 
-      const overlappingService =
-        await this.churchServiceModel.findOne(overlapFilter);
+      const overlappingService = candidates.find((service) => {
+        const existingStart = this.parseTimeToMinutes(service.startTime);
+        const existingEnd = this.parseTimeToMinutes(service.endTime);
+        if (existingStart === null || newStart === null) {
+          return false;
+        }
+        return this.timeRangesOverlap(
+          newStart,
+          newEnd,
+          existingStart,
+          existingEnd,
+        );
+      });
+
       if (overlappingService) {
         const conflictMessage = normalizedEndTime
           ? `A ${overlappingService.type} service already exists on ${overlappingService.day} from ${overlappingService.startTime} to ${overlappingService.endTime || 'ongoing'}. Please choose a non-overlapping schedule.`
@@ -92,35 +115,36 @@ export class ChurchServicesService {
     if (createChurchServiceDto.type === ServiceType.SPECIAL) {
       if (createChurchServiceDto.startDate) {
         const startDate = new Date(createChurchServiceDto.startDate);
-        const duplicateFilter: any = {
-          churchId: authUser.churchId,
-          type: ServiceType.SPECIAL,
-          startDate: {
-            $gte: new Date(startDate.setHours(0, 0, 0, 0)),
-            $lt: new Date(startDate.setHours(23, 59, 59, 999)),
-          },
-        };
+        const dayStart = new Date(startDate);
+        dayStart.setHours(0, 0, 0, 0);
+        const dayEnd = new Date(startDate);
+        dayEnd.setHours(23, 59, 59, 999);
 
-        if (normalizedStartTime && normalizedEndTime) {
-          duplicateFilter.$or = [
-            {
-              startTime: { $gte: normalizedStartTime, $lt: normalizedEndTime },
-            },
-            { endTime: { $gt: normalizedStartTime, $lte: normalizedEndTime } },
-            {
-              startTime: { $lte: normalizedStartTime },
-              endTime: { $gte: normalizedEndTime },
-            },
-            {
-              startTime: { $gte: normalizedStartTime },
-              endTime: { $lte: normalizedEndTime },
-            },
-          ];
-        } else if (normalizedStartTime) {
-          duplicateFilter.startTime = normalizedStartTime;
-        }
+        const candidates = await this.churchServiceModel
+          .find({
+            churchId: authUser.churchId,
+            type: ServiceType.SPECIAL,
+            startDate: { $gte: dayStart, $lt: dayEnd },
+          })
+          .lean();
 
-        const existing = await this.churchServiceModel.findOne(duplicateFilter);
+        const newStart = this.parseTimeToMinutes(normalizedStartTime);
+        const newEnd = this.parseTimeToMinutes(normalizedEndTime);
+
+        const existing = candidates.find((service) => {
+          const existingStart = this.parseTimeToMinutes(service.startTime);
+          const existingEnd = this.parseTimeToMinutes(service.endTime);
+          if (existingStart === null || newStart === null) {
+            return false;
+          }
+          return this.timeRangesOverlap(
+            newStart,
+            newEnd,
+            existingStart,
+            existingEnd,
+          );
+        });
+
         if (existing) {
           throw new BadRequestException(
             `A special event already exists on ${createChurchServiceDto.startDate} at ${normalizedStartTime}${normalizedEndTime ? ` to ${normalizedEndTime}` : ''}. Please choose a different date or time.`,
@@ -137,41 +161,43 @@ export class ChurchServicesService {
           const dayStartTime = specialDay.startTime?.trim().toUpperCase();
           const dayEndTime = specialDay.endTime?.trim().toUpperCase();
 
-          const duplicateFilter: any = {
-            churchId: authUser.churchId,
-            type: ServiceType.SPECIAL,
-            'specialDays.date': {
-              $gte: new Date(date.setHours(0, 0, 0, 0)),
-              $lt: new Date(date.setHours(23, 59, 59, 999)),
-            },
-          };
+          const dayStart = new Date(date);
+          dayStart.setHours(0, 0, 0, 0);
+          const dayEnd = new Date(date);
+          dayEnd.setHours(23, 59, 59, 999);
 
-          if (dayStartTime && dayEndTime) {
-            duplicateFilter.$or = [
-              {
-                'specialDays.startTime': {
-                  $gte: dayStartTime,
-                  $lt: dayEndTime,
-                },
-              },
-              {
-                'specialDays.endTime': { $gt: dayStartTime, $lte: dayEndTime },
-              },
-              {
-                'specialDays.startTime': { $lte: dayStartTime },
-                'specialDays.endTime': { $gte: dayEndTime },
-              },
-              {
-                'specialDays.startTime': { $gte: dayStartTime },
-                'specialDays.endTime': { $lte: dayEndTime },
-              },
-            ];
-          } else if (dayStartTime) {
-            duplicateFilter['specialDays.startTime'] = dayStartTime;
-          }
+          const candidates = await this.churchServiceModel
+            .find({
+              churchId: authUser.churchId,
+              type: ServiceType.SPECIAL,
+              'specialDays.date': { $gte: dayStart, $lt: dayEnd },
+            })
+            .lean();
 
-          const existingSpecialDay =
-            await this.churchServiceModel.findOne(duplicateFilter);
+          const newStart = this.parseTimeToMinutes(dayStartTime);
+          const newEnd = this.parseTimeToMinutes(dayEndTime);
+
+          const existingSpecialDay = candidates.some((service: any) =>
+            (service.specialDays || []).some((sd: any) => {
+              const sdDate = new Date(sd.date);
+              sdDate.setHours(0, 0, 0, 0);
+              if (sdDate.getTime() !== dayStart.getTime()) {
+                return false;
+              }
+              const existingStart = this.parseTimeToMinutes(sd.startTime);
+              const existingEnd = this.parseTimeToMinutes(sd.endTime);
+              if (existingStart === null || newStart === null) {
+                return false;
+              }
+              return this.timeRangesOverlap(
+                newStart,
+                newEnd,
+                existingStart,
+                existingEnd,
+              );
+            }),
+          );
+
           if (existingSpecialDay) {
             throw new BadRequestException(
               `A special event already exists on ${specialDay.date} at ${dayStartTime}${dayEndTime ? ` to ${dayEndTime}` : ''}. Please choose a different date or time.`,

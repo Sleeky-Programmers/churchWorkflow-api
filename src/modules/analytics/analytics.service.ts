@@ -8,6 +8,10 @@ import { PaymentService } from '../payment/payment.service';
 import { SubscriptionService } from '../subscription/subscription.service';
 import { AnalyticsFilterDto } from './dto/analytics-filter.dto';
 
+function round1(value: number): number {
+  return Math.round((value || 0) * 10) / 10;
+}
+
 function fmtGrowth(current: number, previous: number) {
   if (previous === 0) {
     return current > 0 ? '+100%' : '0%';
@@ -218,6 +222,8 @@ export class AnalyticsService {
 
     const mrrGrowth = fmtGrowth(mrrNow, mrrPrev);
     const totalRevenueGrowth = fmtGrowth(totalRevenueNow, totalRevenuePrev);
+    const mrrNowRounded = round1(mrrNow);
+    const totalRevenueNowRounded = round1(totalRevenueNow);
 
     const countsByPlan = await this.subscriptionService.getCountsByPlan();
 
@@ -286,7 +292,7 @@ export class AnalyticsService {
         plan,
         churchesCount,
         membersCount,
-        monthlyRevenue,
+        monthlyRevenue: round1(monthlyRevenue),
         growth,
       });
     }
@@ -333,7 +339,7 @@ export class AnalyticsService {
       );
       revenueSubscriptionData.push({
         month: month.label,
-        revenue,
+        revenue: round1(revenue),
         subscription: subsTotal,
       });
 
@@ -370,8 +376,11 @@ export class AnalyticsService {
         total: { count: totalMembers, growth: totalMembersGrowth },
       },
       revenue: {
-        monthlyRecurringRevenue: { amount: mrrNow, growth: mrrGrowth },
-        totalRevenue: { amount: totalRevenueNow, growth: totalRevenueGrowth },
+        monthlyRecurringRevenue: { amount: mrrNowRounded, growth: mrrGrowth },
+        totalRevenue: {
+          amount: totalRevenueNowRounded,
+          growth: totalRevenueGrowth,
+        },
       },
       conversionRate: {
         value: `${conversionRate.toFixed(2)}%`,
