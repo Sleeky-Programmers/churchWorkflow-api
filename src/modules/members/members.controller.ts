@@ -131,6 +131,7 @@ export class MembersController {
   }
 
   @UseGuards(ProductAdminJwtAuthGuard)
+  @UseGuards(ProductAdminJwtAuthGuard)
   @Patch('management/:id/status')
   async updateMemberStatus(
     @AuthUser() user: Admin,
@@ -145,6 +146,7 @@ export class MembersController {
     return { success: true, ...result };
   }
 
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Get('member-limit-status')
   @RequirePermissions({
     section: ModuleSections.MEMBERS,
