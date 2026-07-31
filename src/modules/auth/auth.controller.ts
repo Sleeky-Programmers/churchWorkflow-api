@@ -8,18 +8,19 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { AuthService } from './auth.service';
-import { VerifyOtpDto } from './dto/verify-otp.dto';
-import { ResetPasswordDto } from './dto/reset-password.dto';
-import { ChangePasswordDto } from './dto/change-password.dto';
-import { LocalAuthGuard } from './guard/local-auth.guard';
+
 import { AuthUser } from '../../common/decorators/auth-user.decorator';
-import { Admin } from '../../schemas/admin.schema';
-import { JwtAuthGuard } from './guard/jwt-auth.guard';
-import { CreateSuperAdminDto } from '../admin/dto/create-super-admin.dto';
 import { decryptInvite } from '../../common/helpers/crypto.helper';
+import { Admin } from '../../schemas/admin.schema';
+import { CreateSuperAdminDto } from '../admin/dto/create-super-admin.dto';
+import { AuthService } from './auth.service';
 import { AdminRegisterDto } from './dto/admin-register.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
+import { VerifyOtpDto } from './dto/verify-otp.dto';
+import { JwtAuthGuard } from './guard/jwt-auth.guard';
+import { LocalAuthGuard } from './guard/local-auth.guard';
 
 @Controller('auth')
 export class AuthController {

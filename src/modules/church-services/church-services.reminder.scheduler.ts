@@ -4,6 +4,7 @@ import { Model, Types } from 'mongoose';
 import { InjectModel } from '@nestjs/mongoose';
 import { ServiceInstance } from '../../schemas/service-instance.schema';
 import { EmailService } from '../email/email.service';
+import { renderEmailLayout } from '../email/templates/email-layout.template';
 import { AdminService } from '../admin/admin.service';
 import { ReminderType } from '../../common/utils/enums.utils';
 
@@ -52,7 +53,13 @@ export class ChurchServicesReminderScheduler {
           }
 
           const subject = `Reminder: ${instance.title} - ${new Date(instance.date).toDateString()}`;
-          const html = `<p>This is a reminder for <strong>${instance.title}</strong> scheduled on ${new Date(instance.date).toLocaleString()}.</p>`;
+          const html = renderEmailLayout({
+            previewText: subject,
+            heading: 'Upcoming Service Reminder',
+            paragraphs: [
+              `This is a reminder for <strong>${instance.title}</strong> scheduled on ${new Date(instance.date).toLocaleString()}.`,
+            ],
+          });
 
           for (const to of emails) {
             try {
