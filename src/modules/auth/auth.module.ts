@@ -6,6 +6,7 @@ import { AuthController } from './auth.controller';
 import { AdminModule } from '../admin/admin.module';
 import { AdminInviteModule } from '../admin-invite/admin-invite.module';
 import { OtpModule } from '../otp/otp.module';
+import { EmailModule } from '../email/email.module';
 import { JwtStrategy } from './strategy/jwt.strategy';
 import { LocalStrategy } from './strategy/local.strategy';
 
@@ -14,6 +15,7 @@ import { LocalStrategy } from './strategy/local.strategy';
     AdminModule,
     AdminInviteModule,
     OtpModule,
+    EmailModule,
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({

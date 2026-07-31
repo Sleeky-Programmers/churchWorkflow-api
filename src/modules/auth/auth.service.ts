@@ -1,34 +1,68 @@
+import * as bcrypt from 'bcryptjs';
+import { OAuth2Client } from 'google-auth-library';
+import { Types } from 'mongoose';
+
 import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import * as bcrypt from 'bcryptjs';
-import { AdminService } from '../admin/admin.service';
-import { AdminInviteService } from '../admin-invite/admin-invite.service';
-import { OtpService } from '../otp/otp.service';
-import { Types } from 'mongoose';
-import { VerifyOtpDto } from './dto/verify-otp.dto';
-import { ResetPasswordDto } from './dto/reset-password.dto';
-import { Admin } from '../../schemas/admin.schema';
-import { CreateSuperAdminDto } from '../admin/dto/create-super-admin.dto';
+
 import { decryptInvite } from '../../common/helpers/crypto.helper';
-import { OAuth2Client } from 'google-auth-library';
+import { Admin } from '../../schemas/admin.schema';
+import { AdminInviteService } from '../admin-invite/admin-invite.service';
+import { AdminService } from '../admin/admin.service';
+import { CreateSuperAdminDto } from '../admin/dto/create-super-admin.dto';
+import { EmailService } from '../email/email.service';
+import { renderEmailLayout } from '../email/templates/email-layout.template';
+import { OtpService } from '../otp/otp.service';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
+import { VerifyOtpDto } from './dto/verify-otp.dto';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private adminService: AdminService,
     private adminInviteService: AdminInviteService,
     private otpService: OtpService,
+    private emailService: EmailService,
     private jwtService: JwtService,
     private configService: ConfigService,
   ) {}
+
+  private async sendWelcomeEmail(email: string, firstName?: string) {
+    try {
+      const frontendUrl = process.env.FRONTEND_URL;
+      const link = frontendUrl?.replace(/\/$/, '') || '';
+
+      const html = renderEmailLayout({
+        previewText: 'Welcome to Church Workflow!',
+        heading: `Welcome to Church Workflow${firstName ? `, ${firstName}` : ''}! 🎉`,
+        paragraphs: [
+          "We're so glad to have you with us. Your account is ready, and you can now sign in to start managing your church operations, members, and services all in one place.",
+        ],
+        button: { text: 'Go to Church Workflow', link },
+        fineprint:
+          'If you have any questions getting started, our support team is happy to help.',
+      });
+
+      await this.emailService.sendEmail(
+        email,
+        'Welcome to Church Workflow 🎉',
+        html,
+      );
+    } catch (err) {
+      this.logger.error(`Failed to send welcome email to ${email}`, err as any);
+    }
+  }
 
   generateTokens(userId: string) {
     const accessToken = this.jwtService.sign(
@@ -127,6 +161,8 @@ export class AuthService {
     ]);
 
     const tokens = this.generateTokens(admin._id.toString());
+
+    await this.sendWelcomeEmail(email, firstName);
 
     return {
       message: 'Registration successful',
@@ -298,6 +334,8 @@ export class AuthService {
     ]);
 
     const tokens = this.generateTokens(admin._id.toString());
+
+    await this.sendWelcomeEmail(admin.email, admin.firstName);
 
     return {
       message: 'Email verified',

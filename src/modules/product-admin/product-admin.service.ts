@@ -26,6 +26,7 @@ import { ProductAdminInvite } from '../../schemas/product-admin-invite.schema';
 import { ProductAdmin } from '../../schemas/product-admin.schema';
 import { ResetPasswordDto } from '../auth/dto/reset-password.dto';
 import { EmailService } from '../email/email.service';
+import { renderEmailLayout } from '../email/templates/email-layout.template';
 import { ProductAdminRolesService } from '../product-admin-roles/product-admin-roles.service';
 import { ProductAdminLoginDto } from './dto/login.dto';
 
@@ -194,74 +195,20 @@ export class ProductAdminService implements OnModuleInit {
     const baseUrl = frontendUrl.replace(/\/$/, '');
     const inviteUrl = `${baseUrl}/accept-invite?token=${token}`;
 
-    const html = `
-      <!DOCTYPE html>
-      <html lang="en">
-      <head>
-      <meta charset="UTF-8" />
-      <title>Church Workflow</title>
-      <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; } 
-        body { background: #F7F7F8; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #000000; line-height: 1.5; } 
-        .email-wrapper { max-width: 640px; margin: 40px auto; background: #ffffff; } 
-        .header { background-color: #0C5FB3; padding: 28px 32px; text-align: center; } 
-        .logo-image { height: 42px; width: auto; display: inline-block; } 
-        .content { padding: 48px 48px 40px; text-align: center; } 
-        .content h1 { font-size: 26px; font-weight: 700; margin-bottom: 24px; } 
-        .content p { font-size: 16px; margin-bottom: 16px; } 
-        .role { color: #0C5FB3; font-weight: 600; font-size: 18px; margin-top: 4px; } 
-        .button-wrapper { margin: 32px 0; display: inline-block; background-color: #0C5FB3; border-radius: 8px; } 
-        .btn { color: #ffffff !important; text-decoration: none; font-weight: 600; font-size: 16px; display: block; padding: 14px 28px; } 
-        .fine-print { font-size: 14px; color: #737373; margin-top: 24px; } 
-        .footer { text-align: center; padding: 0 40px 40px; font-size: 13px; color: #737373; } 
-        .footer a { color: #0C5FB3; text-decoration: none; } 
-        .copyright { margin-top: 16px; font-size: 12px; }
-      </style>
-      </head>
-      <body>
-        <div class="email-wrapper">
-          <div class="header">
-            <img
-              src="https://res.cloudinary.com/dlw6sowno/image/upload/v1769148983/cw-logo_apjjxi.png"
-              alt="Church Workflow"
-              class="logo-image"
-            />
-          </div>
-
-          <div class="content">
-            <h1>You've been invited 🎉</h1>
-
-            <p>You have been invited to join the <strong>Church Workflow</strong> product administration panel.</p>
-
-            <p>Your assigned role:</p>
-            <div class="role">${role.name.replace(/_/g, ' ')}</div>
-
-            <div class="button-wrapper">
-              <a href="${inviteUrl}" class="btn">Accept Invitation</a>
-            </div>
-
-            <p class="fine-print">
-              This invitation expires in 7 days. If you did not expect this, please contact your administrator.
-            </p>
-          </div>
-
-          <div class="footer">
-            <p>This notification was sent via Church Workflow.</p>
-
-            <p>
-              <a href="https://admin.churchworkflow.com" target="_blank" rel="noopener noreferrer">
-                app.churchworkflow.com
-              </a>
-            </p>
-
-            <div class="copyright">
-              © ${new Date().getFullYear()} Church Workflow. All rights reserved.
-            </div>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+    const html = renderEmailLayout({
+      previewText: "You've been invited to Church Workflow",
+      heading: "You've been invited 🎉",
+      paragraphs: [
+        'You have been invited to join the <strong>Church Workflow</strong> product administration panel.',
+        'Your assigned role:',
+      ],
+      highlight: role.name.replace(/_/g, ' '),
+      button: { text: 'Accept Invitation', link: inviteUrl },
+      fineprint:
+        'This invitation expires in 7 days. If you did not expect this, please contact your administrator.',
+      footerLinkUrl: 'https://admin.churchworkflow.com',
+      footerLinkLabel: 'app.churchworkflow.com',
+    });
 
     await this.emailService.sendEmail(email, 'Product Admin Invitation', html);
 
