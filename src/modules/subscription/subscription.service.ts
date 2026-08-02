@@ -46,6 +46,13 @@ export class SubscriptionService {
     },
   };
 
+  private readonly planRank: Record<PlanType, number> = {
+    [PlanType.STARTER]: 0,
+    [PlanType.GROWTH]: 1,
+    [PlanType.EXPANSION]: 2,
+    [PlanType.ENTERPRISE]: 3,
+  };
+
   getPlanAmount(plan: PlanType, billingCycle: BillingCycle): number {
     const pricing: Record<PlanType, Record<BillingCycle, number>> = {
       [PlanType.STARTER]: {
@@ -170,6 +177,18 @@ export class SubscriptionService {
       endDate.setFullYear(endDate.getFullYear() + 1);
     }
 
+    // A plan change (not a first purchase or a same-plan renewal) carries over whatever time is still left on the old plan onto the new plan.
+    const isPlanChange =
+      !!existing &&
+      existing.plan !== data.plan &&
+      existing.plan !== PlanType.STARTER &&
+      existing.status === SubscriptionStatus.ACTIVE;
+
+    if (isPlanChange && existing.endDate && existing.endDate > startDate) {
+      const remainingMs = existing.endDate.getTime() - startDate.getTime();
+      endDate.setTime(endDate.getTime() + remainingMs);
+    }
+
     const updated = await this.subscriptionModel.findOneAndUpdate(
       { churchId: new Types.ObjectId(data.churchId) },
       {
@@ -203,9 +222,12 @@ export class SubscriptionService {
         plan: data.plan as any,
       } as any);
     } else if (existing.plan !== data.plan) {
+      const isUpgrade = this.planRank[data.plan] > this.planRank[existing.plan];
       await this.adminActivityLogService.create({
-        action: 'Subscription Upgraded',
-        details: `Subscription changed from ${existing.plan} to ${data.plan}`,
+        action: isUpgrade ? 'Subscription Upgraded' : 'Subscription Downgraded',
+        details:
+          `Subscription changed from ${existing.plan} to ${data.plan}` +
+          (isPlanChange ? ' (remaining duration carried over)' : ''),
         plan: data.plan as any,
       } as any);
     } else {
@@ -305,6 +327,69 @@ export class SubscriptionService {
     return subs.map((s) => s._id);
   }
 
+  async getCurrentPlan(churchId: Types.ObjectId) {
+    const subscription = await this.getSubscription(churchId);
+    const planDetails = this.getPlans().find(
+      (plan) => plan.type === subscription.plan,
+    );
+
+    return {
+      ...planDetails,
+      status: subscription.status,
+      billingCycle: this.getBillingCycle(subscription),
+      startDate: subscription.startDate,
+      endDate: subscription.endDate,
+      gracePeriodEndDate: subscription.gracePeriodEndDate,
+      isAutoRenew: subscription.isAutoRenew,
+      memberLimit: subscription.memberLimit,
+      userLimit: subscription.userLimit,
+      customRolesEnabled: subscription.customRolesEnabled,
+    };
+  }
+
+  async getPlanChangePreview(
+    churchId: Types.ObjectId,
+    plan: PlanType,
+    billingCycle: BillingCycle,
+  ) {
+    const subscription = await this.getSubscription(churchId);
+    const now = new Date();
+
+    const isActivePaid =
+      subscription.plan !== PlanType.STARTER &&
+      subscription.status === SubscriptionStatus.ACTIVE;
+
+    const isPlanChange = isActivePaid && subscription.plan !== plan;
+
+    const remainingMs =
+      isPlanChange && subscription.endDate && subscription.endDate > now
+        ? subscription.endDate.getTime() - now.getTime()
+        : 0;
+
+    const newEndDate = new Date();
+    if (billingCycle === BillingCycle.MONTHLY) {
+      newEndDate.setMonth(newEndDate.getMonth() + 1);
+    } else {
+      newEndDate.setFullYear(newEndDate.getFullYear() + 1);
+    }
+    newEndDate.setTime(newEndDate.getTime() + remainingMs);
+
+    return {
+      currentPlan: subscription.plan,
+      targetPlan: plan,
+      isPlanChange,
+      isUpgrade: isPlanChange
+        ? this.planRank[plan] > this.planRank[subscription.plan]
+        : null,
+      remainingDays: Math.ceil(remainingMs / (1000 * 60 * 60 * 24)),
+      requiredBillingCycle: isActivePaid
+        ? this.getBillingCycle(subscription)
+        : billingCycle,
+      newEndDate,
+      amount: this.getPlanAmount(plan, billingCycle),
+    };
+  }
+
   async getBillingOverview(churchId: Types.ObjectId) {
     const subscription = await this.getSubscription(churchId);
 
@@ -352,7 +437,7 @@ export class SubscriptionService {
     };
   }
 
-  private getPlans() {
+  getPlans() {
     const numberOfMonths = 12;
     const yearlyDiscountRate = 0.83;
 
@@ -449,7 +534,7 @@ export class SubscriptionService {
     return SubscriptionStatus.ACTIVE;
   }
 
-  private getBillingCycle(subscription: Subscription): BillingCycle {
+  getBillingCycle(subscription: Subscription): BillingCycle {
     const oneDayInMilliseconds = 1000 * 60 * 60 * 24;
     const threeHundredSixtyFiveDaysLimit = 365;
     const subDurationInDays =
