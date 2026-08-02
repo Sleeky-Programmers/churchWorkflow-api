@@ -49,12 +49,25 @@ export class PaymentController {
       authUser.churchId,
     );
 
-    if (
+    const isActivePaid =
       existingSub &&
       existingSub.plan !== PlanType.STARTER &&
-      existingSub.status === SubscriptionStatus.ACTIVE
-    ) {
+      existingSub.status === SubscriptionStatus.ACTIVE;
+
+    const isPlanChange = isActivePaid && existingSub.plan !== body.plan;
+
+    if (isActivePaid && !isPlanChange) {
       throw new BadRequestException('Active paid subscription exists');
+    }
+
+    if (isPlanChange) {
+      const currentCycle =
+        this.subscriptionService.getBillingCycle(existingSub);
+      if (body.billingCycle !== currentCycle) {
+        throw new BadRequestException(
+          `Plan changes must keep your current billing cycle (${currentCycle})`,
+        );
+      }
     }
 
     const baseAmount = this.subscriptionService.getPlanAmount(
@@ -116,6 +129,22 @@ export class PaymentController {
   async manualVerify(
     @Body() body: { reference: string; provider: any; transactionId?: string },
   ) {
+    return this.verifyByReference(body);
+  }
+
+  // Unauthenticated by design: the gateway redirect can land with no session (expired token, long bank-transfer wait, different device), and verification is proven by asking Paystack/Flutterwave directly, not by trusting the caller.
+  @Post('verify/public')
+  async publicVerify(
+    @Body() body: { reference: string; provider: any; transactionId?: string },
+  ) {
+    return this.verifyByReference(body);
+  }
+
+  private async verifyByReference(body: {
+    reference: string;
+    provider: any;
+    transactionId?: string;
+  }) {
     const { reference, provider, transactionId } = body;
 
     if (!reference) {
