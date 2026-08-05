@@ -20,17 +20,18 @@ import {
   UseGuards,
 } from '@nestjs/common';
 
+import { JwtAuthGuard } from '../auth/guard/jwt-auth.guard';
 import { ProductAdminJwtAuthGuard } from '../product-admin/guard/product-jwt-auth.guard';
 import { CouponService } from './coupon.service';
 import { CreateCouponDto } from './dto/create-coupon.dto';
 import { UpdateCouponDto } from './dto/update-coupon.dto';
 import { ValidateCouponDto } from './dto/validate-coupon.dto';
 
-@UseGuards(ProductAdminJwtAuthGuard, RolesGuard)
 @Controller('coupon')
 export class CouponController {
   constructor(private readonly couponService: CouponService) {}
 
+  @UseGuards(ProductAdminJwtAuthGuard, RolesGuard)
   @Post()
   @Roles(DefaultProductAdminRoles.SUPER_ADMIN)
   async create(@Body() createDto: CreateCouponDto, @Req() req: any) {
@@ -41,21 +42,25 @@ export class CouponController {
     return this.couponService.create(createDto, new Types.ObjectId(adminId));
   }
 
+  @UseGuards(ProductAdminJwtAuthGuard, RolesGuard)
   @Get()
   async findAll(@Query() filterDto: CouponFilterDto) {
     return this.couponService.findAll(filterDto);
   }
 
+  @UseGuards(ProductAdminJwtAuthGuard, RolesGuard)
   @Get('stats')
   async stats() {
     return this.couponService.stats();
   }
 
+  @UseGuards(ProductAdminJwtAuthGuard, RolesGuard)
   @Get(':id')
   async findOne(@Param('id') id: string) {
     return this.couponService.findOne(id);
   }
 
+  @UseGuards(ProductAdminJwtAuthGuard, RolesGuard)
   @Get(':id/usage-history')
   async getUsageHistory(
     @Param('id') id: string,
@@ -65,6 +70,7 @@ export class CouponController {
     return this.couponService.getUsageHistory(id, page, limit);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Post('validate')
   async validateCoupon(@Body() validateDto: ValidateCouponDto) {
     const churchId = validateDto.churchId
@@ -78,6 +84,7 @@ export class CouponController {
     );
   }
 
+  @UseGuards(ProductAdminJwtAuthGuard, RolesGuard)
   @Post('validate/:code')
   async validateCouponByCode(
     @Param('code') code: string,
@@ -88,6 +95,7 @@ export class CouponController {
     return this.couponService.validateCoupon(code, planType, churchObjectId);
   }
 
+  @UseGuards(ProductAdminJwtAuthGuard, RolesGuard)
   @Patch(':id')
   @Roles(DefaultProductAdminRoles.SUPER_ADMIN)
   async update(
@@ -106,6 +114,7 @@ export class CouponController {
     );
   }
 
+  @UseGuards(ProductAdminJwtAuthGuard, RolesGuard)
   @Patch(':id/toggle-status')
   @Roles(DefaultProductAdminRoles.SUPER_ADMIN)
   async toggleStatus(
@@ -124,6 +133,7 @@ export class CouponController {
     );
   }
 
+  @UseGuards(ProductAdminJwtAuthGuard, RolesGuard)
   @Delete(':id')
   @Roles(DefaultProductAdminRoles.SUPER_ADMIN)
   async remove(@Param('id') id: string, @Req() req: any) {
@@ -134,6 +144,7 @@ export class CouponController {
     return this.couponService.remove(id, new Types.ObjectId(adminId));
   }
 
+  @UseGuards(ProductAdminJwtAuthGuard, RolesGuard)
   @Post(':id/restore')
   @Roles(DefaultProductAdminRoles.SUPER_ADMIN)
   async restore(@Param('id') id: string, @Req() req: any) {

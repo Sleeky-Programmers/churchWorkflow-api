@@ -1,17 +1,23 @@
+import { AuthUser } from 'src/common/decorators/auth-user.decorator';
+import { ProductAdmin } from 'src/schemas/product-admin.schema';
+
 import {
-  Controller,
-  Post,
   Body,
-  UseGuards,
+  Controller,
   Get,
-  Query,
   Param,
   Patch,
+  Post,
+  Query,
+  UseGuards,
 } from '@nestjs/common';
-import { ProductAdminService } from './product-admin.service';
+
+import { ChangePasswordDto } from '../auth/dto/change-password.dto';
 import { ProductAdminLoginDto } from './dto/login.dto';
-import { ProductAdminJwtAuthGuard } from './guard/product-jwt-auth.guard';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { UpdateProductAdminDto } from './dto/update-product-admin.dto';
+import { ProductAdminJwtAuthGuard } from './guard/product-jwt-auth.guard';
+import { ProductAdminService } from './product-admin.service';
 
 @Controller('product-admin')
 export class ProductAdminController {
@@ -54,6 +60,36 @@ export class ProductAdminController {
   }
 
   @UseGuards(ProductAdminJwtAuthGuard)
+  @Get()
+  async list(@Query() query: any) {
+    return this.productAdminService.list(query);
+  }
+
+  @UseGuards(ProductAdminJwtAuthGuard)
+  @Get('profile')
+  async getAdminProfile(@AuthUser() authUser: ProductAdmin) {
+    return this.productAdminService.findOne(authUser.email);
+  }
+
+  @UseGuards(ProductAdminJwtAuthGuard)
+  @Patch('me')
+  async updateProfile(
+    @AuthUser() authUser: ProductAdmin,
+    @Body() dto: UpdateProductAdminDto,
+  ) {
+    return this.productAdminService.updateAdminProfile(authUser._id, dto);
+  }
+
+  @UseGuards(ProductAdminJwtAuthGuard)
+  @Patch('change-password')
+  async changePassword(
+    @AuthUser() authUser: ProductAdmin,
+    @Body() dto: ChangePasswordDto,
+  ) {
+    return this.productAdminService.resetPassword(authUser, dto);
+  }
+
+  @UseGuards(ProductAdminJwtAuthGuard)
   @Patch(':id/block')
   async block(@Param('id') id: string) {
     return this.productAdminService.blockAdmin(id);
@@ -69,11 +105,5 @@ export class ProductAdminController {
   @Get('stats')
   async stats() {
     return this.productAdminService.stats();
-  }
-
-  @UseGuards(ProductAdminJwtAuthGuard)
-  @Get()
-  async list(@Query() query: any) {
-    return this.productAdminService.list(query);
   }
 }

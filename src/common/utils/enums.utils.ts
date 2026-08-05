@@ -310,3 +310,10 @@ export enum CouponStatus {
   DISABLED = 'DISABLED',
   FULLY_USED = 'FULLY_USED',
 }
+
+export enum AnalyticsPeriod {
+  DAILY = 'daily',
+  WEEKLY = 'weekly',
+  MONTHLY = 'monthly',
+  YEARLY = 'yearly',
+}

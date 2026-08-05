@@ -1,4 +1,4 @@
-import { Model, Types } from 'mongoose';
+import { Model, PipelineStage, Types } from 'mongoose';
 
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
@@ -46,6 +46,13 @@ export class SubscriptionService {
     },
   };
 
+  private readonly planRank: Record<PlanType, number> = {
+    [PlanType.STARTER]: 0,
+    [PlanType.GROWTH]: 1,
+    [PlanType.EXPANSION]: 2,
+    [PlanType.ENTERPRISE]: 3,
+  };
+
   getPlanAmount(plan: PlanType, billingCycle: BillingCycle): number {
     const pricing: Record<PlanType, Record<BillingCycle, number>> = {
       [PlanType.STARTER]: {
@@ -71,11 +78,7 @@ export class SubscriptionService {
   }
 
   async getSubscription(churchId: Types.ObjectId) {
-    const subscription = await this.subscriptionModel.findOne({ churchId });
-
-    if (!subscription) {
-      return this.initializeTrialPlan(churchId);
-    }
+    const subscription = await this.findOrCreateSubscription(churchId);
 
     const now = new Date();
     if (subscription.endDate && now > subscription.endDate) {
@@ -114,31 +117,36 @@ export class SubscriptionService {
     return subscription;
   }
 
-  async initializeTrialPlan(churchId: Types.ObjectId) {
+  // Atomic find-or-create, to prevent duplicate Subscription docs per church.
+  async findOrCreateSubscription(churchId: Types.ObjectId) {
     const limits = this.planLimits[PlanType.STARTER];
     const trialEndDate = new Date();
     trialEndDate.setDate(trialEndDate.getDate() + 7);
 
-    return this.subscriptionModel.create({
-      churchId,
-      plan: PlanType.STARTER,
-      status: SubscriptionStatus.TRIAL,
-      memberLimit: limits.members,
-      userLimit: limits.users,
-      customRolesEnabled: limits.customRoles,
-      endDate: trialEndDate,
-      gracePeriodEndDate: trialEndDate,
-    });
+    return this.subscriptionModel.findOneAndUpdate(
+      { churchId },
+      {
+        $setOnInsert: {
+          churchId,
+          plan: PlanType.STARTER,
+          status: SubscriptionStatus.TRIAL,
+          memberLimit: limits.members,
+          userLimit: limits.users,
+          customRolesEnabled: limits.customRoles,
+          endDate: trialEndDate,
+          gracePeriodEndDate: trialEndDate,
+        },
+      },
+      { new: true, upsert: true },
+    );
+  }
+
+  async initializeTrialPlan(churchId: Types.ObjectId) {
+    return this.findOrCreateSubscription(churchId);
   }
 
   async createTrialSubscription(churchId: Types.ObjectId) {
-    const existing = await this.subscriptionModel.findOne({ churchId });
-
-    if (existing) {
-      return existing;
-    }
-
-    return this.initializeTrialPlan(churchId);
+    return this.findOrCreateSubscription(churchId);
   }
 
   async updateSubscription(data: {
@@ -167,6 +175,18 @@ export class SubscriptionService {
       endDate.setMonth(endDate.getMonth() + 1);
     } else {
       endDate.setFullYear(endDate.getFullYear() + 1);
+    }
+
+    // A plan change (not a first purchase or a same-plan renewal) carries over whatever time is still left on the old plan onto the new plan.
+    const isPlanChange =
+      !!existing &&
+      existing.plan !== data.plan &&
+      existing.plan !== PlanType.STARTER &&
+      existing.status === SubscriptionStatus.ACTIVE;
+
+    if (isPlanChange && existing.endDate && existing.endDate > startDate) {
+      const remainingMs = existing.endDate.getTime() - startDate.getTime();
+      endDate.setTime(endDate.getTime() + remainingMs);
     }
 
     const updated = await this.subscriptionModel.findOneAndUpdate(
@@ -202,9 +222,12 @@ export class SubscriptionService {
         plan: data.plan as any,
       } as any);
     } else if (existing.plan !== data.plan) {
+      const isUpgrade = this.planRank[data.plan] > this.planRank[existing.plan];
       await this.adminActivityLogService.create({
-        action: 'Subscription Upgraded',
-        details: `Subscription changed from ${existing.plan} to ${data.plan}`,
+        action: isUpgrade ? 'Subscription Upgraded' : 'Subscription Downgraded',
+        details:
+          `Subscription changed from ${existing.plan} to ${data.plan}` +
+          (isPlanChange ? ' (remaining duration carried over)' : ''),
         plan: data.plan as any,
       } as any);
     } else {
@@ -272,12 +295,99 @@ export class SubscriptionService {
     return this.paymentService.getChurchPayments(churchId);
   }
 
+  // Collapses to the most recently updated doc per church, then drops any subscription whose churchId no longer matches a real Church document (e.g. a deleted church). Without this, orphaned or duplicate subscription rows can push plan totals past the actual church count.
+  private latestSubscriptionPerChurchStages(): PipelineStage[] {
+    return [
+      { $sort: { churchId: 1, updatedAt: -1 } },
+      {
+        $group: {
+          _id: '$churchId',
+          plan: { $first: '$plan' },
+          status: { $first: '$status' },
+        },
+      },
+      {
+        $lookup: {
+          from: 'churches',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'church',
+        },
+      },
+      { $match: { church: { $ne: [] } } },
+      { $project: { church: 0 } },
+    ];
+  }
+
   async getChurchIdsByPlan(plan: string) {
-    const subs = await this.subscriptionModel
-      .find({ plan })
-      .select('churchId')
-      .lean();
-    return subs.map((s) => s.churchId);
+    const subs = await this.subscriptionModel.aggregate([
+      ...this.latestSubscriptionPerChurchStages(),
+      { $match: { plan } },
+    ]);
+    return subs.map((s) => s._id);
+  }
+
+  async getCurrentPlan(churchId: Types.ObjectId) {
+    const subscription = await this.getSubscription(churchId);
+    const planDetails = this.getPlans().find(
+      (plan) => plan.type === subscription.plan,
+    );
+
+    return {
+      ...planDetails,
+      status: subscription.status,
+      billingCycle: this.getBillingCycle(subscription),
+      startDate: subscription.startDate,
+      endDate: subscription.endDate,
+      gracePeriodEndDate: subscription.gracePeriodEndDate,
+      isAutoRenew: subscription.isAutoRenew,
+      memberLimit: subscription.memberLimit,
+      userLimit: subscription.userLimit,
+      customRolesEnabled: subscription.customRolesEnabled,
+    };
+  }
+
+  async getPlanChangePreview(
+    churchId: Types.ObjectId,
+    plan: PlanType,
+    billingCycle: BillingCycle,
+  ) {
+    const subscription = await this.getSubscription(churchId);
+    const now = new Date();
+
+    const isActivePaid =
+      subscription.plan !== PlanType.STARTER &&
+      subscription.status === SubscriptionStatus.ACTIVE;
+
+    const isPlanChange = isActivePaid && subscription.plan !== plan;
+
+    const remainingMs =
+      isPlanChange && subscription.endDate && subscription.endDate > now
+        ? subscription.endDate.getTime() - now.getTime()
+        : 0;
+
+    const newEndDate = new Date();
+    if (billingCycle === BillingCycle.MONTHLY) {
+      newEndDate.setMonth(newEndDate.getMonth() + 1);
+    } else {
+      newEndDate.setFullYear(newEndDate.getFullYear() + 1);
+    }
+    newEndDate.setTime(newEndDate.getTime() + remainingMs);
+
+    return {
+      currentPlan: subscription.plan,
+      targetPlan: plan,
+      isPlanChange,
+      isUpgrade: isPlanChange
+        ? this.planRank[plan] > this.planRank[subscription.plan]
+        : null,
+      remainingDays: Math.ceil(remainingMs / (1000 * 60 * 60 * 24)),
+      requiredBillingCycle: isActivePaid
+        ? this.getBillingCycle(subscription)
+        : billingCycle,
+      newEndDate,
+      amount: this.getPlanAmount(plan, billingCycle),
+    };
   }
 
   async getBillingOverview(churchId: Types.ObjectId) {
@@ -297,6 +407,7 @@ export class SubscriptionService {
 
   async getSubscriptionByPlan() {
     const subscriptionsByPlan = await this.subscriptionModel.aggregate([
+      ...this.latestSubscriptionPerChurchStages(),
       {
         $group: {
           _id: '$plan',
@@ -317,9 +428,7 @@ export class SubscriptionService {
 
     const totalStarterPlans = churchesByPlan.STARTER;
 
-    const totalActivePlans = await this.subscriptionModel.countDocuments({
-      status: SubscriptionStatus.ACTIVE,
-    });
+    const totalActivePlans = await this.countActiveSubscriptions();
 
     return {
       totalStarterPlans,
@@ -328,7 +437,7 @@ export class SubscriptionService {
     };
   }
 
-  private getPlans() {
+  getPlans() {
     const numberOfMonths = 12;
     const yearlyDiscountRate = 0.83;
 
@@ -425,7 +534,7 @@ export class SubscriptionService {
     return SubscriptionStatus.ACTIVE;
   }
 
-  private getBillingCycle(subscription: Subscription): BillingCycle {
+  getBillingCycle(subscription: Subscription): BillingCycle {
     const oneDayInMilliseconds = 1000 * 60 * 60 * 24;
     const threeHundredSixtyFiveDaysLimit = 365;
     const subDurationInDays =
@@ -439,17 +548,26 @@ export class SubscriptionService {
   }
 
   async countActiveSubscriptions() {
-    return await this.subscriptionModel.countDocuments({
-      status: SubscriptionStatus.ACTIVE,
-    });
+    const result = await this.subscriptionModel.aggregate([
+      ...this.latestSubscriptionPerChurchStages(),
+      { $match: { status: SubscriptionStatus.ACTIVE } },
+      { $count: 'count' },
+    ]);
+    return result[0]?.count || 0;
   }
 
   async countByPlan(plan: string) {
-    return await this.subscriptionModel.countDocuments({ plan });
+    const result = await this.subscriptionModel.aggregate([
+      ...this.latestSubscriptionPerChurchStages(),
+      { $match: { plan } },
+      { $count: 'count' },
+    ]);
+    return result[0]?.count || 0;
   }
 
   async getCountsByPlan() {
     const result = await this.subscriptionModel.aggregate([
+      ...this.latestSubscriptionPerChurchStages(),
       { $group: { _id: '$plan', count: { $sum: 1 } } },
     ]);
 

@@ -25,6 +25,7 @@ import { ActivityLogService } from '../activity-log/activity-log.service';
 import { AdminActivityLogService } from '../admin-activity-log/admin-activity-log.service';
 import { AdminService } from '../admin/admin.service';
 import { EmailService } from '../email/email.service';
+import { renderEmailLayout } from '../email/templates/email-layout.template';
 import { FileUploadService } from '../file-upload/file-upload.service';
 import { MembersService } from '../members/members.service';
 import { SubscriptionService } from '../subscription/subscription.service';
@@ -475,33 +476,41 @@ export class ChurchService {
 
     // Send to church admins
     for (const churchAdmin of admins) {
+      const html = renderEmailLayout({
+        previewText: 'Your church account has been blocked',
+        heading: 'Your church account has been blocked',
+        greeting: `Dear ${churchAdmin.firstName},`,
+        paragraphs: [
+          `Your church <strong>${church.name}</strong> has been blocked by the platform administrators.`,
+          'You will not be able to access the platform until the block is lifted.',
+        ],
+        infoRows: [{ label: 'Reason', value: reason }],
+        fineprint: 'If you have any questions, please contact support.',
+      });
       await this.emailService.sendEmail(
         churchAdmin.email,
         'Church Account Blocked',
-        `
-        <h2>Your church account has been blocked</h2>
-        <p>Dear ${churchAdmin.firstName},</p>
-        <p>Your church <strong>${church.name}</strong> has been blocked by the platform administrators.</p>
-        <p><strong>Reason:</strong> ${reason}</p>
-        <p>You will not be able to access the platform until the block is lifted.</p>
-        <p>If you have any questions, please contact support.</p>
-      `,
+        html,
       );
     }
 
     // Send to super admins
     const superAdmins = await this.adminService.findSuperAdmins();
     for (const superAdmin of superAdmins) {
+      const html = renderEmailLayout({
+        previewText: `Church Blocked: ${church.name}`,
+        heading: 'Church Blocked',
+        infoRows: [
+          { label: 'Church', value: church.name },
+          { label: 'Blocked By', value: admin?.name || 'System' },
+          { label: 'Reason', value: reason },
+          { label: 'Blocked At', value: new Date().toLocaleString() },
+        ],
+      });
       await this.emailService.sendEmail(
         superAdmin.email,
         `Church Blocked: ${church.name}`,
-        `
-        <h2>Church Blocked</h2>
-        <p><strong>Church:</strong> ${church.name}</p>
-        <p><strong>Blocked By:</strong> ${admin?.name || 'System'}</p>
-        <p><strong>Reason:</strong> ${reason}</p>
-        <p><strong>Blocked At:</strong> ${new Date().toLocaleString()}</p>
-      `,
+        html,
       );
     }
   }
@@ -511,16 +520,20 @@ export class ChurchService {
     const admins = await this.adminService.findByChurchId(church._id);
 
     for (const churchAdmin of admins) {
+      const html = renderEmailLayout({
+        previewText: 'Your church account has been unblocked',
+        heading: 'Your church account has been unblocked',
+        greeting: `Dear ${churchAdmin.firstName},`,
+        paragraphs: [
+          `Your church <strong>${church.name}</strong> has been unblocked.`,
+          'You can now access the platform again.',
+        ],
+        fineprint: 'If you have any questions, please contact support.',
+      });
       await this.emailService.sendEmail(
         churchAdmin.email,
         'Church Account Unblocked',
-        `
-        <h2>Your church account has been unblocked</h2>
-        <p>Dear ${churchAdmin.firstName},</p>
-        <p>Your church <strong>${church.name}</strong> has been unblocked.</p>
-        <p>You can now access the platform again.</p>
-        <p>If you have any questions, please contact support.</p>
-      `,
+        html,
       );
     }
   }

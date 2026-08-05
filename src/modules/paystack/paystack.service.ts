@@ -3,11 +3,7 @@ import { Types } from 'mongoose';
 import { lastValueFrom } from 'rxjs';
 
 import { HttpService } from '@nestjs/axios';
-import {
-  BadRequestException,
-  Injectable,
-  InternalServerErrorException,
-} from '@nestjs/common';
+import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 import {
@@ -65,16 +61,6 @@ export class PaystackService {
     autoRenew?: boolean;
   }) {
     try {
-      const hasActiveSub = await this.subscriptionService.isActiveAutoRenewing(
-        data.churchId,
-      );
-
-      if (hasActiveSub) {
-        throw new BadRequestException(
-          'You already have an active subscription',
-        );
-      }
-
       const payload = {
         email: data.email,
         amount: data.amount * 100,

@@ -1,11 +1,16 @@
 import { Injectable } from '@nestjs/common';
 
-import { PlanType } from '../../common/utils/enums.utils';
+import { AnalyticsPeriod, PlanType } from '../../common/utils/enums.utils';
 import { AttendanceService } from '../attendance/attendance.service';
 import { ChurchService } from '../church/church.service';
 import { MembersService } from '../members/members.service';
 import { PaymentService } from '../payment/payment.service';
 import { SubscriptionService } from '../subscription/subscription.service';
+import { AnalyticsFilterDto } from './dto/analytics-filter.dto';
+
+function round1(value: number): number {
+  return Math.round((value || 0) * 10) / 10;
+}
 
 function fmtGrowth(current: number, previous: number) {
   if (previous === 0) {
@@ -67,23 +72,128 @@ export class AnalyticsService {
     return attendanceData;
   }
 
-  async getAnalytics() {
+  private getDateRange(period?: AnalyticsPeriod) {
     const now = new Date();
-    const since = new Date();
-    since.setDate(now.getDate() - 30);
-    const prevFrom = new Date();
-    prevFrom.setDate(now.getDate() - 60);
+    let startDate: Date;
+    let compareStartDate: Date;
+
+    switch (period) {
+      case AnalyticsPeriod.DAILY:
+        // Last 30 days
+        startDate = new Date(now);
+        startDate.setDate(now.getDate() - 30);
+        compareStartDate = new Date(startDate);
+        compareStartDate.setDate(compareStartDate.getDate() - 30);
+        break;
+      case AnalyticsPeriod.WEEKLY:
+        // Last 7 weeks
+        startDate = new Date(now);
+        startDate.setDate(now.getDate() - 49);
+        compareStartDate = new Date(startDate);
+        compareStartDate.setDate(compareStartDate.getDate() - 49);
+        break;
+      case AnalyticsPeriod.MONTHLY:
+        // Last 12 months
+        startDate = new Date(now);
+        startDate.setMonth(now.getMonth() - 12);
+        compareStartDate = new Date(startDate);
+        compareStartDate.setMonth(compareStartDate.getMonth() - 12);
+        break;
+      case AnalyticsPeriod.YEARLY:
+      default:
+        // Last 3 years
+        startDate = new Date(now);
+        startDate.setFullYear(now.getFullYear() - 3);
+        compareStartDate = new Date(startDate);
+        compareStartDate.setFullYear(compareStartDate.getFullYear() - 3);
+        break;
+    }
+
+    return { now, startDate, compareStartDate };
+  }
+
+  private getMonthsForPeriod(period?: AnalyticsPeriod) {
+    const now = new Date();
+    const months = [] as { start: Date; end: Date; label: string }[];
+
+    let seriesCount: number;
+    switch (period) {
+      case AnalyticsPeriod.DAILY:
+        seriesCount = 30;
+        break;
+      case AnalyticsPeriod.WEEKLY:
+        seriesCount = 7;
+        break;
+      case AnalyticsPeriod.MONTHLY:
+        seriesCount = 12;
+        break;
+      case AnalyticsPeriod.YEARLY:
+      default:
+        seriesCount = 36; // 3 years
+        break;
+    }
+
+    const firstOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    for (let i = seriesCount - 1; i >= 0; i--) {
+      let mStart: Date;
+      let label: string;
+
+      if (period === AnalyticsPeriod.DAILY) {
+        mStart = new Date(now);
+        mStart.setDate(now.getDate() - i);
+        label = `${mStart.getFullYear()}-${String(mStart.getMonth() + 1).padStart(2, '0')}-${String(mStart.getDate()).padStart(2, '0')}`;
+      } else if (period === AnalyticsPeriod.WEEKLY) {
+        mStart = new Date(now);
+        mStart.setDate(now.getDate() - i * 7);
+        label = `Week ${i + 1}`;
+      } else {
+        mStart = new Date(
+          firstOfThisMonth.getFullYear(),
+          firstOfThisMonth.getMonth() - i,
+          1,
+        );
+        label = `${mStart.getFullYear()}-${String(mStart.getMonth() + 1).padStart(2, '0')}`;
+      }
+
+      const mEnd = new Date(mStart);
+      if (period === AnalyticsPeriod.DAILY) {
+        mEnd.setDate(mEnd.getDate() + 1);
+      } else if (period === AnalyticsPeriod.WEEKLY) {
+        mEnd.setDate(mEnd.getDate() + 7);
+      } else {
+        mEnd.setMonth(mEnd.getMonth() + 1);
+      }
+
+      months.push({ start: mStart, end: mEnd, label });
+    }
+
+    return months;
+  }
+
+  async getAnalytics(filterDto: AnalyticsFilterDto = {}) {
+    const { period } = filterDto;
+    const { now, startDate, compareStartDate } = this.getDateRange(period);
+    const since = startDate;
+    const prevFrom = compareStartDate;
+
+    // If no period specified, use the default (yearly - 3 years)
+    const useDefault = !period;
 
     const [totalChurches, newChurches] = await Promise.all([
       this.churchService.countAll(),
-      this.churchService.countRegisteredSince(30),
+      this.churchService.countRegisteredSince(
+        useDefault ? 30 : this.getDaysSince(startDate),
+      ),
     ]);
     const prevTotalChurches = Math.max(totalChurches - newChurches, 0);
     const churchesGrowth = fmtGrowth(totalChurches, prevTotalChurches);
 
     const [totalMembers, membersRegisteredLast30Days] = await Promise.all([
       this.membersService.countAllMembers(),
-      this.membersService.countRegisteredSince(30),
+      this.membersService.countRegisteredSince(
+        useDefault ? 30 : this.getDaysSince(startDate),
+      ),
     ]);
     const prevTotalMembers = Math.max(
       totalMembers - membersRegisteredLast30Days,
@@ -92,7 +202,9 @@ export class AnalyticsService {
     const totalMembersGrowth = fmtGrowth(totalMembers, prevTotalMembers);
 
     const [activeMembersNow, activeMembersPrev] = await Promise.all([
-      this.attendanceService.countDistinctPresentMembers(30),
+      this.attendanceService.countDistinctPresentMembers(
+        useDefault ? 30 : this.getDaysSince(startDate),
+      ),
       this.attendanceService.countDistinctPresentMembersBetween(
         prevFrom.toISOString(),
         since.toISOString(),
@@ -110,6 +222,8 @@ export class AnalyticsService {
 
     const mrrGrowth = fmtGrowth(mrrNow, mrrPrev);
     const totalRevenueGrowth = fmtGrowth(totalRevenueNow, totalRevenuePrev);
+    const mrrNowRounded = round1(mrrNow);
+    const totalRevenueNowRounded = round1(totalRevenueNow);
 
     const countsByPlan = await this.subscriptionService.getCountsByPlan();
 
@@ -178,7 +292,7 @@ export class AnalyticsService {
         plan,
         churchesCount,
         membersCount,
-        monthlyRevenue,
+        monthlyRevenue: round1(monthlyRevenue),
         growth,
       });
     }
@@ -203,19 +317,7 @@ export class AnalyticsService {
         : 0;
     const conversionRateGrowth = fmtGrowth(conversionRate, conversionRatePrev);
 
-    const months = [] as { start: Date; end: Date; label: string }[];
-    const seriesCount = 12;
-    const firstOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    for (let i = seriesCount - 1; i >= 0; i--) {
-      const mStart = new Date(
-        firstOfThisMonth.getFullYear(),
-        firstOfThisMonth.getMonth() - i,
-        1,
-      );
-      const mEnd = new Date(mStart.getFullYear(), mStart.getMonth() + 1, 1);
-      const label = `${mStart.getFullYear()}-${String(mStart.getMonth() + 1).padStart(2, '0')}`;
-      months.push({ start: mStart, end: mEnd, label });
-    }
+    const months = this.getMonthsForPeriod(period);
 
     const revenueSubscriptionData = [] as any[];
     const trialToPaidData = [] as any[];
@@ -237,7 +339,7 @@ export class AnalyticsService {
       );
       revenueSubscriptionData.push({
         month: month.label,
-        revenue,
+        revenue: round1(revenue),
         subscription: subsTotal,
       });
 
@@ -274,8 +376,11 @@ export class AnalyticsService {
         total: { count: totalMembers, growth: totalMembersGrowth },
       },
       revenue: {
-        monthlyRecurringRevenue: { amount: mrrNow, growth: mrrGrowth },
-        totalRevenue: { amount: totalRevenueNow, growth: totalRevenueGrowth },
+        monthlyRecurringRevenue: { amount: mrrNowRounded, growth: mrrGrowth },
+        totalRevenue: {
+          amount: totalRevenueNowRounded,
+          growth: totalRevenueGrowth,
+        },
       },
       conversionRate: {
         value: `${conversionRate.toFixed(2)}%`,
@@ -294,6 +399,11 @@ export class AnalyticsService {
     };
   }
 
+  private getDaysSince(date: Date): number {
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+    return Math.ceil(diff / (1000 * 3600 * 24));
+  }
   // Analytics.service.ts
   private async getAttendanceTrendForOverview() {
     const now = new Date();

@@ -1,11 +1,12 @@
 import {
-  Controller,
-  Post,
   Body,
+  Controller,
+  Headers,
   HttpCode,
   HttpStatus,
-  Headers,
+  Post,
 } from '@nestjs/common';
+
 import { FlutterwaveService } from './flutterwave.service';
 
 @Controller('flutterwave')
@@ -22,7 +23,10 @@ export class FlutterwaveController {
   }
 
   @Post('verify')
-  async verify(@Body('reference') reference: string) {
-    return this.flutterwaveService.verifyTransaction(reference);
+  async verify(@Body() payload: { reference: string; transactionId: string }) {
+    return this.flutterwaveService.verifyTransaction(
+      payload.reference,
+      payload.transactionId,
+    );
   }
 }

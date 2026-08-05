@@ -10,6 +10,7 @@ export class Subscription extends Document {
   @Prop({
     type: Types.ObjectId,
     ref: Church.name,
+    unique: true,
   })
   churchId: Types.ObjectId;
 

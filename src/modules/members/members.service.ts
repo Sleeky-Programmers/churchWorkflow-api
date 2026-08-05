@@ -799,12 +799,12 @@ export class MembersService {
     return await this.memberModel.findByIdAndDelete(id);
   }
 
-  // Members.service.ts - Updated methods
   async getAllMembersForManagement(
     authUser: Admin,
     filters: MemberManagementDto,
   ) {
-    const { churchId, limit, page, membershipStatus, search, status } = filters;
+    const { churchId, limit, page, membershipStatus, search, status, role } =
+      filters;
     const skip = (page - 1) * limit;
     const query: any = {};
 
@@ -823,9 +823,18 @@ export class MembersService {
       query.membershipStatus = membershipStatus;
     }
 
+    if (role) {
+      query.membershipStatus = role.toUpperCase();
+    }
+
     // Filter by active status (status is boolean: true = active, false = inactive)
-    if (status !== undefined && status !== null) {
-      query.isActive = status;
+    if (status !== undefined && status !== null && status !== '') {
+      // Status comes as string from query params
+      if (typeof status === 'string') {
+        query.isActive = status === 'true';
+      } else {
+        query.isActive = status;
+      }
     }
 
     // Search functionality
@@ -1215,6 +1224,7 @@ export class MembersService {
       daysRemaining,
     };
   }
+
   private getMemberRoleFromStatus(status: MembershipStatus): string {
     const roleMap: Record<MembershipStatus, string> = {
       [MembershipStatus.LEADER]: 'Leader',

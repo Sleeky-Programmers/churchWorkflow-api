@@ -264,6 +264,10 @@ export class PaymentService {
   }
 
   async getMRRForChurchIds(churchIds?: Types.ObjectId[]) {
+    if (churchIds && churchIds.length === 0) {
+      return 0;
+    }
+
     const match: any = { status: PaymentStatus.SUCCESS };
     if (churchIds && churchIds.length) {
       match.churchId = { $in: churchIds.map((id) => new Types.ObjectId(id)) };
