@@ -19,6 +19,7 @@ import {
   AdminInviteStatus,
   AdminOptions,
   InviteEmailType,
+  PlanType,
 } from '../../common/utils/enums.utils';
 import { SubscriptionService } from '../subscription/subscription.service';
 import { renderEmailLayout } from '../email/templates/email-layout.template';
@@ -172,6 +173,37 @@ export class AdminInviteService {
     ]);
 
     return inviteResponse;
+  }
+
+  async getUserLimitStatus(authUser: Admin) {
+    const { churchId } = authUser;
+
+    const pendingInvites = await this.inviteModel.countDocuments({
+      churchId,
+      status: AdminInviteStatus.PENDING,
+    });
+    const currentAdmins = await this.adminService.countAdminsByChurch(
+      churchId,
+    );
+    const currentUsers = currentAdmins + pendingInvites;
+
+    const subscription =
+      await this.subscriptionService.getActiveSubscription(churchId);
+    const plan = subscription?.plan || PlanType.STARTER;
+    const limit = await this.subscriptionService.getPlanUserLimit(plan);
+
+    const percentage = limit > 0 ? (currentUsers / limit) * 100 : 0;
+    const isOverLimit = limit > 0 && currentUsers >= limit;
+    const isNearLimit = limit > 0 && percentage >= 80 && !isOverLimit;
+
+    return {
+      currentUsers,
+      limit,
+      percentage: Math.min(percentage, 100),
+      isOverLimit,
+      isNearLimit,
+      planName: plan,
+    };
   }
 
   async resendInvitation(authUser: Admin, inviteId: string) {
