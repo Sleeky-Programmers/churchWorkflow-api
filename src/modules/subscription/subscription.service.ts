@@ -700,6 +700,10 @@ export class SubscriptionService {
     return this.planLimits[plan].members || 0;
   }
 
+  async getPlanUserLimit(plan: PlanType): Promise<number> {
+    return this.planLimits[plan].users || 0;
+  }
+
   async updateGracePeriod(churchId: Types.ObjectId, gracePeriodEndDate: Date) {
     return await this.subscriptionModel.findOneAndUpdate(
       { churchId, status: SubscriptionStatus.ACTIVE },

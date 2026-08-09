@@ -38,6 +38,15 @@ export class AdminInviteController {
     return await this.adminInviteService.fetchAllInvitations(authUser);
   }
 
+  @Get('user-limit-status')
+  async getUserLimitStatus(@AuthUser() authUser: Admin) {
+    const status = await this.adminInviteService.getUserLimitStatus(authUser);
+    return {
+      success: true,
+      data: status,
+    };
+  }
+
   @Delete('remove/:inviteId')
   async removeUser(
     @Body('key') key: string,
