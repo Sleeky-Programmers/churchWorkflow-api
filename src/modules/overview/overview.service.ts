@@ -18,8 +18,12 @@ export class OverviewService {
       await this.churchService.getChurchStats();
     const totalMembers = await this.membersService.countAllMembers();
 
-    const { totalActivePlans, totalStarterPlans, churchesByPlan } =
-      await this.subscriptionService.getSubscriptionByPlan();
+    const {
+      totalActivePlans,
+      totalActiveGrowthPlans,
+      totalStarterPlans,
+      churchesByPlan,
+    } = await this.subscriptionService.getSubscriptionByPlan();
     const { topChurchByMembers } =
       await this.membersService.topChurchesByMembers();
     const recentActivities =
@@ -31,6 +35,7 @@ export class OverviewService {
       totalMembers,
 
       totalActivePlans,
+      totalActiveGrowthPlans,
       totalStarterPlans,
 
       churchesByPlan,
