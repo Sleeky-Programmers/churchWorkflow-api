@@ -429,10 +429,14 @@ export class SubscriptionService {
     const totalStarterPlans = churchesByPlan.STARTER;
 
     const totalActivePlans = await this.countActiveSubscriptions();
+    const totalActiveGrowthPlans = await this.countActiveByPlan(
+      PlanType.GROWTH,
+    );
 
     return {
       totalStarterPlans,
       totalActivePlans,
+      totalActiveGrowthPlans,
       churchesByPlan,
     };
   }
@@ -560,6 +564,15 @@ export class SubscriptionService {
     const result = await this.subscriptionModel.aggregate([
       ...this.latestSubscriptionPerChurchStages(),
       { $match: { plan } },
+      { $count: 'count' },
+    ]);
+    return result[0]?.count || 0;
+  }
+
+  async countActiveByPlan(plan: string) {
+    const result = await this.subscriptionModel.aggregate([
+      ...this.latestSubscriptionPerChurchStages(),
+      { $match: { plan, status: SubscriptionStatus.ACTIVE } },
       { $count: 'count' },
     ]);
     return result[0]?.count || 0;
@@ -698,6 +711,10 @@ export class SubscriptionService {
 
   async getPlanMemberLimit(plan: PlanType): Promise<number> {
     return this.planLimits[plan].members || 0;
+  }
+
+  async getPlanUserLimit(plan: PlanType): Promise<number> {
+    return this.planLimits[plan].users || 0;
   }
 
   async updateGracePeriod(churchId: Types.ObjectId, gracePeriodEndDate: Date) {
