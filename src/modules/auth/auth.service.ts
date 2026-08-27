@@ -267,6 +267,8 @@ export class AuthService {
 
     const tokens = this.generateTokens(admin._id.toString());
 
+    await this.sendWelcomeEmail(email, firstName);
+
     return {
       message: 'Registration successful',
       user: admin,
