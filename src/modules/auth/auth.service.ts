@@ -21,6 +21,7 @@ import { CreateSuperAdminDto } from '../admin/dto/create-super-admin.dto';
 import { EmailService } from '../email/email.service';
 import { renderEmailLayout } from '../email/templates/email-layout.template';
 import { OtpService } from '../otp/otp.service';
+import { SlackService } from '../slack/slack.service';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
@@ -34,6 +35,7 @@ export class AuthService {
     private adminInviteService: AdminInviteService,
     private otpService: OtpService,
     private emailService: EmailService,
+    private slackService: SlackService,
     private jwtService: JwtService,
     private configService: ConfigService,
   ) {}
@@ -163,6 +165,11 @@ export class AuthService {
     const tokens = this.generateTokens(admin._id.toString());
 
     await this.sendWelcomeEmail(email, firstName);
+    await this.slackService.notifySignup({
+      name: [firstName, lastName].filter(Boolean).join(' '),
+      email,
+      method: 'invite',
+    });
 
     return {
       message: 'Registration successful',
@@ -268,6 +275,11 @@ export class AuthService {
     const tokens = this.generateTokens(admin._id.toString());
 
     await this.sendWelcomeEmail(email, firstName);
+    await this.slackService.notifySignup({
+      name: [firstName, lastName].filter(Boolean).join(' '),
+      email,
+      method: 'google',
+    });
 
     return {
       message: 'Registration successful',
@@ -338,6 +350,11 @@ export class AuthService {
     const tokens = this.generateTokens(admin._id.toString());
 
     await this.sendWelcomeEmail(admin.email, admin.firstName);
+    await this.slackService.notifySignup({
+      name: [admin.firstName, admin.lastName].filter(Boolean).join(' '),
+      email: admin.email,
+      method: 'email',
+    });
 
     return {
       message: 'Email verified',

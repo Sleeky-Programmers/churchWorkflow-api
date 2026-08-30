@@ -7,6 +7,7 @@ import { AdminModule } from '../admin/admin.module';
 import { AdminInviteModule } from '../admin-invite/admin-invite.module';
 import { OtpModule } from '../otp/otp.module';
 import { EmailModule } from '../email/email.module';
+import { SlackModule } from '../slack/slack.module';
 import { JwtStrategy } from './strategy/jwt.strategy';
 import { LocalStrategy } from './strategy/local.strategy';
 
@@ -16,6 +17,7 @@ import { LocalStrategy } from './strategy/local.strategy';
     AdminInviteModule,
     OtpModule,
     EmailModule,
+    SlackModule,
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
