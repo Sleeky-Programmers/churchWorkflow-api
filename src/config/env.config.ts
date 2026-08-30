@@ -17,6 +17,9 @@ export const envConfig = () => ({
     clientId: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
   },
+  slack: {
+    signupWebhookUrl: process.env.SLACK_SIGNUP_WEBHOOK_URL,
+  },
   paystack: {
     secretKey: process.env.PAYSTACK_SECRET_KEY,
     publicKey: process.env.PAYSTACK_PUBLIC_KEY,
