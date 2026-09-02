@@ -182,9 +182,7 @@ export class AdminInviteService {
       churchId,
       status: AdminInviteStatus.PENDING,
     });
-    const currentAdmins = await this.adminService.countAdminsByChurch(
-      churchId,
-    );
+    const currentAdmins = await this.adminService.countAdminsByChurch(churchId);
     const currentUsers = currentAdmins + pendingInvites;
 
     const subscription =
