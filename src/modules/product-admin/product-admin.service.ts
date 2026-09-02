@@ -2,16 +2,25 @@ import * as bcrypt from 'bcryptjs';
 import { Model, Types } from 'mongoose';
 
 import {
-    BadRequestException, Injectable, InternalServerErrorException, NotFoundException, OnModuleInit,
-    UnauthorizedException
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+  OnModuleInit,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { InjectModel } from '@nestjs/mongoose';
 
-import { PaginationBaseDto, paginationMeta } from '../../common/helpers/pagination.helper';
 import {
-    DefaultProductAdminRoles, ProductAdminInviteStatus, ProductAdminStatus
+  PaginationBaseDto,
+  paginationMeta,
+} from '../../common/helpers/pagination.helper';
+import {
+  DefaultProductAdminRoles,
+  ProductAdminInviteStatus,
+  ProductAdminStatus,
 } from '../../common/utils/enums.utils';
 import { ProductAdminInvite } from '../../schemas/product-admin-invite.schema';
 import { ProductAdmin } from '../../schemas/product-admin.schema';

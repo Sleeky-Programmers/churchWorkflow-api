@@ -20,10 +20,10 @@ export class SlackService {
     email: string;
     method: SignupMethod;
   }) {
-    const webhookUrl = this.configService.get<string>(
-      'slack.signupWebhookUrl',
-    );
-    if (!webhookUrl) return;
+    const webhookUrl = this.configService.get<string>('slack.signupWebhookUrl');
+    if (!webhookUrl) {
+      return;
+    }
 
     const methodLabel =
       data.method === 'google'

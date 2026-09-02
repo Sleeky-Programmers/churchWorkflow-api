@@ -24,6 +24,7 @@ import { ChurchService } from './church.service';
 import { BlockChurchDto, UnblockChurchDto } from './dto/block-church.dto';
 import { ChurchFilterDto } from './dto/church-filter.dto';
 import { ChurchIdentityDto } from './dto/church-identity.dto';
+import { UpdateChurchPlanDto } from './dto/update-church-plan.dto';
 
 @Controller('church')
 export class ChurchController {
@@ -114,6 +115,21 @@ export class ChurchController {
   async getBlockHistory(@Param('churchId') churchId: string) {
     return await this.churchService.getBlockHistory(
       new Types.ObjectId(churchId),
+    );
+  }
+
+  @Patch(':churchId/plan')
+  @UseGuards(ProductAdminJwtAuthGuard)
+  async updateChurchPlan(
+    @Param('churchId') churchId: string,
+    @Body() updateChurchPlanDto: UpdateChurchPlanDto,
+    @AuthUser() authUser: Admin,
+  ) {
+    const adminId = authUser.id;
+    return await this.churchService.updatePlanByAdmin(
+      new Types.ObjectId(churchId),
+      new Types.ObjectId(adminId),
+      updateChurchPlanDto,
     );
   }
 }

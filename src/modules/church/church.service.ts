@@ -14,6 +14,7 @@ import {
   paginationMeta,
 } from '../../common/helpers/pagination.helper';
 import {
+  BillingCycle,
   ChurchSubscriptionStatus,
   ModuleSections,
   PlanType,
@@ -32,6 +33,7 @@ import { SubscriptionService } from '../subscription/subscription.service';
 import { BlockChurchDto, UnblockChurchDto } from './dto/block-church.dto';
 import { ChurchFilterDto } from './dto/church-filter.dto';
 import { ChurchIdentityDto } from './dto/church-identity.dto';
+import { UpdateChurchPlanDto } from './dto/update-church-plan.dto';
 
 @Injectable()
 export class ChurchService {
@@ -449,6 +451,50 @@ export class ChurchService {
     await this.sendUnblockNotifications(church);
 
     return church;
+  }
+
+  // Product-admin override: sets a church's plan directly, bypassing payment.
+  async updatePlanByAdmin(
+    churchId: Types.ObjectId,
+    adminId: Types.ObjectId,
+    updateChurchPlanDto: UpdateChurchPlanDto,
+  ) {
+    const church = await this.churchModel.findById(churchId);
+    if (!church) {
+      throw new NotFoundException('Church not found');
+    }
+
+    const billingCycle =
+      updateChurchPlanDto.billingCycle || BillingCycle.MONTHLY;
+
+    const subscription = await this.subscriptionService.updateSubscription({
+      churchId,
+      plan: updateChurchPlanDto.plan,
+      billingCycle,
+    });
+
+    const admin = await this.adminService.findById(adminId);
+
+    await this.activityLogService.create({ churchId, _id: adminId } as any, {
+      action: 'Church Plan Changed',
+      module: ModuleSections.CHURCH,
+      details: `${church.name}'s plan was changed to ${updateChurchPlanDto.plan} by ${admin?.firstName || 'System'} (admin override, no payment).`,
+    });
+
+    await this.adminActivityLogService.create({
+      adminId: adminId,
+      action: 'CHANGE_CHURCH_PLAN',
+      details: `Changed plan for church: ${church.name} to ${updateChurchPlanDto.plan}`,
+      plan: updateChurchPlanDto.plan as any,
+    } as any);
+
+    return {
+      plan: subscription.plan,
+      billingCycle,
+      status: subscription.status,
+      startDate: subscription.startDate,
+      endDate: subscription.endDate,
+    };
   }
 
   async isChurchBlocked(churchId: Types.ObjectId): Promise<boolean> {
