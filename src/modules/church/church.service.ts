@@ -14,6 +14,7 @@ import {
   paginationMeta,
 } from '../../common/helpers/pagination.helper';
 import {
+  AdminAccessScope,
   BillingCycle,
   ChurchSubscriptionStatus,
   ModuleSections,
@@ -25,6 +26,7 @@ import { Church } from '../../schemas/church.schema';
 import { ActivityLogService } from '../activity-log/activity-log.service';
 import { AdminActivityLogService } from '../admin-activity-log/admin-activity-log.service';
 import { AdminService } from '../admin/admin.service';
+import { BranchService } from '../branch/branch.service';
 import { EmailService } from '../email/email.service';
 import { renderEmailLayout } from '../email/templates/email-layout.template';
 import { FileUploadService } from '../file-upload/file-upload.service';
@@ -47,6 +49,7 @@ export class ChurchService {
     private adminActivityLogService: AdminActivityLogService,
     private readonly activityLogService: ActivityLogService,
     private readonly emailService: EmailService,
+    private readonly branchService: BranchService,
   ) {}
 
   async findById(id: Types.ObjectId) {
@@ -275,8 +278,19 @@ export class ChurchService {
       logoPublicId: publicId,
     });
 
+    // The church's own creation produces its head branch, and the founding
+    // Admin becomes org-wide so they can self-serve create subsidiary
+    // Branches from day one - without this, branch creation is unreachable
+    // (assertOrgWide blocks everyone, and nothing else ever grants ORG_WIDE).
+    const hqBranch = await this.branchService.createHQBranch(
+      church._id,
+      church.name,
+    );
+
     await this.adminService.findByIdAndUpdate(authUser._id, {
       churchId: church._id,
+      accessScope: AdminAccessScope.ORG_WIDE,
+      defaultBranchId: hqBranch._id,
     });
 
     const subscription = await this.subscriptionService.getSubscription(

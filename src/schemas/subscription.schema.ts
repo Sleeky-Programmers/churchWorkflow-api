@@ -40,6 +40,9 @@ export class Subscription extends Document {
   @Prop({ default: 0 })
   userLimit: number;
 
+  @Prop({ default: 0 })
+  branchLimit: number;
+
   @Prop({ default: false })
   customRolesEnabled: boolean;
 

@@ -17,6 +17,7 @@ import { JwtAuthGuard } from '../auth/guard/jwt-auth.guard';
 import { BranchService } from './branch.service';
 import { CreateBranchDto } from './dto/create-branch.dto';
 import { GrantBranchAccessDto } from './dto/grant-branch-access.dto';
+import { UpdateAdminAccessDto } from './dto/update-admin-access.dto';
 import { UpdateBranchDto } from './dto/update-branch.dto';
 
 @UseGuards(JwtAuthGuard)
@@ -27,6 +28,12 @@ export class BranchController {
   @Get('me')
   listMine(@CurrentTenant() tenant: TenantContext) {
     return this.branchService.listForTenant(tenant);
+  }
+
+  @Get('branch-limit-status')
+  async getBranchLimitStatus(@AuthUser() authUser: Admin) {
+    const status = await this.branchService.getBranchLimitStatus(authUser);
+    return { success: true, data: status };
   }
 
   @Post()
@@ -64,5 +71,22 @@ export class BranchController {
     @Param('adminId') adminId: string,
   ) {
     return this.branchService.revokeAccess(authUser, id, adminId);
+  }
+
+  @Get('admin/:adminId/access')
+  getAdminAccess(
+    @AuthUser() authUser: Admin,
+    @Param('adminId') adminId: string,
+  ) {
+    return this.branchService.getAdminAccess(authUser, adminId);
+  }
+
+  @Put('admin/:adminId/access')
+  setAdminAccess(
+    @AuthUser() authUser: Admin,
+    @Param('adminId') adminId: string,
+    @Body() dto: UpdateAdminAccessDto,
+  ) {
+    return this.branchService.setAdminAccess(authUser, adminId, dto);
   }
 }
