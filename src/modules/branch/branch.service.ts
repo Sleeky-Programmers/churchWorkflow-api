@@ -12,7 +12,9 @@ import { AdminAccessScope } from '../../common/utils/enums.utils';
 import { Admin } from '../../schemas/admin.schema';
 import { AdminBranchAccess } from '../../schemas/admin-branch-access.schema';
 import { Branch } from '../../schemas/branch.schema';
+import { SubscriptionService } from '../subscription/subscription.service';
 import { CreateBranchDto } from './dto/create-branch.dto';
+import { UpdateAdminAccessDto } from './dto/update-admin-access.dto';
 import { UpdateBranchDto } from './dto/update-branch.dto';
 
 @Injectable()
@@ -22,6 +24,7 @@ export class BranchService {
     @InjectModel(AdminBranchAccess.name)
     private adminBranchAccessModel: Model<AdminBranchAccess>,
     @InjectModel(Admin.name) private adminModel: Model<Admin>,
+    private subscriptionService: SubscriptionService,
   ) {}
 
   private assertOrgWide(authUser: Admin) {
@@ -46,6 +49,15 @@ export class BranchService {
   async create(authUser: Admin, dto: CreateBranchDto) {
     this.assertOrgWide(authUser);
 
+    const currentBranchCount = await this.countActive(authUser.churchId);
+    const limitCheck = await this.subscriptionService.checkBranchLimit(
+      authUser.churchId,
+      currentBranchCount,
+    );
+    if (!limitCheck.allowed) {
+      throw new ForbiddenException(limitCheck.message);
+    }
+
     return this.branchModel.create({
       churchId: authUser.churchId,
       name: dto.name.trim(),
@@ -59,6 +71,47 @@ export class BranchService {
     });
   }
 
+  // System-initiated, not user-invoked - runs at church creation, before
+  // The founding admin has any access scope to be checked against. Not
+  // Gated by assertOrgWide for that reason.
+  async createHQBranch(churchId: Types.ObjectId, name: string) {
+    return this.branchModel.create({
+      churchId,
+      name: name.trim(),
+      isHQ: true,
+      isActive: true,
+    });
+  }
+
+  async countActive(churchId: Types.ObjectId) {
+    return this.branchModel.countDocuments({ churchId, isActive: true });
+  }
+
+  // Mirrors AdminInviteService.getUserLimitStatus's shape, so the frontend
+  // Can drive the same LimitBanner component off either endpoint.
+  async getBranchLimitStatus(authUser: Admin) {
+    const currentBranches = await this.countActive(authUser.churchId);
+
+    const subscription = await this.subscriptionService.getSubscription(
+      authUser.churchId,
+    );
+    const plan = subscription.plan;
+    const limit = await this.subscriptionService.getPlanBranchLimit(plan);
+
+    const percentage = limit > 0 ? (currentBranches / limit) * 100 : 0;
+    const isOverLimit = limit > 0 && currentBranches >= limit;
+    const isNearLimit = limit > 0 && percentage >= 80 && !isOverLimit;
+
+    return {
+      currentBranches,
+      limit,
+      percentage: Math.min(percentage, 100),
+      isOverLimit,
+      isNearLimit,
+      planName: plan,
+    };
+  }
+
   async update(authUser: Admin, branchId: string, dto: UpdateBranchDto) {
     this.assertOrgWide(authUser);
 
@@ -68,6 +121,10 @@ export class BranchService {
     });
     if (!branch) {
       throw new NotFoundException('Branch not found');
+    }
+
+    if (branch.isHQ && dto.isActive === false) {
+      throw new BadRequestException('The head branch cannot be deactivated');
     }
 
     const updatePayload: Partial<Branch> = {};
@@ -172,6 +229,118 @@ export class BranchService {
         lastName: grant.adminId.lastName,
         email: grant.adminId.email,
       }));
+  }
+
+  async getAdminAccess(authUser: Admin, adminId: string) {
+    this.assertOrgWide(authUser);
+
+    const targetAdmin = await this.adminModel.findOne({
+      _id: adminId,
+      churchId: authUser.churchId,
+    });
+    if (!targetAdmin) {
+      throw new BadRequestException('Admin was not found in this church');
+    }
+
+    const grants = await this.adminBranchAccessModel
+      .find({ adminId })
+      .select('branchId')
+      .lean();
+
+    return {
+      accessScope: targetAdmin.accessScope,
+      branchIds: grants.map((g) => g.branchId.toString()),
+    };
+  }
+
+  // A church must always keep at least one org-wide admin, otherwise
+  // Nobody could ever manage branches or access again (the exact bind
+  // Self-service branch creation was built to get every church out of).
+  private async assertKeepsAnOrgWideAdmin(
+    churchId: Types.ObjectId,
+    adminIdBeingChanged: Types.ObjectId,
+    nextScope: AdminAccessScope,
+  ) {
+    if (nextScope === AdminAccessScope.ORG_WIDE) {
+      return;
+    }
+
+    const otherOrgWideCount = await this.adminModel.countDocuments({
+      churchId,
+      accessScope: AdminAccessScope.ORG_WIDE,
+      _id: { $ne: adminIdBeingChanged },
+    });
+
+    if (otherOrgWideCount === 0) {
+      throw new BadRequestException(
+        'This church must always have at least one org-wide admin - assign another admin org-wide access first',
+      );
+    }
+  }
+
+  async setAdminAccess(
+    authUser: Admin,
+    adminId: string,
+    dto: UpdateAdminAccessDto,
+  ) {
+    this.assertOrgWide(authUser);
+
+    const targetAdmin = await this.adminModel.findOne({
+      _id: adminId,
+      churchId: authUser.churchId,
+    });
+    if (!targetAdmin) {
+      throw new BadRequestException('Admin was not found in this church');
+    }
+
+    await this.assertKeepsAnOrgWideAdmin(
+      authUser.churchId,
+      targetAdmin._id as Types.ObjectId,
+      dto.accessScope,
+    );
+
+    if (dto.accessScope === AdminAccessScope.ORG_WIDE) {
+      await Promise.all([
+        this.adminModel.updateOne(
+          { _id: adminId },
+          { accessScope: AdminAccessScope.ORG_WIDE },
+        ),
+        this.adminBranchAccessModel.deleteMany({ adminId }),
+      ]);
+
+      return { accessScope: AdminAccessScope.ORG_WIDE, branchIds: [] };
+    }
+
+    const branchIds = dto.branchIds || [];
+    if (branchIds.length) {
+      const validBranchCount = await this.branchModel.countDocuments({
+        _id: { $in: branchIds },
+        churchId: authUser.churchId,
+      });
+      if (validBranchCount !== branchIds.length) {
+        throw new BadRequestException(
+          'One or more branches were not found in this church',
+        );
+      }
+    }
+
+    await this.adminModel.updateOne(
+      { _id: adminId },
+      { accessScope: AdminAccessScope.BRANCH },
+    );
+
+    await this.adminBranchAccessModel.deleteMany({ adminId });
+    if (branchIds.length) {
+      await this.adminBranchAccessModel.insertMany(
+        branchIds.map((branchId) => ({
+          adminId,
+          branchId,
+          churchId: authUser.churchId,
+        })),
+      );
+    }
+
+    return { accessScope: AdminAccessScope.BRANCH, branchIds };
   }
 
   async assertActiveInChurch(churchId: Types.ObjectId, branchId: string) {

@@ -27,21 +27,25 @@ export class SubscriptionService {
     [PlanType.STARTER]: {
       members: 100,
       users: 3,
+      branches: 2,
       customRoles: false,
     },
     [PlanType.GROWTH]: {
       members: 500,
       users: 10,
+      branches: 5,
       customRoles: true,
     },
     [PlanType.EXPANSION]: {
       members: 1500,
       users: 25,
+      branches: 25,
       customRoles: true,
     },
     [PlanType.ENTERPRISE]: {
       members: -1,
       users: -1,
+      branches: -1,
       customRoles: true,
     },
   };
@@ -132,6 +136,7 @@ export class SubscriptionService {
           status: SubscriptionStatus.TRIAL,
           memberLimit: limits.members,
           userLimit: limits.users,
+          branchLimit: limits.branches,
           customRolesEnabled: limits.customRoles,
           endDate: trialEndDate,
           gracePeriodEndDate: trialEndDate,
@@ -196,6 +201,7 @@ export class SubscriptionService {
         status: SubscriptionStatus.ACTIVE,
         memberLimit: limits.members,
         userLimit: limits.users,
+        branchLimit: limits.branches,
         customRolesEnabled: limits.customRoles,
         startDate,
         endDate,
@@ -280,6 +286,22 @@ export class SubscriptionService {
       return {
         allowed: false,
         message: `You're using ${currentUserCount} of ${sub.userLimit} user seats. Remove a user, cancel a pending invite, or upgrade to add more.`,
+      };
+    }
+
+    return { allowed: true };
+  }
+
+  async checkBranchLimit(churchId: Types.ObjectId, currentBranchCount: number) {
+    const sub = await this.getSubscription(churchId);
+    if (sub.branchLimit === -1) {
+      return { allowed: true };
+    }
+
+    if (currentBranchCount >= sub.branchLimit) {
+      return {
+        allowed: false,
+        message: `You're using ${currentBranchCount} of ${sub.branchLimit} branches. Deactivate a branch or upgrade to add more.`,
       };
     }
 
@@ -715,6 +737,10 @@ export class SubscriptionService {
 
   async getPlanUserLimit(plan: PlanType): Promise<number> {
     return this.planLimits[plan].users || 0;
+  }
+
+  async getPlanBranchLimit(plan: PlanType): Promise<number> {
+    return this.planLimits[plan].branches ?? 0;
   }
 
   async updateGracePeriod(churchId: Types.ObjectId, gracePeriodEndDate: Date) {

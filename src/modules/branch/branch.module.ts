@@ -7,6 +7,7 @@ import {
   AdminBranchAccessSchema,
 } from '../../schemas/admin-branch-access.schema';
 import { Branch, BranchSchema } from '../../schemas/branch.schema';
+import { SubscriptionModule } from '../subscription/subscription.module';
 import { BranchController } from './branch.controller';
 import { BranchService } from './branch.service';
 import { TenantContextService } from './tenant-context.service';
@@ -18,6 +19,7 @@ import { TenantContextService } from './tenant-context.service';
       { name: AdminBranchAccess.name, schema: AdminBranchAccessSchema },
       { name: Admin.name, schema: AdminSchema },
     ]),
+    SubscriptionModule,
   ],
   controllers: [BranchController],
   providers: [BranchService, TenantContextService],
