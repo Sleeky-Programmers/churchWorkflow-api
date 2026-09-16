@@ -279,7 +279,7 @@ export class SubscriptionService {
     if (currentUserCount >= sub.userLimit) {
       return {
         allowed: false,
-        message: `You've reached your ${sub.userLimit} user limit. Upgrade to add more users.`,
+        message: `You're using ${currentUserCount} of ${sub.userLimit} user seats. Remove a user, cancel a pending invite, or upgrade to add more.`,
       };
     }
 

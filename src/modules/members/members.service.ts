@@ -38,6 +38,8 @@ import {
   NotificationType,
   PlanType,
 } from '../../common/utils/enums.utils';
+import { TenantContext } from '../../common/interfaces/tenant-context.interface';
+import { buildTenantFilter } from '../../common/utils/tenant-filter.util';
 import { Admin } from '../../schemas/admin.schema';
 import { Member } from '../../schemas/member.schema';
 import { ActivityLogService } from '../activity-log/activity-log.service';
@@ -100,16 +102,25 @@ export class MembersService {
   }
 
   async getMemberAttendanceStats(
+    tenant: TenantContext,
     id: string,
     dto: MemberAttendanceStatsFilterDto,
   ) {
+    await this.assertMemberInTenant(tenant, id);
+
     return await this.attendanceService.getMemberAttendanceStatsFilter(
       id,
       dto.days,
     );
   }
 
-  async getMemberAttendance(id: string, dto: MemberAttendanceFilterDto) {
+  async getMemberAttendance(
+    tenant: TenantContext,
+    id: string,
+    dto: MemberAttendanceFilterDto,
+  ) {
+    await this.assertMemberInTenant(tenant, id);
+
     const { page, limit, serviceType, serviceId } = dto;
     const skip = (page! - 1) * limit!;
 
@@ -146,7 +157,11 @@ export class MembersService {
     };
   }
 
-  async createMembersByCsv(authUser: Admin, fileBuffer: Buffer) {
+  async createMembersByCsv(
+    authUser: Admin,
+    tenant: TenantContext,
+    fileBuffer: Buffer,
+  ) {
     const members: Partial<Member>[] = [];
     const errors: { row: number; column?: string; reason: string }[] = [];
     const existingEmailSet = new Set<string>();
@@ -159,7 +174,7 @@ export class MembersService {
     let rowIndex = 1;
 
     const existingMembers = await this.memberModel
-      .find({ churchId: authUser.churchId })
+      .find(buildTenantFilter(tenant))
       .select('email fullName phoneNumber birthday')
       .lean();
 
@@ -368,7 +383,8 @@ export class MembersService {
           }
 
           members.push({
-            churchId: authUser.churchId,
+            churchId: tenant.churchId,
+            branchId: tenant.branchId,
             ...dtoInstance,
           });
 
@@ -433,20 +449,24 @@ export class MembersService {
     };
   }
 
-  async addMember(authUser: Admin, createMemberDto: CreateMemberDto) {
+  async addMember(
+    authUser: Admin,
+    tenant: TenantContext,
+    createMemberDto: CreateMemberDto,
+  ) {
     const payload = {
       ...createMemberDto,
       membershipStatus:
         createMemberDto.membershipStatus || MembershipStatus.MEMBER,
     };
 
-    // Ensure email or phone is unique within the church
+    // Ensure email or phone is unique within the branch
     const email = payload.email?.toLowerCase()?.trim();
     const phone = payload.phoneNumber?.trim();
 
     if (email || phone) {
       const conflict = await this.memberModel.findOne({
-        churchId: authUser.churchId,
+        ...buildTenantFilter(tenant),
         $or: [
           ...(email ? [{ email }] : []),
           ...(phone ? [{ phoneNumber: phone }] : []),
@@ -494,7 +514,8 @@ export class MembersService {
     }
 
     const createdMember = await this.memberModel.create({
-      churchId: authUser.churchId,
+      churchId: tenant.churchId,
+      branchId: tenant.branchId,
       ...payload,
     });
 
@@ -513,16 +534,16 @@ export class MembersService {
     return createdMember;
   }
 
-  async getMemberStats(authUser: Admin) {
-    const churchId = authUser.churchId;
+  async getMemberStats(tenant: TenantContext) {
+    const tenantFilter = buildTenantFilter(tenant);
 
-    const totalMembers = await this.memberModel.countDocuments({ churchId });
+    const totalMembers = await this.memberModel.countDocuments(tenantFilter);
 
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
     const previousTotal = await this.memberModel.countDocuments({
-      churchId,
+      ...tenantFilter,
       createdAt: { $lt: thirtyDaysAgo },
     });
 
@@ -545,18 +566,12 @@ export class MembersService {
     };
   }
 
-  async getAllMembers(authUser: Admin, dto: MembersFilterDto) {
+  async getAllMembers(tenant: TenantContext, dto: MembersFilterDto) {
     const { page, limit, search, filter } = dto;
 
     const skip = (page - 1) * limit;
 
-    if (!authUser.churchId) {
-      throw new BadRequestException('Church ID is required');
-    }
-
-    const query: any = {
-      churchId: new Types.ObjectId(authUser.churchId),
-    };
+    const query: any = buildTenantFilter(tenant);
 
     if (search) {
       query.$or = [
@@ -631,32 +646,45 @@ export class MembersService {
     };
   }
 
-  async getAllMembersNoPagination(authUser: Admin) {
-    return this.memberModel.find({ churchId: authUser.churchId });
+  async getAllMembersNoPagination(tenant: TenantContext) {
+    return this.memberModel.find(buildTenantFilter(tenant));
   }
 
-  async findAll(authUser: Admin) {
-    return await this.memberModel.find({ churchId: authUser.churchId });
+  async findAll(tenant: TenantContext) {
+    return await this.memberModel.find(buildTenantFilter(tenant));
   }
 
-  async findByIdInChurch(memberId: string, churchId: Types.ObjectId) {
+  async findByIdInChurch(memberId: string, tenant: TenantContext) {
     return await this.memberModel
       .findOne({
         _id: memberId,
-        churchId,
+        ...buildTenantFilter(tenant),
       })
       .select('_id fullName')
       .lean();
   }
 
-  async countMembersInChurch(memberIds: string[], churchId: Types.ObjectId) {
+  async countMembersInChurch(memberIds: string[], tenant: TenantContext) {
     return await this.memberModel.countDocuments({
       _id: { $in: memberIds.map((id) => new Types.ObjectId(id)) },
-      churchId,
+      ...buildTenantFilter(tenant),
     });
   }
 
+  private async assertMemberInTenant(tenant: TenantContext, memberId: string) {
+    const member = await this.memberModel
+      .findOne({ _id: memberId, ...buildTenantFilter(tenant) })
+      .lean();
+
+    if (!member) {
+      throw new NotFoundException('Member not found');
+    }
+
+    return member;
+  }
+
   async getMemberById(
+    tenant: TenantContext,
     id: string,
     dto?: MemberAttendanceFilterDto,
   ): Promise<any> {
@@ -664,14 +692,10 @@ export class MembersService {
     const limit = dto?.limit || 10;
 
     const [member, attendanceStats, attendance] = await Promise.all([
-      this.memberModel.findById(id).lean(),
+      this.assertMemberInTenant(tenant, id),
       this.attendanceService.getMemberAttendanceStatsFilter(id),
-      this.getMemberAttendance(id, { ...dto, page, limit }),
+      this.getMemberAttendance(tenant, id, { ...dto, page, limit }),
     ]);
-
-    if (!member) {
-      return null;
-    }
 
     return {
       ...member,
@@ -746,11 +770,12 @@ export class MembersService {
     return { topChurchByMembers };
   }
 
-  async updateMember(id: string, updateMemberDto: UpdateMemberDto) {
-    const member = await this.memberModel.findById(id).lean();
-    if (!member) {
-      return null;
-    }
+  async updateMember(
+    tenant: TenantContext,
+    id: string,
+    updateMemberDto: UpdateMemberDto,
+  ) {
+    const member = await this.assertMemberInTenant(tenant, id);
 
     const email = updateMemberDto.email?.toLowerCase()?.trim();
     const phone = updateMemberDto.phoneNumber?.trim();
@@ -758,6 +783,7 @@ export class MembersService {
     if (email || phone) {
       const conflict = await this.memberModel.findOne({
         churchId: member.churchId,
+        branchId: member.branchId,
         _id: { $ne: new Types.ObjectId(id) },
         $or: [
           ...(email ? [{ email }] : []),
@@ -790,13 +816,24 @@ export class MembersService {
       }
     }
 
-    return await this.memberModel.findByIdAndUpdate(id, updateMemberDto, {
-      new: true,
-    });
+    return await this.memberModel.findOneAndUpdate(
+      { _id: id, ...buildTenantFilter(tenant) },
+      updateMemberDto,
+      { new: true },
+    );
   }
 
-  async deleteMember(id: string) {
-    return await this.memberModel.findByIdAndDelete(id);
+  async deleteMember(tenant: TenantContext, id: string) {
+    const deleted = await this.memberModel.findOneAndDelete({
+      _id: id,
+      ...buildTenantFilter(tenant),
+    });
+
+    if (!deleted) {
+      throw new NotFoundException('Member not found');
+    }
+
+    return deleted;
   }
 
   async getAllMembersForManagement(

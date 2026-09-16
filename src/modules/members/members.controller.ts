@@ -16,9 +16,11 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 
 import { AuthUser } from '../../common/decorators/auth-user.decorator';
+import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { RequirePermissions } from '../../common/decorators/permissions.decorator';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { MembersFilterDto } from '../../common/helpers/pagination.helper';
+import { TenantContext } from '../../common/interfaces/tenant-context.interface';
 import { AccessLevel, ModuleSections } from '../../common/utils/enums.utils';
 import { Admin } from '../../schemas/admin.schema';
 import { JwtAuthGuard } from '../auth/guard/jwt-auth.guard';
@@ -43,12 +45,20 @@ export class MembersController {
     level: AccessLevel.MANAGE,
   })
   @UseInterceptors(FileInterceptor('file'))
-  createMembersByCsv(@AuthUser() authUser: Admin, @UploadedFile() file: any) {
+  createMembersByCsv(
+    @AuthUser() authUser: Admin,
+    @CurrentTenant() tenant: TenantContext,
+    @UploadedFile() file: any,
+  ) {
     if (!file) {
       throw new BadRequestException('CSV file is required');
     }
 
-    return this.membersService.createMembersByCsv(authUser, file.buffer);
+    return this.membersService.createMembersByCsv(
+      authUser,
+      tenant,
+      file.buffer,
+    );
   }
 
   @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -59,9 +69,10 @@ export class MembersController {
   })
   addMember(
     @AuthUser() authUser: Admin,
+    @CurrentTenant() tenant: TenantContext,
     @Body() createMemberDto: CreateMemberDto,
   ) {
-    return this.membersService.addMember(authUser, createMemberDto);
+    return this.membersService.addMember(authUser, tenant, createMemberDto);
   }
 
   @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -70,8 +81,8 @@ export class MembersController {
     section: ModuleSections.MEMBERS,
     level: AccessLevel.VIEW,
   })
-  getMemberStats(@AuthUser() authUser: Admin) {
-    return this.membersService.getMemberStats(authUser);
+  getMemberStats(@CurrentTenant() tenant: TenantContext) {
+    return this.membersService.getMemberStats(tenant);
   }
 
   @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -81,10 +92,10 @@ export class MembersController {
     level: AccessLevel.VIEW,
   })
   getAllMembers(
-    @AuthUser() authUser: Admin,
+    @CurrentTenant() tenant: TenantContext,
     @Query() paginationBaseDto: MembersFilterDto,
   ) {
-    return this.membersService.getAllMembers(authUser, paginationBaseDto);
+    return this.membersService.getAllMembers(tenant, paginationBaseDto);
   }
 
   @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -93,8 +104,8 @@ export class MembersController {
     section: ModuleSections.MEMBERS,
     level: AccessLevel.VIEW,
   })
-  getAllMembersNoPagination(@AuthUser() authUser: Admin) {
-    return this.membersService.getAllMembersNoPagination(authUser);
+  getAllMembersNoPagination(@CurrentTenant() tenant: TenantContext) {
+    return this.membersService.getAllMembersNoPagination(tenant);
   }
 
   @UseGuards(ProductAdminJwtAuthGuard)
@@ -167,10 +178,11 @@ export class MembersController {
     level: AccessLevel.VIEW,
   })
   getMemberById(
+    @CurrentTenant() tenant: TenantContext,
     @Param('id') id: string,
     @Query() filterDto: MemberAttendanceFilterDto,
   ): Promise<any> {
-    return this.membersService.getMemberById(id, filterDto);
+    return this.membersService.getMemberById(tenant, id, filterDto);
   }
 
   @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -180,10 +192,11 @@ export class MembersController {
     level: AccessLevel.MANAGE,
   })
   updateMember(
+    @CurrentTenant() tenant: TenantContext,
     @Param('id') id: string,
     @Body() updateMemberDto: UpdateMemberDto,
   ) {
-    return this.membersService.updateMember(id, updateMemberDto);
+    return this.membersService.updateMember(tenant, id, updateMemberDto);
   }
 
   @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -193,10 +206,11 @@ export class MembersController {
     level: AccessLevel.VIEW,
   })
   getMemberAttendance(
+    @CurrentTenant() tenant: TenantContext,
     @Param('id') id: string,
     @Query() filterDto: MemberAttendanceFilterDto,
   ) {
-    return this.membersService.getMemberAttendance(id, filterDto);
+    return this.membersService.getMemberAttendance(tenant, id, filterDto);
   }
 
   @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -206,10 +220,11 @@ export class MembersController {
     level: AccessLevel.VIEW,
   })
   getMemberAttendanceStats(
+    @CurrentTenant() tenant: TenantContext,
     @Param('id') id: string,
     @Query() filterDto: MemberAttendanceStatsFilterDto,
   ) {
-    return this.membersService.getMemberAttendanceStats(id, filterDto);
+    return this.membersService.getMemberAttendanceStats(tenant, id, filterDto);
   }
 
   @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -218,7 +233,10 @@ export class MembersController {
     section: ModuleSections.MEMBERS,
     level: AccessLevel.MANAGE,
   })
-  deleteMember(@Param('id') id: string) {
-    return this.membersService.deleteMember(id);
+  deleteMember(
+    @CurrentTenant() tenant: TenantContext,
+    @Param('id') id: string,
+  ) {
+    return this.membersService.deleteMember(tenant, id);
   }
 }

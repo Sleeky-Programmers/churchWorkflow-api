@@ -2,6 +2,8 @@ import { Model, Types } from 'mongoose';
 
 import {
   BadRequestException,
+  ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -9,12 +11,17 @@ import { InjectModel } from '@nestjs/mongoose';
 
 import { paginationMeta } from '../../common/helpers/pagination.helper';
 import {
+  AccessLevel,
   DepartmentMemberAction,
   DepartmentStatus,
   ModuleSections,
+  RoleType,
 } from '../../common/utils/enums.utils';
+import { TenantContext } from '../../common/interfaces/tenant-context.interface';
+import { buildTenantFilter } from '../../common/utils/tenant-filter.util';
 import { Admin } from '../../schemas/admin.schema';
 import { Department } from '../../schemas/department.schema';
+import { Role } from '../../schemas/role.schema';
 import { ActivityLogService } from '../activity-log/activity-log.service';
 import { AdminService } from '../admin/admin.service';
 import { MembersService } from '../members/members.service';
@@ -33,19 +40,101 @@ export class DepartmentService {
     private activityLogService: ActivityLogService,
   ) {}
 
-  async create(authUser: Admin, dto: CreateDepartmentDto) {
+  // FULL_ACCESS to DEPARTMENTS (e.g. Super Admin, or a custom role granted
+  // It explicitly) can see/manage every department in the church. Anything
+  // Less (the built-in "Department Head" role gets MANAGE) is scoped to
+  // Departments the admin actually heads - see assertCanAccessDepartment
+  // And the hod/assistantHod filter in findAll.
+  private hasFullDepartmentsAccess(authUser: Admin): boolean {
+    const role = authUser.churchRole as unknown as Role;
+    if (!role) {
+      return false;
+    }
+    if (role.type === RoleType.SYSTEM && role.roleName === 'Super Admin') {
+      return true;
+    }
+    const perm = role.permissions?.find(
+      (p) => p.moduleSection === ModuleSections.DEPARTMENTS,
+    );
+    return perm?.accessLevel === AccessLevel.FULL_ACCESS;
+  }
+
+  private isDepartmentHead(
+    authUser: Admin,
+    department: { hod?: any; assistantHod?: any },
+  ): boolean {
+    const userId = authUser._id.toString();
+    const hodId =
+      department.hod?._id?.toString?.() || department.hod?.toString?.();
+    const assistantId =
+      department.assistantHod?._id?.toString?.() ||
+      department.assistantHod?.toString?.();
+    return hodId === userId || assistantId === userId;
+  }
+
+  private assertCanAccessDepartment(
+    authUser: Admin,
+    department: { hod?: any; assistantHod?: any },
+  ) {
+    if (this.hasFullDepartmentsAccess(authUser)) {
+      return;
+    }
+    if (!this.isDepartmentHead(authUser, department)) {
+      throw new ForbiddenException('You can only manage departments you head');
+    }
+  }
+
+  // Checked church-wide, not branch-scoped - the ticket asks for uniqueness
+  // "within a church", and a department name shouldn't collide across
+  // Branches of the same church either.
+  private async assertNameNotTaken(
+    tenant: TenantContext,
+    name: string,
+    excludeId?: string,
+  ) {
+    const escaped = name.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const existing = await this.departmentModel.findOne({
+      churchId: tenant.churchId,
+      name: { $regex: `^${escaped}$`, $options: 'i' },
+      ...(excludeId && { _id: { $ne: excludeId } }),
+    });
+    if (existing) {
+      throw new ConflictException('A department with this name already exists');
+    }
+  }
+
+  async create(
+    authUser: Admin,
+    tenant: TenantContext,
+    dto: CreateDepartmentDto,
+  ) {
+    await this.assertNameNotTaken(tenant, dto.name);
+
     if (dto.hod) {
       await this.assertHodValid(authUser.churchId.toString(), dto.hod);
     }
+    if (dto.assistantHod) {
+      await this.assertHodValid(authUser.churchId.toString(), dto.assistantHod);
+    }
 
     const memberIds = this.toUniqueIds(dto.memberIds || []);
-    await this.assertMembersInChurch(authUser, memberIds);
+    await this.assertMembersInChurch(tenant, memberIds);
 
     const created = await this.departmentModel.create({
-      churchId: authUser.churchId,
+      churchId: tenant.churchId,
+      branchId: tenant.branchId,
       name: dto.name.trim(),
       description: dto.description?.trim() || '',
       hod: dto.hod ? new Types.ObjectId(dto.hod) : null,
+      pendingHodEmail: dto.hod
+        ? null
+        : dto.pendingHodEmail?.toLowerCase().trim() || null,
+      assistantHod: dto.assistantHod
+        ? new Types.ObjectId(dto.assistantHod)
+        : null,
+      pendingAssistantHodEmail: dto.assistantHod
+        ? null
+        : dto.pendingAssistantHodEmail?.toLowerCase().trim() || null,
       members: memberIds.map((id) => new Types.ObjectId(id)),
       status: DepartmentStatus.ACTIVE,
     });
@@ -56,26 +145,42 @@ export class DepartmentService {
       details: `Created department: ${created.name}`,
     });
 
-    return this.findById(authUser, created._id.toString());
+    return this.findById(tenant, created._id.toString(), authUser);
   }
 
-  async findAll(authUser: Admin, dto: DepartmentFilterDto) {
+  async findAll(
+    authUser: Admin,
+    tenant: TenantContext,
+    dto: DepartmentFilterDto,
+  ) {
     const { page = 1, limit = 20, search, name, hod, status } = dto;
     const skip = (page - 1) * limit;
 
-    const matchStage: any = { churchId: authUser.churchId };
+    const matchStage: any = buildTenantFilter(tenant);
+
+    if (!this.hasFullDepartmentsAccess(authUser)) {
+      matchStage.$and = [
+        ...(matchStage.$and || []),
+        { $or: [{ hod: authUser._id }, { assistantHod: authUser._id }] },
+      ];
+    }
 
     if (search) {
-      matchStage.$or = [
-        { name: { $regex: search, $options: 'i' } },
+      matchStage.$and = [
+        ...(matchStage.$and || []),
         {
-          $expr: {
-            $regexMatch: {
-              input: { $concat: ['$hod.firstName', ' ', '$hod.lastName'] },
-              regex: search,
-              options: 'i',
+          $or: [
+            { name: { $regex: search, $options: 'i' } },
+            {
+              $expr: {
+                $regexMatch: {
+                  input: { $concat: ['$hod.firstName', ' ', '$hod.lastName'] },
+                  regex: search,
+                  options: 'i',
+                },
+              },
             },
-          },
+          ],
         },
       ];
     }
@@ -90,9 +195,13 @@ export class DepartmentService {
       matchStage.status = status;
     }
 
+    const ownershipStage = this.hasFullDepartmentsAccess(authUser)
+      ? {}
+      : { $or: [{ hod: authUser._id }, { assistantHod: authUser._id }] };
+
     const [departments, itemCount] = await Promise.all([
       this.departmentModel.aggregate([
-        { $match: { churchId: authUser.churchId } },
+        { $match: { ...buildTenantFilter(tenant), ...ownershipStage } },
         {
           $lookup: {
             from: 'admins',
@@ -141,10 +250,11 @@ export class DepartmentService {
     };
   }
 
-  async findById(authUser: Admin, id: string) {
+  async findById(tenant: TenantContext, id: string, authUser: Admin) {
     const department = await this.departmentModel
-      .findOne({ _id: id, churchId: authUser.churchId })
+      .findOne({ _id: id, ...buildTenantFilter(tenant) })
       .populate('hod', 'firstName lastName email')
+      .populate('assistantHod', 'firstName lastName email')
       .populate('members', 'fullName email dateJoined   phoneNumber')
       .lean();
 
@@ -152,16 +262,72 @@ export class DepartmentService {
       throw new NotFoundException('Department not found');
     }
 
+    this.assertCanAccessDepartment(authUser, department);
+
     return this.toDepartmentResponse(department);
   }
 
-  async update(authUser: Admin, id: string, dto: UpdateDepartmentDto) {
+  async update(
+    authUser: Admin,
+    tenant: TenantContext,
+    id: string,
+    dto: UpdateDepartmentDto,
+  ) {
     const existing = await this.departmentModel.findOne({
       _id: id,
-      churchId: authUser.churchId,
+      ...buildTenantFilter(tenant),
     });
     if (!existing) {
       throw new NotFoundException('Department not found');
+    }
+
+    this.assertCanAccessDepartment(authUser, existing);
+
+    if (typeof dto.name === 'string' && dto.name.trim() !== existing.name) {
+      await this.assertNameNotTaken(tenant, dto.name, id);
+    }
+
+    // Reassigning who heads a department is an org-wide administrative
+    // Action, not something a department's own head can do to themselves
+    // Or anyone else. Compared against the CURRENT value, not just
+    // "was the field present" - the edit form always resubmits these.
+    const nextHod = dto.hod !== undefined ? dto.hod || null : undefined;
+    const currentHod = existing.hod?.toString() || null;
+    const hodChanged = nextHod !== undefined && nextHod !== currentHod;
+
+    const nextPendingHod =
+      dto.pendingHodEmail !== undefined
+        ? dto.pendingHodEmail?.toLowerCase().trim() || null
+        : undefined;
+    const pendingHodChanged =
+      nextPendingHod !== undefined &&
+      nextPendingHod !== (existing.pendingHodEmail || null);
+
+    const nextAssistantHod =
+      dto.assistantHod !== undefined ? dto.assistantHod || null : undefined;
+    const currentAssistantHod = existing.assistantHod?.toString() || null;
+    const assistantHodChanged =
+      nextAssistantHod !== undefined &&
+      nextAssistantHod !== currentAssistantHod;
+
+    const nextPendingAssistantHod =
+      dto.pendingAssistantHodEmail !== undefined
+        ? dto.pendingAssistantHodEmail?.toLowerCase().trim() || null
+        : undefined;
+    const pendingAssistantHodChanged =
+      nextPendingAssistantHod !== undefined &&
+      nextPendingAssistantHod !== (existing.pendingAssistantHodEmail || null);
+
+    if (
+      (hodChanged ||
+        pendingHodChanged ||
+        assistantHodChanged ||
+        pendingAssistantHodChanged) &&
+      !this.hasFullDepartmentsAccess(authUser)
+    ) {
+      throw new ForbiddenException(
+        'You do not have permission to change this department’s head',
+      );
     }
 
     const updatePayload: Partial<Department> = {};
@@ -179,10 +345,33 @@ export class DepartmentService {
       } else {
         updatePayload.hod = null;
       }
+      updatePayload.pendingHodEmail = null;
+    } else if (dto.pendingHodEmail !== undefined) {
+      updatePayload.pendingHodEmail = dto.pendingHodEmail
+        ? dto.pendingHodEmail.toLowerCase().trim()
+        : null;
+      updatePayload.hod = null;
+    }
+    if (dto.assistantHod !== undefined) {
+      if (dto.assistantHod) {
+        await this.assertHodValid(
+          authUser.churchId.toString(),
+          dto.assistantHod,
+        );
+        updatePayload.assistantHod = new Types.ObjectId(dto.assistantHod);
+      } else {
+        updatePayload.assistantHod = null;
+      }
+      updatePayload.pendingAssistantHodEmail = null;
+    } else if (dto.pendingAssistantHodEmail !== undefined) {
+      updatePayload.pendingAssistantHodEmail = dto.pendingAssistantHodEmail
+        ? dto.pendingAssistantHodEmail.toLowerCase().trim()
+        : null;
+      updatePayload.assistantHod = null;
     }
 
     await this.departmentModel.updateOne(
-      { _id: id, churchId: authUser.churchId },
+      { _id: id, ...buildTenantFilter(tenant) },
       updatePayload,
     );
 
@@ -192,21 +381,24 @@ export class DepartmentService {
       details: `Updated department: ${existing.name}`,
     });
 
-    return this.findById(authUser, id);
+    return this.findById(tenant, id, authUser);
   }
 
   async updateStatus(
     authUser: Admin,
+    tenant: TenantContext,
     id: string,
     dto: UpdateDepartmentStatusDto,
   ) {
     const existing = await this.departmentModel.findOne({
       _id: id,
-      churchId: authUser.churchId,
+      ...buildTenantFilter(tenant),
     });
     if (!existing) {
       throw new NotFoundException('Department not found');
     }
+
+    this.assertCanAccessDepartment(authUser, existing);
 
     await this.departmentModel.updateOne({ _id: id }, { status: dto.status });
 
@@ -216,24 +408,27 @@ export class DepartmentService {
       details: `Updated department status to ${dto.status} for: ${existing.name}`,
     });
 
-    return this.findById(authUser, id);
+    return this.findById(tenant, id, authUser);
   }
 
   async updateMembers(
     authUser: Admin,
+    tenant: TenantContext,
     id: string,
     dto: UpdateDepartmentMembersDto,
   ) {
     const department = await this.departmentModel.findOne({
       _id: id,
-      churchId: authUser.churchId,
+      ...buildTenantFilter(tenant),
     });
     if (!department) {
       throw new NotFoundException('Department not found');
     }
 
+    this.assertCanAccessDepartment(authUser, department);
+
     const memberIds = this.toUniqueIds(dto.memberIds);
-    await this.assertMembersInChurch(authUser, memberIds);
+    await this.assertMembersInChurch(tenant, memberIds);
 
     let updateQuery = {};
     const memberObjectIds = memberIds.map(
@@ -254,18 +449,25 @@ export class DepartmentService {
       details: `${dto.action === DepartmentMemberAction.ADD ? 'Added' : 'Removed'} ${memberIds.length} members for ${department.name}`,
     });
 
-    return this.findById(authUser, id);
+    return this.findById(tenant, id, authUser);
   }
 
-  async removeMembers(authUser: Admin, id: string, memberIds: string[]) {
+  async removeMembers(
+    authUser: Admin,
+    tenant: TenantContext,
+    id: string,
+    memberIds: string[],
+  ) {
     const department = await this.departmentModel.findOne({
       _id: id,
-      churchId: authUser.churchId,
+      ...buildTenantFilter(tenant),
     });
 
     if (!department) {
       throw new NotFoundException('Department not found');
     }
+
+    this.assertCanAccessDepartment(authUser, department);
 
     const uniqueIds = this.toUniqueIds(memberIds);
 
@@ -284,13 +486,15 @@ export class DepartmentService {
       details: `Removed ${uniqueIds.length} members from ${department.name}`,
     });
 
-    return this.findById(authUser, id);
+    return this.findById(tenant, id, authUser);
   }
 
-  async delete(authUser: Admin, id: string) {
+  async delete(authUser: Admin, tenant: TenantContext, id: string) {
+    // Delete is FULL_ACCESS-only at the route level, so no ownership check
+    // Is needed here (matches SmallTeamsService.delete).
     const deleted = await this.departmentModel.findOneAndDelete({
       _id: id,
-      churchId: authUser.churchId,
+      ...buildTenantFilter(tenant),
     });
     if (!deleted) {
       throw new NotFoundException('Department not found');
@@ -305,9 +509,38 @@ export class DepartmentService {
     return { message: 'Department deleted successfully' };
   }
 
-  async export(authUser: Admin) {
+  /**
+   * Called once an invited person actually becomes an admin. Any department
+   * still waiting on that email as its head or assistant head gets linked
+   * automatically. Mirrors SmallTeamsService.resolvePendingLeader.
+   */
+  async resolvePendingHod(
+    churchId: Types.ObjectId,
+    email: string,
+    adminId: Types.ObjectId,
+  ) {
+    const normalizedEmail = email.toLowerCase().trim();
+    await Promise.all([
+      this.departmentModel.updateMany(
+        { churchId, pendingHodEmail: normalizedEmail },
+        { $set: { hod: adminId, pendingHodEmail: null } },
+      ),
+      this.departmentModel.updateMany(
+        { churchId, pendingAssistantHodEmail: normalizedEmail },
+        { $set: { assistantHod: adminId, pendingAssistantHodEmail: null } },
+      ),
+    ]);
+  }
+
+  async export(authUser: Admin, tenant: TenantContext) {
+    // Scoped the same way as findAll - otherwise a department head blocked
+    // From listing other departments could still pull them all via export.
+    const ownershipFilter = this.hasFullDepartmentsAccess(authUser)
+      ? {}
+      : { $or: [{ hod: authUser._id }, { assistantHod: authUser._id }] };
+
     const departments = await this.departmentModel
-      .find({ churchId: authUser.churchId })
+      .find({ ...buildTenantFilter(tenant), ...ownershipFilter })
       .populate('hod', 'firstName lastName email')
       .populate('members', 'fullName email')
       .lean();
@@ -356,14 +589,17 @@ export class DepartmentService {
     return Array.from(new Set(ids.filter(Boolean)));
   }
 
-  private async assertMembersInChurch(authUser: Admin, memberIds: string[]) {
+  private async assertMembersInChurch(
+    tenant: TenantContext,
+    memberIds: string[],
+  ) {
     if (!memberIds.length) {
       return;
     }
 
     const count = await this.membersService.countMembersInChurch(
       memberIds,
-      authUser.churchId,
+      tenant,
     );
     if (count !== memberIds.length) {
       throw new BadRequestException(
@@ -403,6 +639,17 @@ export class DepartmentService {
             email: department.hod.email || '',
           }
         : null,
+      pendingHodEmail: department.pendingHodEmail || null,
+      assistantHod: department.assistantHod
+        ? {
+            id:
+              department.assistantHod._id?.toString?.() ||
+              department.assistantHod.toString(),
+            name: `${department.assistantHod.firstName || ''} ${department.assistantHod.lastName || ''}`.trim(),
+            email: department.assistantHod.email || '',
+          }
+        : null,
+      pendingAssistantHodEmail: department.pendingAssistantHodEmail || null,
       members: memberList,
       membersCount: members.length,
       createdAt: department.createdAt,

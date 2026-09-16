@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -10,10 +11,18 @@ import {
   paginationMeta,
 } from '../../common/helpers/pagination.helper';
 import { Admin } from '../../schemas/admin.schema';
+import { Role } from '../../schemas/role.schema';
 import { CreateSmallTeamDto } from './dto/create-small-team.dto';
 import { UpdateSmallTeamDto } from './dto/update-small-team.dto';
 import { UpdateSmallTeamMembersDto } from './dto/update-small-team-members.dto';
-import { SmallTeamStatus } from '../../common/utils/enums.utils';
+import {
+  AccessLevel,
+  ModuleSections,
+  RoleType,
+  SmallTeamStatus,
+} from '../../common/utils/enums.utils';
+import { TenantContext } from '../../common/interfaces/tenant-context.interface';
+import { buildTenantFilter } from '../../common/utils/tenant-filter.util';
 import { MarkSmallTeamAttendanceDto } from './dto/mark-small-team-attendance.dto';
 import { SmallTeamReportQueryDto } from './dto/small-team-report-query.dto';
 import { SmallTeam } from '../../schemas/small-team.schema';
@@ -32,30 +41,84 @@ export class SmallTeamsService {
     private churchServicesService: ChurchServicesService,
   ) {}
 
-  async create(authUser: Admin, dto: CreateSmallTeamDto) {
+  // FULL_ACCESS to SMALL_TEAMS (e.g. Super Admin, or a custom role granted
+  // It explicitly) can see/manage every team in the church. Anything less
+  // (VIEW or MANAGE, which is what the built-in "Small Teams" leader role
+  // Gets) is scoped to teams the admin actually leads - see
+  // AssertCanAccessTeam and the leaderId filter in findAll.
+  private hasFullSmallTeamsAccess(authUser: Admin): boolean {
+    const role = authUser.churchRole as unknown as Role;
+    if (!role) {
+      return false;
+    }
+    if (role.type === RoleType.SYSTEM && role.roleName === 'Super Admin') {
+      return true;
+    }
+    const perm = role.permissions?.find(
+      (p) => p.moduleSection === ModuleSections.SMALL_TEAMS,
+    );
+    return perm?.accessLevel === AccessLevel.FULL_ACCESS;
+  }
+
+  private isTeamLeader(authUser: Admin, team: { leaderId?: any }): boolean {
+    const leaderId =
+      team.leaderId?._id?.toString?.() || team.leaderId?.toString?.();
+    return !!leaderId && leaderId === authUser._id.toString();
+  }
+
+  private assertCanAccessTeam(authUser: Admin, team: { leaderId?: any }) {
+    if (this.hasFullSmallTeamsAccess(authUser)) {
+      return;
+    }
+    if (!this.isTeamLeader(authUser, team)) {
+      throw new ForbiddenException('You can only manage teams you lead');
+    }
+  }
+
+  async create(
+    authUser: Admin,
+    tenant: TenantContext,
+    dto: CreateSmallTeamDto,
+  ) {
     const memberIds = this.toUniqueIds(dto.memberIds || []);
-    await this.assertMembersInChurch(authUser, memberIds);
-    await this.assertLeaderInChurch(authUser, dto.leaderId);
+    await this.assertMembersInChurch(tenant, memberIds);
+
+    // LeaderId (an existing admin) and pendingLeaderEmail (an invite not yet
+    // Accepted) are mutually exclusive - an explicit leaderId wins.
+    const leaderId = dto.leaderId || null;
+    if (leaderId) {
+      await this.assertLeaderInChurch(authUser, leaderId);
+    }
 
     const created = await this.smallTeamModel.create({
-      churchId: authUser.churchId,
+      churchId: tenant.churchId,
+      branchId: tenant.branchId,
       name: dto.name.trim(),
-      leaderId: dto.leaderId || null,
+      leaderId,
+      pendingLeaderEmail: leaderId
+        ? null
+        : dto.pendingLeaderEmail?.toLowerCase().trim() || null,
       memberIds,
       status: dto.status || SmallTeamStatus.ACTIVE,
       description: dto.description || '',
     });
 
-    return this.findById(authUser, created._id.toString());
+    return this.findById(authUser, tenant, created._id.toString());
   }
 
-  async findAll(authUser: Admin, dto: PaginationBaseDto) {
+  async findAll(
+    authUser: Admin,
+    tenant: TenantContext,
+    dto: PaginationBaseDto,
+  ) {
     const { page = 1, limit = 20, search } = dto;
     const skip = (page - 1) * limit;
 
-    const query: FilterQuery<SmallTeam> = {
-      churchId: authUser.churchId,
-    };
+    const query: FilterQuery<SmallTeam> = buildTenantFilter(tenant);
+
+    if (!this.hasFullSmallTeamsAccess(authUser)) {
+      query.leaderId = authUser._id;
+    }
 
     if (search) {
       query.name = { $regex: search, $options: 'i' };
@@ -79,9 +142,9 @@ export class SmallTeamsService {
     };
   }
 
-  async findById(authUser: Admin, id: string) {
+  async findById(authUser: Admin, tenant: TenantContext, id: string) {
     const team = await this.smallTeamModel
-      .findOne({ _id: id, churchId: authUser.churchId })
+      .findOne({ _id: id, ...buildTenantFilter(tenant) })
       .populate('leaderId', 'firstName lastName')
       .populate('memberIds', 'fullName email')
       .lean();
@@ -90,16 +153,55 @@ export class SmallTeamsService {
       throw new NotFoundException('Small team not found');
     }
 
+    this.assertCanAccessTeam(authUser, team);
+
     return this.toTeamResponse(team);
   }
 
-  async update(authUser: Admin, id: string, dto: UpdateSmallTeamDto) {
+  async update(
+    authUser: Admin,
+    tenant: TenantContext,
+    id: string,
+    dto: UpdateSmallTeamDto,
+  ) {
     const existing = await this.smallTeamModel.findOne({
       _id: id,
-      churchId: authUser.churchId,
+      ...buildTenantFilter(tenant),
     });
     if (!existing) {
       throw new NotFoundException('Small team not found');
+    }
+
+    this.assertCanAccessTeam(authUser, existing);
+
+    // Changing who leads a team is an org-wide administrative action, not
+    // Something a team's own leader can do to themselves or anyone else.
+    // Compared against the CURRENT value rather than just "is the key
+    // Present in the request body" - the edit form always resubmits both
+    // Fields, so a team leader saving an unrelated change (name, members,
+    // ...) must not get blocked just because leaderId/pendingLeaderEmail
+    // Came back unchanged in the payload.
+    const nextLeaderId =
+      dto.leaderId !== undefined ? dto.leaderId || null : undefined;
+    const currentLeaderId = existing.leaderId?.toString() || null;
+    const leaderIdChanged =
+      nextLeaderId !== undefined && nextLeaderId !== currentLeaderId;
+
+    const nextPendingLeaderEmail =
+      dto.pendingLeaderEmail !== undefined
+        ? dto.pendingLeaderEmail?.toLowerCase().trim() || null
+        : undefined;
+    const pendingLeaderEmailChanged =
+      nextPendingLeaderEmail !== undefined &&
+      nextPendingLeaderEmail !== (existing.pendingLeaderEmail || null);
+
+    if (
+      (leaderIdChanged || pendingLeaderEmailChanged) &&
+      !this.hasFullSmallTeamsAccess(authUser)
+    ) {
+      throw new ForbiddenException(
+        'You do not have permission to change this team’s leader',
+      );
     }
 
     const updatePayload: Partial<SmallTeam> = {};
@@ -121,50 +223,61 @@ export class SmallTeamsService {
       updatePayload.leaderId = dto.leaderId
         ? new Types.ObjectId(dto.leaderId)
         : null;
+      // An explicit leaderId (including clearing it) supersedes any
+      // Still-pending "invite new leader" that was set earlier.
+      updatePayload.pendingLeaderEmail = null;
+    } else if (dto.pendingLeaderEmail !== undefined) {
+      updatePayload.pendingLeaderEmail = dto.pendingLeaderEmail
+        ? dto.pendingLeaderEmail.toLowerCase().trim()
+        : null;
+      updatePayload.leaderId = null;
     }
 
     if (dto.memberIds) {
       const memberIds = this.toUniqueIds(dto.memberIds);
-      await this.assertMembersInChurch(authUser, memberIds);
+      await this.assertMembersInChurch(tenant, memberIds);
       updatePayload.memberIds = memberIds.map(
         (memberId) => new Types.ObjectId(memberId),
       );
     }
 
     await this.smallTeamModel.updateOne(
-      { _id: id, churchId: authUser.churchId },
+      { _id: id, ...buildTenantFilter(tenant) },
       updatePayload,
     );
 
-    return this.findById(authUser, id);
+    return this.findById(authUser, tenant, id);
   }
 
   async updateMembers(
     authUser: Admin,
+    tenant: TenantContext,
     id: string,
     dto: UpdateSmallTeamMembersDto,
   ) {
     const team = await this.smallTeamModel.findOne({
       _id: id,
-      churchId: authUser.churchId,
+      ...buildTenantFilter(tenant),
     });
     if (!team) {
       throw new NotFoundException('Small team not found');
     }
 
+    this.assertCanAccessTeam(authUser, team);
+
     const memberIds = this.toUniqueIds(dto.memberIds);
-    await this.assertMembersInChurch(authUser, memberIds);
+    await this.assertMembersInChurch(tenant, memberIds);
 
     team.memberIds = memberIds.map((memberId) => new Types.ObjectId(memberId));
     await team.save();
 
-    return this.findById(authUser, id);
+    return this.findById(authUser, tenant, id);
   }
 
-  async delete(authUser: Admin, id: string) {
+  async delete(tenant: TenantContext, id: string) {
     const deleted = await this.smallTeamModel.findOneAndDelete({
       _id: id,
-      churchId: authUser.churchId,
+      ...buildTenantFilter(tenant),
     });
     if (!deleted) {
       throw new NotFoundException('Small team not found');
@@ -175,21 +288,24 @@ export class SmallTeamsService {
 
   async markAttendance(
     authUser: Admin,
+    tenant: TenantContext,
     id: string,
     serviceId: string,
     dto: MarkSmallTeamAttendanceDto,
   ) {
     const team = await this.smallTeamModel.findOne({
       _id: id,
-      churchId: authUser.churchId,
+      ...buildTenantFilter(tenant),
     });
     if (!team) {
       throw new NotFoundException('Small team not found');
     }
 
+    this.assertCanAccessTeam(authUser, team);
+
     const service = await this.churchServicesService.findOneInChurch(
       serviceId,
-      authUser.churchId,
+      tenant,
     );
 
     if (!service) {
@@ -224,14 +340,21 @@ export class SmallTeamsService {
     };
   }
 
-  async getReport(authUser: Admin, id: string, query: SmallTeamReportQueryDto) {
+  async getReport(
+    authUser: Admin,
+    tenant: TenantContext,
+    id: string,
+    query: SmallTeamReportQueryDto,
+  ) {
     const team = await this.smallTeamModel
-      .findOne({ _id: id, churchId: authUser.churchId })
+      .findOne({ _id: id, ...buildTenantFilter(tenant) })
       .populate('memberIds', 'fullName email')
       .lean();
     if (!team) {
       throw new NotFoundException('Small team not found');
     }
+
+    this.assertCanAccessTeam(authUser, team);
 
     const memberIds = team.memberIds.map((member: any) =>
       member?._id ? member._id.toString() : member.toString(),
@@ -298,18 +421,36 @@ export class SmallTeamsService {
     };
   }
 
+  /**
+   * Called once an invited person actually becomes an admin. Any team still
+   * waiting on that email as its leader gets linked automatically.
+   */
+  async resolvePendingLeader(
+    churchId: Types.ObjectId,
+    email: string,
+    adminId: Types.ObjectId,
+  ) {
+    await this.smallTeamModel.updateMany(
+      { churchId, pendingLeaderEmail: email.toLowerCase().trim() },
+      { $set: { leaderId: adminId, pendingLeaderEmail: null } },
+    );
+  }
+
   private toUniqueIds(ids: string[]) {
     return Array.from(new Set(ids.filter(Boolean)));
   }
 
-  private async assertMembersInChurch(authUser: Admin, memberIds: string[]) {
+  private async assertMembersInChurch(
+    tenant: TenantContext,
+    memberIds: string[],
+  ) {
     if (!memberIds.length) {
       return;
     }
 
     const count = await this.membersService.countMembersInChurch(
       memberIds,
-      authUser.churchId,
+      tenant,
     );
 
     if (count !== memberIds.length) {
@@ -356,6 +497,7 @@ export class SmallTeamsService {
               `${team.leaderId.firstName} ${team.leaderId.lastName}` || '',
           }
         : null,
+      pendingLeaderEmail: team.pendingLeaderEmail || null,
       members: memberList,
       membersCount: members.length,
       createdAt: team.createdAt,

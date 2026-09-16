@@ -36,6 +36,10 @@ import { ProductAdminModule } from './modules/product-admin/product-admin.module
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { AdminActivityLogModule } from './modules/admin-activity-log/admin-activity-log.module';
 import { OverviewModule } from './modules/overview/overview.module';
+import { BranchModule } from './modules/branch/branch.module';
+import { GivingRecordModule } from './modules/giving-records/giving-record.module';
+import { ExpenseModule } from './modules/expenses/expense.module';
+import { RequisitionModule } from './modules/requisitions/requisition.module';
 
 @Module({
   imports: [
@@ -96,6 +100,10 @@ import { OverviewModule } from './modules/overview/overview.module';
     AnalyticsModule,
     AdminActivityLogModule,
     OverviewModule,
+    BranchModule,
+    GivingRecordModule,
+    ExpenseModule,
+    RequisitionModule,
   ],
   controllers: [AppController],
   providers: [AppService],

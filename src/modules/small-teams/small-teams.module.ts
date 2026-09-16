@@ -20,5 +20,6 @@ import { ChurchServicesModule } from '../church-services/church-services.module'
   ],
   controllers: [SmallTeamsController],
   providers: [SmallTeamsService],
+  exports: [SmallTeamsService],
 })
 export class SmallTeamsModule {}

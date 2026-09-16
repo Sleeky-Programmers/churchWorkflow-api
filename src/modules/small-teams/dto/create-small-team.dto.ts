@@ -1,5 +1,6 @@
 import {
   IsArray,
+  IsEmail,
   IsEnum,
   IsMongoId,
   IsOptional,
@@ -16,6 +17,12 @@ export class CreateSmallTeamDto {
   @IsOptional()
   @IsMongoId()
   leaderId?: string;
+
+  // Set instead of leaderId when the team is created with "invite new
+  // Leader" - the invited person isn't an admin yet.
+  @IsOptional()
+  @IsEmail()
+  pendingLeaderEmail?: string;
 
   @IsOptional()
   @IsArray()

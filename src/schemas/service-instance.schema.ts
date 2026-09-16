@@ -1,5 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, SchemaTypes, Types } from 'mongoose';
+import { Branch } from './branch.schema';
+import { Church } from './church.schema';
 import { ChurchService } from './church-service.schema';
 
 @Schema({ timestamps: true })
@@ -7,8 +9,11 @@ export class ServiceInstance extends Document {
   @Prop({ type: SchemaTypes.ObjectId, ref: ChurchService.name })
   masterServiceId: Types.ObjectId;
 
-  @Prop({ type: SchemaTypes.ObjectId, ref: ChurchService.name })
+  @Prop({ type: SchemaTypes.ObjectId, ref: Church.name })
   churchId: Types.ObjectId;
+
+  @Prop({ type: SchemaTypes.ObjectId, ref: Branch.name, default: null })
+  branchId: Types.ObjectId | null;
 
   @Prop()
   date: Date;
@@ -45,3 +50,5 @@ export class ServiceInstance extends Document {
 
 export const ServiceInstanceSchema =
   SchemaFactory.createForClass(ServiceInstance);
+
+ServiceInstanceSchema.index({ churchId: 1, branchId: 1 });

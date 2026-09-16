@@ -103,6 +103,12 @@ export enum DepartmentMemberAction {
   REMOVE = 'REMOVE',
 }
 
+export enum RequisitionStatus {
+  PENDING = 'PENDING',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
+}
+
 export enum RoleType {
   SYSTEM = 'SYSTEM',
   CUSTOM = 'CUSTOM',
@@ -128,6 +134,7 @@ export enum ModuleSections {
   PAYMENTS = 'PAYMENTS',
   PAYMENT = 'PAYMENT',
   ADMIN = 'ADMIN',
+  SMALL_TEAMS = 'SMALL_TEAMS',
 }
 
 export enum NotificationType {
@@ -316,4 +323,9 @@ export enum AnalyticsPeriod {
   WEEKLY = 'weekly',
   MONTHLY = 'monthly',
   YEARLY = 'yearly',
+}
+
+export enum AdminAccessScope {
+  BRANCH = 'BRANCH',
+  ORG_WIDE = 'ORG_WIDE',
 }

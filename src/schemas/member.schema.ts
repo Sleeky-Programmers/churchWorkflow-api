@@ -6,8 +6,8 @@ import {
   Gender,
   MaritalStatus,
   MembershipStatus,
-  MemberTitle,
 } from '../common/utils/enums.utils';
+import { Branch } from './branch.schema';
 import { Church } from './church.schema';
 
 @Schema({ timestamps: true })
@@ -15,8 +15,12 @@ export class Member extends Document {
   @Prop({ type: SchemaTypes.ObjectId, ref: Church.name })
   churchId: Types.ObjectId;
 
+  @Prop({ type: SchemaTypes.ObjectId, ref: Branch.name, default: null })
+  branchId: Types.ObjectId | null;
+
+  // Free text (see CreateMemberDto) rather than a fixed enum.
   @Prop({ default: null })
-  title: MemberTitle;
+  title: string | null;
 
   @Prop()
   fullName: string;
@@ -77,3 +81,5 @@ export class Member extends Document {
 }
 
 export const MemberSchema = SchemaFactory.createForClass(Member);
+
+MemberSchema.index({ churchId: 1, branchId: 1 });

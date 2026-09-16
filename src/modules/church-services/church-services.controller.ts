@@ -12,6 +12,8 @@ import {
 import { ChurchServicesService } from './church-services.service';
 import { CreateChurchServiceDto } from './dto/create-church-service.dto';
 import { AuthUser } from '../../common/decorators/auth-user.decorator';
+import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
+import { TenantContext } from '../../common/interfaces/tenant-context.interface';
 import { Admin } from '../../schemas/admin.schema';
 import { JwtAuthGuard } from '../auth/guard/jwt-auth.guard';
 import { PaginationBaseDto } from '../../common/helpers/pagination.helper';
@@ -33,8 +35,13 @@ export class ChurchServicesController {
   createChurchService(
     @Body() createChurchServiceDto: CreateChurchServiceDto,
     @AuthUser() authUser: Admin,
+    @CurrentTenant() tenant: TenantContext,
   ) {
-    return this.churchServicesService.create(authUser, createChurchServiceDto);
+    return this.churchServicesService.create(
+      authUser,
+      tenant,
+      createChurchServiceDto,
+    );
   }
 
   @Get()
@@ -43,10 +50,10 @@ export class ChurchServicesController {
     level: AccessLevel.VIEW,
   })
   getAllChurchServices(
-    @AuthUser() authUser: Admin,
+    @CurrentTenant() tenant: TenantContext,
     @Query() paginationBaseDto: PaginationBaseDto,
   ) {
-    return this.churchServicesService.findAll(authUser, paginationBaseDto);
+    return this.churchServicesService.findAll(tenant, paginationBaseDto);
   }
 
   @Get('by-date')
@@ -54,11 +61,11 @@ export class ChurchServicesController {
     section: ModuleSections.EVENTS,
     level: AccessLevel.VIEW,
   })
-  getServicesByDate(@AuthUser() authUser: Admin, @Query('date') date: string) {
-    return this.churchServicesService.getServicesByDate(
-      new Date(date),
-      authUser.churchId,
-    );
+  getServicesByDate(
+    @CurrentTenant() tenant: TenantContext,
+    @Query('date') date: string,
+  ) {
+    return this.churchServicesService.getServicesByDate(new Date(date), tenant);
   }
 
   @Get('search')
@@ -67,7 +74,7 @@ export class ChurchServicesController {
     level: AccessLevel.VIEW,
   })
   getServicesFiltered(
-    @AuthUser() authUser: Admin,
+    @CurrentTenant() tenant: TenantContext,
     @Query('year') year?: string,
     @Query('month') month?: string,
     @Query('day') day?: string,
@@ -76,7 +83,7 @@ export class ChurchServicesController {
     const serviceMonth = month ? parseInt(month, 10) : undefined;
     const serviceDay = day ? parseInt(day, 10) : undefined;
     return this.churchServicesService.getServicesFiltered(
-      authUser.churchId,
+      tenant,
       serviceYear,
       serviceMonth,
       serviceDay,

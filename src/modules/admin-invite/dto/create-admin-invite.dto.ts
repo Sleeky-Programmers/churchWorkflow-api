@@ -1,8 +1,11 @@
-import { IsEmail, IsOptional } from 'class-validator';
+import { IsEmail, IsOptional, IsString, MaxLength } from 'class-validator';
+import { TITLE_MAX_LENGTH } from '../../../common/utils/titles.constant';
 
 export class CreateAdminInviteDto {
   @IsOptional()
-  title: string;
+  @IsString()
+  @MaxLength(TITLE_MAX_LENGTH)
+  title?: string;
 
   @IsOptional()
   firstName: string;

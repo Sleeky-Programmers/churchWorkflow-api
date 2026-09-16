@@ -12,6 +12,8 @@ import {
 } from '@nestjs/common';
 import { Response } from 'express';
 import { AuthUser } from '../../common/decorators/auth-user.decorator';
+import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
+import { TenantContext } from '../../common/interfaces/tenant-context.interface';
 import { Admin } from '../../schemas/admin.schema';
 import { JwtAuthGuard } from '../auth/guard/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
@@ -32,10 +34,14 @@ export class DepartmentController {
   @Post()
   @RequirePermissions({
     section: ModuleSections.DEPARTMENTS,
-    level: AccessLevel.MANAGE,
+    level: AccessLevel.FULL_ACCESS,
   })
-  create(@AuthUser() authUser: Admin, @Body() dto: CreateDepartmentDto) {
-    return this.departmentService.create(authUser, dto);
+  create(
+    @AuthUser() authUser: Admin,
+    @CurrentTenant() tenant: TenantContext,
+    @Body() dto: CreateDepartmentDto,
+  ) {
+    return this.departmentService.create(authUser, tenant, dto);
   }
 
   @Get('export')
@@ -43,8 +49,12 @@ export class DepartmentController {
     section: ModuleSections.DEPARTMENTS,
     level: AccessLevel.VIEW,
   })
-  async export(@AuthUser() authUser: Admin, @Res() res: Response) {
-    const csvData = await this.departmentService.export(authUser);
+  async export(
+    @AuthUser() authUser: Admin,
+    @CurrentTenant() tenant: TenantContext,
+    @Res() res: Response,
+  ) {
+    const csvData = await this.departmentService.export(authUser, tenant);
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader(
       'Content-Disposition',
@@ -58,8 +68,12 @@ export class DepartmentController {
     section: ModuleSections.DEPARTMENTS,
     level: AccessLevel.VIEW,
   })
-  findAll(@AuthUser() authUser: Admin, @Query() dto: DepartmentFilterDto) {
-    return this.departmentService.findAll(authUser, dto);
+  findAll(
+    @AuthUser() authUser: Admin,
+    @CurrentTenant() tenant: TenantContext,
+    @Query() dto: DepartmentFilterDto,
+  ) {
+    return this.departmentService.findAll(authUser, tenant, dto);
   }
 
   @Get(':id')
@@ -67,8 +81,12 @@ export class DepartmentController {
     section: ModuleSections.DEPARTMENTS,
     level: AccessLevel.VIEW,
   })
-  findById(@AuthUser() authUser: Admin, @Param('id') id: string) {
-    return this.departmentService.findById(authUser, id);
+  findById(
+    @AuthUser() authUser: Admin,
+    @CurrentTenant() tenant: TenantContext,
+    @Param('id') id: string,
+  ) {
+    return this.departmentService.findById(tenant, id, authUser);
   }
 
   @Put(':id')
@@ -78,10 +96,11 @@ export class DepartmentController {
   })
   update(
     @AuthUser() authUser: Admin,
+    @CurrentTenant() tenant: TenantContext,
     @Param('id') id: string,
     @Body() dto: UpdateDepartmentDto,
   ) {
-    return this.departmentService.update(authUser, id, dto);
+    return this.departmentService.update(authUser, tenant, id, dto);
   }
 
   @Put(':id/members')
@@ -91,10 +110,11 @@ export class DepartmentController {
   })
   updateMembers(
     @AuthUser() authUser: Admin,
+    @CurrentTenant() tenant: TenantContext,
     @Param('id') id: string,
     @Body() dto: UpdateDepartmentMembersDto,
   ) {
-    return this.departmentService.updateMembers(authUser, id, dto);
+    return this.departmentService.updateMembers(authUser, tenant, id, dto);
   }
 
   @Put(':id/status')
@@ -104,19 +124,24 @@ export class DepartmentController {
   })
   updateStatus(
     @AuthUser() authUser: Admin,
+    @CurrentTenant() tenant: TenantContext,
     @Param('id') id: string,
     @Body() dto: UpdateDepartmentStatusDto,
   ) {
-    return this.departmentService.updateStatus(authUser, id, dto);
+    return this.departmentService.updateStatus(authUser, tenant, id, dto);
   }
 
   @Delete(':id')
   @RequirePermissions({
     section: ModuleSections.DEPARTMENTS,
-    level: AccessLevel.MANAGE,
+    level: AccessLevel.FULL_ACCESS,
   })
-  delete(@AuthUser() authUser: Admin, @Param('id') id: string) {
-    return this.departmentService.delete(authUser, id);
+  delete(
+    @AuthUser() authUser: Admin,
+    @CurrentTenant() tenant: TenantContext,
+    @Param('id') id: string,
+  ) {
+    return this.departmentService.delete(authUser, tenant, id);
   }
 
   @Put(':id/members/remove')
@@ -126,9 +151,15 @@ export class DepartmentController {
   })
   removeMembers(
     @AuthUser() authUser: Admin,
+    @CurrentTenant() tenant: TenantContext,
     @Param('id') id: string,
     @Body('memberIds') memberIds: string[],
   ) {
-    return this.departmentService.removeMembers(authUser, id, memberIds);
+    return this.departmentService.removeMembers(
+      authUser,
+      tenant,
+      id,
+      memberIds,
+    );
   }
 }
