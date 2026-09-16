@@ -18,10 +18,13 @@ import { Admin } from '../../schemas/admin.schema';
 import { AdminInviteService } from '../admin-invite/admin-invite.service';
 import { AdminService } from '../admin/admin.service';
 import { CreateSuperAdminDto } from '../admin/dto/create-super-admin.dto';
+import { TenantContextService } from '../branch/tenant-context.service';
+import { DepartmentService } from '../department/department.service';
 import { EmailService } from '../email/email.service';
 import { renderEmailLayout } from '../email/templates/email-layout.template';
 import { OtpService } from '../otp/otp.service';
 import { SlackService } from '../slack/slack.service';
+import { SmallTeamsService } from '../small-teams/small-teams.service';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
@@ -33,6 +36,9 @@ export class AuthService {
   constructor(
     private adminService: AdminService,
     private adminInviteService: AdminInviteService,
+    private tenantContextService: TenantContextService,
+    private smallTeamsService: SmallTeamsService,
+    private departmentService: DepartmentService,
     private otpService: OtpService,
     private emailService: EmailService,
     private slackService: SlackService,
@@ -66,24 +72,36 @@ export class AuthService {
     }
   }
 
-  generateTokens(userId: string) {
-    const accessToken = this.jwtService.sign(
-      { sub: userId },
-      {
-        expiresIn: this.configService.getOrThrow('JWT_EXPIRES_IN'),
-        secret: this.configService.getOrThrow('JWT_SECRET'),
-      },
-    );
+  generateTokens(userId: string, activeBranchId?: string | null) {
+    const payload: Record<string, unknown> = { sub: userId };
+    if (activeBranchId) {
+      payload.activeBranchId = activeBranchId;
+    }
 
-    const refreshToken = this.jwtService.sign(
-      { sub: userId },
-      {
-        secret: this.configService.getOrThrow('JWT_REFRESH_SECRET'),
-        expiresIn: this.configService.getOrThrow('JWT_REFRESH_EXPIRES_IN'),
-      },
-    );
+    const accessToken = this.jwtService.sign(payload, {
+      expiresIn: this.configService.getOrThrow('JWT_EXPIRES_IN'),
+      secret: this.configService.getOrThrow('JWT_SECRET'),
+    });
+
+    const refreshToken = this.jwtService.sign(payload, {
+      secret: this.configService.getOrThrow('JWT_REFRESH_SECRET'),
+      expiresIn: this.configService.getOrThrow('JWT_REFRESH_EXPIRES_IN'),
+    });
 
     return { accessToken, refreshToken };
+  }
+
+  async switchBranch(authUser: Admin, branchId: string) {
+    const hasAccess = await this.tenantContextService.hasAccessToBranch(
+      authUser,
+      branchId,
+    );
+
+    if (!hasAccess) {
+      throw new UnauthorizedException('You do not have access to this branch');
+    }
+
+    return this.generateTokens(authUser._id.toString(), branchId);
   }
 
   async validateUser(email: string, password: string) {
@@ -160,6 +178,19 @@ export class AuthService {
         title || null,
       ),
       this.adminInviteService.acceptInvitation(email),
+    ]);
+
+    await Promise.all([
+      this.smallTeamsService.resolvePendingLeader(
+        churchObjectId,
+        email,
+        admin._id,
+      ),
+      this.departmentService.resolvePendingHod(
+        churchObjectId,
+        email,
+        admin._id,
+      ),
     ]);
 
     const tokens = this.generateTokens(admin._id.toString());
@@ -259,6 +290,19 @@ export class AuthService {
       ]);
 
       admin = results[0];
+
+      await Promise.all([
+        this.smallTeamsService.resolvePendingLeader(
+          churchObjectId,
+          email,
+          admin._id,
+        ),
+        this.departmentService.resolvePendingHod(
+          churchObjectId,
+          email,
+          admin._id,
+        ),
+      ]);
     } else {
       admin = await this.adminService.createSuperAdmin({
         firstName,
@@ -309,7 +353,10 @@ export class AuthService {
       throw new UnauthorizedException('User no longer exists');
     }
 
-    const tokens = this.generateTokens(user._id.toString());
+    const tokens = this.generateTokens(
+      user._id.toString(),
+      payload.activeBranchId,
+    );
 
     return tokens;
   }

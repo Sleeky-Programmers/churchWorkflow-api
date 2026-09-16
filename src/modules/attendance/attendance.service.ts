@@ -14,6 +14,7 @@ import {
   Gender,
   ServiceType,
 } from '../../common/utils/enums.utils';
+import { TenantContext } from '../../common/interfaces/tenant-context.interface';
 import { Admin } from '../../schemas/admin.schema';
 import { Attendance } from '../../schemas/attendance.schema';
 import { AdminService } from '../admin/admin.service';
@@ -34,13 +35,14 @@ export class AttendanceService {
 
   private async replaceAttendanceByStatus(
     authUser: Admin,
+    tenant: TenantContext,
     serviceId: string,
     createAttendanceDto: CreateAttendanceDto,
     status: AttendanceStatus,
   ) {
     const service = await this.churchServicesService.findOneInChurch(
       serviceId,
-      authUser.churchId,
+      tenant,
     );
 
     if (!service) {
@@ -48,6 +50,14 @@ export class AttendanceService {
     }
 
     const attendanceDate = this.normalizeDate(createAttendanceDto.date);
+
+    if (
+      !this.churchServicesService.isServiceScheduledOn(service, attendanceDate)
+    ) {
+      throw new BadRequestException(
+        'This service is not scheduled on the selected date',
+      );
+    }
 
     const [year, month, day] = attendanceDate.split('-').map(Number);
     const attendanceDateObj = new Date(year, month - 1, day);
@@ -103,7 +113,7 @@ export class AttendanceService {
     let memberIds = createAttendanceDto.memberIds || [];
 
     if (createAttendanceDto.isAllPresent) {
-      const members = await this.membersService.findAll(authUser);
+      const members = await this.membersService.findAll(tenant);
       memberIds = members.map((member) => member._id.toString());
     }
 
@@ -120,6 +130,8 @@ export class AttendanceService {
     await this.attendanceModel.insertMany(
       memberIds.map((memberId) => ({
         churchServiceId: new Types.ObjectId(serviceId),
+        churchId: tenant.churchId,
+        branchId: tenant.branchId,
         date: attendanceDate,
         memberId: new Types.ObjectId(memberId),
         recordedBy: authUser._id,
@@ -177,11 +189,13 @@ export class AttendanceService {
 
   async markAttendance(
     authUser: Admin,
+    tenant: TenantContext,
     serviceId: string,
     createAttendanceDto: CreateAttendanceDto,
   ) {
     await this.replaceAttendanceByStatus(
       authUser,
+      tenant,
       serviceId,
       createAttendanceDto,
       AttendanceStatus.PRESENT,
@@ -194,11 +208,13 @@ export class AttendanceService {
 
   async markAsAbsent(
     authUser: Admin,
+    tenant: TenantContext,
     serviceId: string,
     createAttendanceDto: CreateAttendanceDto,
   ) {
     await this.replaceAttendanceByStatus(
       authUser,
+      tenant,
       serviceId,
       createAttendanceDto,
       AttendanceStatus.ABSENT,
@@ -209,7 +225,11 @@ export class AttendanceService {
     };
   }
 
-  async getAttendance(authUser: Admin, churchServiceId: string, date: string) {
+  async getAttendance(
+    tenant: TenantContext,
+    churchServiceId: string,
+    date: string,
+  ) {
     const attendance = await this.attendanceModel
       .find({ churchServiceId, date })
       .lean();
@@ -225,7 +245,7 @@ export class AttendanceService {
       .filter((record) => record.status === AttendanceStatus.PRESENT)
       .map((record) => record.memberId.toString());
 
-    const members = await this.membersService.findAll(authUser);
+    const members = await this.membersService.findAll(tenant);
 
     let malePresent = 0;
     let femalePresent = 0;
@@ -261,10 +281,9 @@ export class AttendanceService {
     };
   }
 
-  async getAttendanceStats(authUser: Admin) {
-    const serviceIds = await this.churchServicesService.getServiceIdsByChurchId(
-      authUser.churchId,
-    );
+  async getAttendanceStats(tenant: TenantContext) {
+    const serviceIds =
+      await this.churchServicesService.getServiceIdsByChurchId(tenant);
 
     if (!serviceIds.length) {
       return { totalAttendance: 0 };
@@ -278,10 +297,9 @@ export class AttendanceService {
     return { totalAttendance };
   }
 
-  async getAttendanceTrend(authUser: Admin, year?: number) {
-    const serviceIdsAndTypes = await this.churchServicesService.findByChurchId(
-      authUser.churchId,
-    );
+  async getAttendanceTrend(tenant: TenantContext, year?: number) {
+    const serviceIdsAndTypes =
+      await this.churchServicesService.findByChurchId(tenant);
 
     if (!serviceIdsAndTypes?.length) {
       return { regularService: [], specialService: [] };
@@ -359,7 +377,7 @@ export class AttendanceService {
   }
 
   async getMemberAttendanceHistory(
-    authUser: Admin,
+    tenant: TenantContext,
     memberId: string,
     from?: string,
     to?: string,
@@ -368,18 +386,13 @@ export class AttendanceService {
       throw new BadRequestException('Invalid member id');
     }
 
-    const member = await this.membersService.findByIdInChurch(
-      memberId,
-      authUser.churchId,
-    );
+    const member = await this.membersService.findByIdInChurch(memberId, tenant);
 
     if (!member) {
       throw new NotFoundException('Member not found');
     }
 
-    const services = await this.churchServicesService.findByChurchId(
-      authUser.churchId,
-    );
+    const services = await this.churchServicesService.findByChurchId(tenant);
 
     const serviceMap = new Map(
       services.map((service: any) => [service._id.toString(), service.title]),

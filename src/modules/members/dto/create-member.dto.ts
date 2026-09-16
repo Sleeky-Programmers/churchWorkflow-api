@@ -1,15 +1,24 @@
-import { IsEnum, IsNotEmpty, IsOptional } from 'class-validator';
+import {
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
 import {
   Gender,
   MaritalStatus,
   MembershipStatus,
-  MemberTitle,
 } from '../../../common/utils/enums.utils';
+import { TITLE_MAX_LENGTH } from '../../../common/utils/titles.constant';
 
 export class CreateMemberDto {
+  // Free text rather than a fixed enum - the title catalog
+  // (common/utils/titles.constant.ts) is suggestions, not a restriction.
   @IsOptional()
-  @IsEnum(MemberTitle)
-  title: MemberTitle;
+  @IsString()
+  @MaxLength(TITLE_MAX_LENGTH)
+  title?: string;
 
   @IsNotEmpty()
   fullName: string;

@@ -18,6 +18,7 @@ import { AdminRegisterDto } from './dto/admin-register.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { SwitchBranchDto } from './dto/switch-branch.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { JwtAuthGuard } from './guard/jwt-auth.guard';
 import { LocalAuthGuard } from './guard/local-auth.guard';
@@ -91,6 +92,13 @@ export class AuthController {
   @Post('refresh-token')
   refresh(@Body() dto: RefreshTokenDto) {
     return this.authService.refreshToken(dto.refreshToken);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('switch-branch')
+  @HttpCode(200)
+  switchBranch(@AuthUser() authUser: Admin, @Body() dto: SwitchBranchDto) {
+    return this.authService.switchBranch(authUser, dto.branchId);
   }
 
   @UseGuards(JwtAuthGuard)

@@ -1,5 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, SchemaTypes, Types } from 'mongoose';
+import { Branch } from './branch.schema';
 import { Church } from './church.schema';
 import {
   ServiceDay,
@@ -26,6 +27,9 @@ class SpecialDay {
 export class ChurchService extends Document {
   @Prop({ type: SchemaTypes.ObjectId, ref: Church.name })
   churchId: Types.ObjectId;
+
+  @Prop({ type: SchemaTypes.ObjectId, ref: Branch.name, default: null })
+  branchId: Types.ObjectId | null;
 
   @Prop()
   title: string;
@@ -74,3 +78,5 @@ export class ChurchService extends Document {
 }
 
 export const ChurchServiceSchema = SchemaFactory.createForClass(ChurchService);
+
+ChurchServiceSchema.index({ churchId: 1, branchId: 1 });

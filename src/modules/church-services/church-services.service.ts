@@ -12,6 +12,8 @@ import {
   ServiceDay,
   ServiceType,
 } from '../../common/utils/enums.utils';
+import { TenantContext } from '../../common/interfaces/tenant-context.interface';
+import { buildTenantFilter } from '../../common/utils/tenant-filter.util';
 import { Admin } from '../../schemas/admin.schema';
 import { ChurchService } from '../../schemas/church-service.schema';
 import { ServiceInstance } from '../../schemas/service-instance.schema';
@@ -66,6 +68,7 @@ export class ChurchServicesService {
 
   async create(
     authUser: Admin,
+    tenant: TenantContext,
     createChurchServiceDto: CreateChurchServiceDto,
   ) {
     const normalizedName = createChurchServiceDto.title.trim();
@@ -83,7 +86,7 @@ export class ChurchServicesService {
 
       const candidates = await this.churchServiceModel
         .find({
-          churchId: authUser.churchId,
+          ...buildTenantFilter(tenant),
           type: ServiceType.REGULAR,
           day: createChurchServiceDto.day,
         })
@@ -122,7 +125,7 @@ export class ChurchServicesService {
 
         const candidates = await this.churchServiceModel
           .find({
-            churchId: authUser.churchId,
+            ...buildTenantFilter(tenant),
             type: ServiceType.SPECIAL,
             startDate: { $gte: dayStart, $lt: dayEnd },
           })
@@ -168,7 +171,7 @@ export class ChurchServicesService {
 
           const candidates = await this.churchServiceModel
             .find({
-              churchId: authUser.churchId,
+              ...buildTenantFilter(tenant),
               type: ServiceType.SPECIAL,
               'specialDays.date': { $gte: dayStart, $lt: dayEnd },
             })
@@ -213,7 +216,8 @@ export class ChurchServicesService {
       startTime: normalizedStartTime,
       endTime: normalizedEndTime,
       location: normalizedLocation || undefined,
-      churchId: authUser.churchId,
+      churchId: tenant.churchId,
+      branchId: tenant.branchId,
     });
 
     try {
@@ -238,12 +242,12 @@ export class ChurchServicesService {
     return created;
   }
 
-  async findAll(authUser: Admin, paginationBaseDto: PaginationBaseDto) {
+  async findAll(tenant: TenantContext, paginationBaseDto: PaginationBaseDto) {
     const { page, limit } = paginationBaseDto;
 
     const skip = (page - 1) * limit;
 
-    const filter = { churchId: authUser.churchId };
+    const filter = buildTenantFilter(tenant);
 
     const [services, itemCount] = await Promise.all([
       this.churchServiceModel.find(filter).skip(skip).limit(limit),
@@ -274,25 +278,25 @@ export class ChurchServicesService {
       .lean();
   }
 
-  async findOneInChurch(serviceId: string, churchId: Types.ObjectId) {
+  async findOneInChurch(serviceId: string, tenant: TenantContext) {
     return await this.churchServiceModel
       .findOne({
         _id: serviceId,
-        churchId,
+        ...buildTenantFilter(tenant),
       })
       .lean();
   }
 
-  async findByChurchId(churchId: Types.ObjectId) {
+  async findByChurchId(tenant: TenantContext) {
     return await this.churchServiceModel
-      .find({ churchId })
+      .find(buildTenantFilter(tenant))
       .select('_id title type')
       .lean();
   }
 
-  async getServiceIdsByChurchId(churchId: Types.ObjectId) {
+  async getServiceIdsByChurchId(tenant: TenantContext) {
     const services = await this.churchServiceModel
-      .find({ churchId })
+      .find(buildTenantFilter(tenant))
       .select('_id')
       .lean();
     return services.map((service) => service._id);
@@ -353,6 +357,7 @@ export class ChurchServicesService {
       const instanceDoc = {
         masterServiceId: master._id,
         churchId: master.churchId,
+        branchId: master.branchId,
         date: new Date(current),
         title: master.title,
         startTime: master.startTime,
@@ -465,14 +470,16 @@ export class ChurchServicesService {
     return services.map((s) => s._id);
   }
 
-  async getServicesByDate(date: Date, churchId: Types.ObjectId) {
+  async getServicesByDate(date: Date, tenant: TenantContext) {
     const startOfDay = new Date(date);
     startOfDay.setHours(0, 0, 0, 0);
 
     const endOfDay = new Date(date);
     endOfDay.setHours(23, 59, 59, 999);
 
-    const services = await this.churchServiceModel.find({ churchId }).lean();
+    const services = await this.churchServiceModel
+      .find(buildTenantFilter(tenant))
+      .lean();
 
     const result = services.filter((service: any) =>
       this.isServiceOnDate(service, date),
@@ -482,7 +489,7 @@ export class ChurchServicesService {
   }
 
   async getServicesFiltered(
-    churchId: Types.ObjectId,
+    tenant: TenantContext,
     year?: number,
     month?: number,
     day?: number,
@@ -509,7 +516,7 @@ export class ChurchServicesService {
     end.setHours(23, 59, 59, 999);
 
     const instances = await this.serviceInstanceModel
-      .find({ churchId, date: { $gte: start, $lte: end } })
+      .find({ ...buildTenantFilter(tenant), date: { $gte: start, $lte: end } })
       .lean();
 
     const instanceMap = new Set<string>();
@@ -531,7 +538,9 @@ export class ChurchServicesService {
       });
     }
 
-    const masters = await this.churchServiceModel.find({ churchId }).lean();
+    const masters = await this.churchServiceModel
+      .find(buildTenantFilter(tenant))
+      .lean();
 
     for (const master of masters) {
       for (
@@ -660,6 +669,96 @@ export class ChurchServicesService {
           serviceDate.getDate() === date.getDate() &&
           serviceDate.getMonth() === date.getMonth()
         );
+      }
+      default:
+        return false;
+    }
+  }
+
+  /**
+   * Timezone-safe version of isServiceOnDate for the attendance write path.
+   * Takes a 'YYYY-MM-DD' calendar date (as already produced by
+   * AttendanceService.normalizeDate) and compares it purely as calendar
+   * dates/UTC components - never through a Date's local getters - so a
+   * server running in a different timezone than the church can't shift a
+   * late-night service onto the wrong day.
+   */
+  isServiceScheduledOn(service: any, dateKey: string): boolean {
+    const [year, month, day] = dateKey.split('-').map(Number);
+    if (!year || !month || !day) {
+      return false;
+    }
+    const dayIndex = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+
+    const toDateKey = (value: any): string | null => {
+      if (!value) {
+        return null;
+      }
+      const d = new Date(value);
+      if (isNaN(d.getTime())) {
+        return null;
+      }
+      return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+    };
+
+    const startKey = toDateKey(service.startDate);
+    if (startKey && startKey > dateKey) {
+      return false;
+    }
+    const endKey = toDateKey(service.endDate);
+    if (endKey && endKey < dateKey) {
+      return false;
+    }
+
+    if (service.specialDays?.length) {
+      for (const specialDay of service.specialDays) {
+        if (toDateKey(specialDay.date) === dateKey) {
+          return true;
+        }
+      }
+    }
+
+    const recurrence: Recurrence = service.recurrence || Recurrence.NO_REPEAT;
+
+    switch (recurrence) {
+      case Recurrence.NO_REPEAT: {
+        if (service.type === ServiceType.SPECIAL) {
+          return startKey === dateKey;
+        }
+
+        if (service.day) {
+          const weekdayMap = {
+            0: ServiceDay.SUNDAY,
+            1: ServiceDay.MONDAY,
+            2: ServiceDay.TUESDAY,
+            3: ServiceDay.WEDNESDAY,
+            4: ServiceDay.THURSDAY,
+            5: ServiceDay.FRIDAY,
+            6: ServiceDay.SATURDAY,
+          } as const;
+          return service.day === weekdayMap[dayIndex];
+        }
+
+        return false;
+      }
+      case Recurrence.DAILY: {
+        return true;
+      }
+      case Recurrence.WEEKDAYS: {
+        return dayIndex >= 1 && dayIndex <= 5;
+      }
+      case Recurrence.WEEKLY_MONDAY: {
+        return dayIndex === 1;
+      }
+      case Recurrence.MONTHLY_FIRST_MONDAY: {
+        return dayIndex === 1 && day <= 7;
+      }
+      case Recurrence.ANNUALLY: {
+        if (!service.startDate) {
+          return false;
+        }
+        const sd = new Date(service.startDate);
+        return sd.getUTCDate() === day && sd.getUTCMonth() === month - 1;
       }
       default:
         return false;

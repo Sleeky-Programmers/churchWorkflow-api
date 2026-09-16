@@ -1,21 +1,81 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  OnModuleInit,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { CreateRoleDto } from './dto/create-role.dto';
 import { Role } from '../../schemas/role.schema';
+import { SectionPermission } from '../../schemas/permission.schema';
 import { Admin } from '../../schemas/admin.schema';
 import { UpdateRoleDto } from './dto/update-role.dto';
-import { RoleStatus, RoleType } from '../../common/utils/enums.utils';
+import {
+  AccessLevel,
+  ModuleSections,
+  RoleStatus,
+  RoleType,
+} from '../../common/utils/enums.utils';
+
+export const SMALL_TEAMS_ROLE_NAME = 'Small Teams';
+export const DEPARTMENT_HEAD_ROLE_NAME = 'Department Head';
 
 @Injectable()
-export class RolesService {
+export class RolesService implements OnModuleInit {
+  private readonly logger = new Logger(RolesService.name);
+
   constructor(@InjectModel(Role.name) private roleModel: Model<Role>) {}
+
+  // System roles are shared across every church (churchId: null), so
+  // Ensuring this one document exists here covers both "auto-created for
+  // New churches" and "backfilled for existing churches" in one step - there
+  // Is nothing per-church to migrate.
+  async onModuleInit() {
+    try {
+      await this.ensureSystemRole(
+        SMALL_TEAMS_ROLE_NAME,
+        'Can mark attendance and manage only the small team(s) they lead.',
+        [
+          {
+            moduleSection: ModuleSections.SMALL_TEAMS,
+            accessLevel: AccessLevel.MANAGE,
+          },
+          {
+            moduleSection: ModuleSections.ATTENDANCE,
+            accessLevel: AccessLevel.MANAGE,
+          },
+        ] as SectionPermission[],
+      );
+
+      await this.ensureSystemRole(
+        DEPARTMENT_HEAD_ROLE_NAME,
+        'Can manage only the department(s) they head or assist.',
+        [
+          {
+            moduleSection: ModuleSections.DEPARTMENTS,
+            accessLevel: AccessLevel.MANAGE,
+          },
+          {
+            moduleSection: ModuleSections.REQUESTS,
+            accessLevel: AccessLevel.MANAGE,
+          },
+        ] as SectionPermission[],
+      );
+    } catch (err) {
+      this.logger.error('Failed to seed Small Teams system role', err as any);
+    }
+  }
 
   async findOne(roleName: string) {
     return await this.roleModel.findOne({ roleName });
   }
 
-  async ensureSystemRole(roleName: string, description?: string) {
+  async ensureSystemRole(
+    roleName: string,
+    description?: string,
+    permissions: SectionPermission[] = [],
+  ) {
     const existing = await this.findOne(roleName);
     if (existing) {
       return existing;
@@ -27,7 +87,7 @@ export class RolesService {
       type: RoleType.SYSTEM,
       status: RoleStatus.ACTIVE,
       churchId: null,
-      permissions: [],
+      permissions,
     });
   }
 

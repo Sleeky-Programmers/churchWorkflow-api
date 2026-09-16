@@ -137,10 +137,14 @@ export class AdminInviteService {
     });
     const currentUsers = await this.adminService.countAdminsByChurch(churchId);
 
-    const projected = currentUsers + pendingInvites + 1;
+    // Seats already used BEFORE this new invite - checkUserLimit blocks when
+    // This is >= the plan limit, so don't add 1 for the invite being created
+    // Here or every church gets blocked one seat early (e.g. owner + 1
+    // Pending invite on a 3-seat plan would wrongly read as "3 of 3").
+    const seatsUsed = currentUsers + pendingInvites;
     const userLimitCheck = await this.subscriptionService.checkUserLimit(
       churchId,
-      projected,
+      seatsUsed,
     );
 
     if (!userLimitCheck.allowed) {
