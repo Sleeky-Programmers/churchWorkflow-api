@@ -8,6 +8,7 @@ import { SubscriptionModule } from '../subscription/subscription.module';
 import { CouponModule } from '../coupon/coupon.module';
 import { SubscriptionPlanCodesModule } from '../subscription-plan-codes/subscription-plan-codes.module';
 import { AdminActivityLogModule } from '../admin-activity-log/admin-activity-log.module';
+import { OnlineGivingModule } from '../online-giving/online-giving.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { AdminActivityLogModule } from '../admin-activity-log/admin-activity-log
     CouponModule,
     SubscriptionPlanCodesModule,
     AdminActivityLogModule,
+    forwardRef(() => OnlineGivingModule),
   ],
   controllers: [PaystackController],
   providers: [PaystackService],

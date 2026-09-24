@@ -10,6 +10,11 @@ export class Church extends Document {
   @Prop({ default: null })
   alias: string;
 
+  // Non-sensitive public identifier used for public-facing URLs (e.g. the
+  // Online giving pages) so we never expose the raw churchId externally.
+  @Prop({ unique: true, sparse: true, default: null })
+  slug: string;
+
   @Prop({ default: null })
   address: string;
 

@@ -3,6 +3,8 @@ import { lastValueFrom } from 'rxjs';
 
 import { HttpService } from '@nestjs/axios';
 import {
+  forwardRef,
+  Inject,
   Injectable,
   InternalServerErrorException,
   Logger,
@@ -20,6 +22,7 @@ import {
 } from '../../common/utils/enums.utils';
 import { AdminActivityLogService } from '../admin-activity-log/admin-activity-log.service';
 import { CouponService } from '../coupon/coupon.service';
+import { OnlineGivingService } from '../online-giving/online-giving.service';
 import { PaymentService } from '../payment/payment.service';
 import { SubscriptionService } from '../subscription/subscription.service';
 
@@ -39,6 +42,8 @@ export class FlutterwaveService {
     private readonly subscriptionService: SubscriptionService,
     private readonly couponService: CouponService,
     private readonly adminActivityLogService: AdminActivityLogService,
+    @Inject(forwardRef(() => OnlineGivingService))
+    private readonly onlineGivingService: OnlineGivingService,
   ) {
     this.secretKey = this.configService.get<string>('flutterwave.secretKey');
     this.secretHash = this.configService.get<string>('flutterwave.secretHash');
@@ -123,6 +128,56 @@ export class FlutterwaveService {
       this.logger.error('Flutterwave initialization failed:', error.message);
       throw new InternalServerErrorException(
         error.response?.data?.message || 'Failed to initialize payment',
+      );
+    }
+  }
+
+  // Separate from initializeTransaction (which is billing/subscription
+  // Specific: it creates a Payment record and assumes a plan/billingCycle).
+  // This reuses only the raw Flutterwave HTTP call pattern for one-off,
+  // Non-subscription online giving donations.
+  async initializeGivingTransaction(data: {
+    email?: string;
+    amount: number;
+    currencyCode: string;
+    metadata: Record<string, any>;
+  }) {
+    try {
+      const tx_ref = `CWGIVE-${Date.now()}`;
+
+      const payload = {
+        tx_ref,
+        amount: data.amount,
+        currency: data.currencyCode,
+        redirect_url: this.redirectUrl,
+        customer: {
+          email: data.email || 'donor@giving.church',
+          name: data.metadata?.donorName || undefined,
+        },
+        customizations: {
+          title: 'Giving',
+          description: 'Online giving donation',
+        },
+        meta: data.metadata,
+      };
+
+      const response = await lastValueFrom(
+        this.httpService.post(`${this.baseUrl}/payments`, payload, {
+          headers: this.headers,
+        }),
+      );
+
+      return {
+        reference: tx_ref,
+        authorizationUrl: response.data.data.link,
+      };
+    } catch (error: any) {
+      this.logger.error(
+        'Flutterwave giving initialization failed:',
+        error.message,
+      );
+      throw new InternalServerErrorException(
+        error.response?.data?.message || 'Failed to initialize giving',
       );
     }
   }
@@ -269,6 +324,17 @@ export class FlutterwaveService {
     }
 
     const reference = payload.txRef;
+
+    if (
+      payload.meta?.type === 'online_giving' ||
+      (reference && reference.startsWith('CWGIVE-'))
+    ) {
+      await this.onlineGivingService.fulfillFromWebhook(
+        payload.meta,
+        reference,
+      );
+      return { status: FlPaymentStatus.SUCCESS };
+    }
 
     const payment = await this.paymentService.findByReference(reference);
 

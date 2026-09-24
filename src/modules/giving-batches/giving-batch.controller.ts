@@ -1,7 +1,6 @@
 import {
   Body,
   Controller,
-  Delete,
   Get,
   Param,
   Post,
@@ -17,28 +16,30 @@ import { TenantContext } from '../../common/interfaces/tenant-context.interface'
 import { AccessLevel, ModuleSections } from '../../common/utils/enums.utils';
 import { Admin } from '../../schemas/admin.schema';
 import { JwtAuthGuard } from '../auth/guard/jwt-auth.guard';
-import { CreateGivingRecordDto } from './dto/create-giving-record.dto';
-import { GivingRecordFilterDto } from './dto/giving-record-filter.dto';
+import { CheckDuplicateDto } from './dto/check-duplicate.dto';
+import { CreateGivingBatchDto } from './dto/create-giving-batch.dto';
+import { GivingBatchFilterDto } from './dto/giving-batch-filter.dto';
 import { GivingSummaryFilterDto } from './dto/giving-summary-filter.dto';
-import { UpdateGivingRecordDto } from './dto/update-giving-record.dto';
-import { GivingRecordService } from './giving-record.service';
+import { UpdateGivingBatchDto } from './dto/update-giving-batch.dto';
+import { VoidGivingBatchDto } from './dto/void-giving-batch.dto';
+import { GivingBatchService } from './giving-batch.service';
 
 @UseGuards(JwtAuthGuard, PermissionsGuard)
-@Controller('giving-records')
-export class GivingRecordController {
-  constructor(private readonly givingRecordService: GivingRecordService) {}
+@Controller('giving-batches')
+export class GivingBatchController {
+  constructor(private readonly givingBatchService: GivingBatchService) {}
 
   @Post()
   @RequirePermissions({
     section: ModuleSections.GIVING,
     level: AccessLevel.MANAGE,
   })
-  upsert(
+  create(
     @AuthUser() authUser: Admin,
     @CurrentTenant() tenant: TenantContext,
-    @Body() dto: CreateGivingRecordDto,
+    @Body() dto: CreateGivingBatchDto,
   ) {
-    return this.givingRecordService.upsert(authUser, tenant, dto);
+    return this.givingBatchService.create(authUser, tenant, dto);
   }
 
   @Get()
@@ -47,11 +48,10 @@ export class GivingRecordController {
     level: AccessLevel.VIEW,
   })
   findAll(
-    @AuthUser() authUser: Admin,
     @CurrentTenant() tenant: TenantContext,
-    @Query() dto: GivingRecordFilterDto,
+    @Query() dto: GivingBatchFilterDto,
   ) {
-    return this.givingRecordService.findAll(authUser, tenant, dto);
+    return this.givingBatchService.findAll(tenant, dto);
   }
 
   @Get('summary')
@@ -63,7 +63,7 @@ export class GivingRecordController {
     @CurrentTenant() tenant: TenantContext,
     @Query() dto: GivingSummaryFilterDto,
   ) {
-    return this.givingRecordService.summary(tenant, dto);
+    return this.givingBatchService.summary(tenant, dto);
   }
 
   @Get('monthly-trend')
@@ -72,7 +72,19 @@ export class GivingRecordController {
     level: AccessLevel.VIEW,
   })
   monthlyTrend(@CurrentTenant() tenant: TenantContext) {
-    return this.givingRecordService.monthlyTrend(tenant);
+    return this.givingBatchService.monthlyTrend(tenant);
+  }
+
+  @Get('check-duplicate')
+  @RequirePermissions({
+    section: ModuleSections.GIVING,
+    level: AccessLevel.VIEW,
+  })
+  checkDuplicate(
+    @CurrentTenant() tenant: TenantContext,
+    @Query() dto: CheckDuplicateDto,
+  ) {
+    return this.givingBatchService.checkDuplicate(tenant, dto);
   }
 
   @Get(':id')
@@ -81,7 +93,7 @@ export class GivingRecordController {
     level: AccessLevel.VIEW,
   })
   findById(@CurrentTenant() tenant: TenantContext, @Param('id') id: string) {
-    return this.givingRecordService.findById(tenant, id);
+    return this.givingBatchService.findById(tenant, id);
   }
 
   @Put(':id')
@@ -93,21 +105,48 @@ export class GivingRecordController {
     @AuthUser() authUser: Admin,
     @CurrentTenant() tenant: TenantContext,
     @Param('id') id: string,
-    @Body() dto: UpdateGivingRecordDto,
+    @Body() dto: UpdateGivingBatchDto,
   ) {
-    return this.givingRecordService.update(authUser, tenant, id, dto);
+    return this.givingBatchService.update(authUser, tenant, id, dto);
   }
 
-  @Delete(':id')
+  @Post(':id/submit')
   @RequirePermissions({
     section: ModuleSections.GIVING,
-    level: AccessLevel.FULL_ACCESS,
+    level: AccessLevel.MANAGE,
   })
-  delete(
+  submit(
     @AuthUser() authUser: Admin,
     @CurrentTenant() tenant: TenantContext,
     @Param('id') id: string,
   ) {
-    return this.givingRecordService.delete(authUser, tenant, id);
+    return this.givingBatchService.submit(authUser, tenant, id);
+  }
+
+  @Post(':id/confirm')
+  @RequirePermissions({
+    section: ModuleSections.GIVING,
+    level: AccessLevel.FULL_ACCESS,
+  })
+  confirm(
+    @AuthUser() authUser: Admin,
+    @CurrentTenant() tenant: TenantContext,
+    @Param('id') id: string,
+  ) {
+    return this.givingBatchService.confirm(authUser, tenant, id);
+  }
+
+  @Post(':id/void')
+  @RequirePermissions({
+    section: ModuleSections.GIVING,
+    level: AccessLevel.FULL_ACCESS,
+  })
+  void_(
+    @AuthUser() authUser: Admin,
+    @CurrentTenant() tenant: TenantContext,
+    @Param('id') id: string,
+    @Body() dto: VoidGivingBatchDto,
+  ) {
+    return this.givingBatchService.void(authUser, tenant, id, dto);
   }
 }

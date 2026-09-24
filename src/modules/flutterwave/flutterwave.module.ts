@@ -8,6 +8,7 @@ import { SubscriptionModule } from '../subscription/subscription.module';
 import { CouponModule } from '../coupon/coupon.module';
 import { AdminActivityLogModule } from '../admin-activity-log/admin-activity-log.module';
 import { ScheduleModule } from '@nestjs/schedule';
+import { OnlineGivingModule } from '../online-giving/online-giving.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { ScheduleModule } from '@nestjs/schedule';
     CouponModule,
     AdminActivityLogModule,
     ScheduleModule.forRoot(),
+    forwardRef(() => OnlineGivingModule),
   ],
   controllers: [FlutterwaveController],
   providers: [FlutterwaveService],
