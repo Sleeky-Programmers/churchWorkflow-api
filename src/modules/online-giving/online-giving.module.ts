@@ -27,7 +27,7 @@ import { OnlineGivingService } from './online-giving.service';
       { name: GivingBatch.name, schema: GivingBatchSchema },
       { name: GivingEntry.name, schema: GivingEntrySchema },
     ]),
-    ChurchModule,
+    forwardRef(() => ChurchModule),
     forwardRef(() => PaystackModule),
     forwardRef(() => FlutterwaveModule),
   ],

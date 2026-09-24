@@ -6,6 +6,7 @@ import {
   Param,
   Post,
   Put,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 
@@ -30,6 +31,23 @@ export class BranchController {
     return this.branchService.listForTenant(tenant);
   }
 
+  @Get()
+  listAll(
+    @AuthUser() authUser: Admin,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const pagination =
+      page !== undefined || limit !== undefined
+        ? {
+            page: Math.max(Number(page) || 1, 1),
+            limit: Math.min(Math.max(Number(limit) || 20, 1), 100),
+          }
+        : undefined;
+
+    return this.branchService.listAllForManagement(authUser, pagination);
+  }
+
   @Get('branch-limit-status')
   async getBranchLimitStatus(@AuthUser() authUser: Admin) {
     const status = await this.branchService.getBranchLimitStatus(authUser);
@@ -48,6 +66,11 @@ export class BranchController {
     @Body() dto: UpdateBranchDto,
   ) {
     return this.branchService.update(authUser, id, dto);
+  }
+
+  @Delete(':id')
+  remove(@AuthUser() authUser: Admin, @Param('id') id: string) {
+    return this.branchService.remove(authUser, id);
   }
 
   @Get(':id/admins')

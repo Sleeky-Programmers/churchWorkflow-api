@@ -54,13 +54,19 @@ export class DepartmentController {
     @CurrentTenant() tenant: TenantContext,
     @Res() res: Response,
   ) {
-    const csvData = await this.departmentService.export(authUser, tenant);
-    res.setHeader('Content-Type', 'text/csv');
+    const workbookBuffer = await this.departmentService.export(
+      authUser,
+      tenant,
+    );
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
     res.setHeader(
       'Content-Disposition',
-      'attachment; filename=departments.csv',
+      'attachment; filename=departments.xlsx',
     );
-    return res.status(200).send(csvData);
+    return res.status(200).send(Buffer.from(workbookBuffer as ArrayBuffer));
   }
 
   @Get()

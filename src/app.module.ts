@@ -37,6 +37,8 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { AdminActivityLogModule } from './modules/admin-activity-log/admin-activity-log.module';
 import { OverviewModule } from './modules/overview/overview.module';
 import { BranchModule } from './modules/branch/branch.module';
+import { TitleModule } from './modules/titles/title.module';
+import { LocationModule } from './modules/locations/location.module';
 import { ExpenseModule } from './modules/expenses/expense.module';
 import { RequisitionModule } from './modules/requisitions/requisition.module';
 import { GivingBatchModule } from './modules/giving-batches/giving-batch.module';
@@ -104,6 +106,8 @@ import { OnlineGivingModule } from './modules/online-giving/online-giving.module
     AdminActivityLogModule,
     OverviewModule,
     BranchModule,
+    TitleModule,
+    LocationModule,
     ExpenseModule,
     RequisitionModule,
     GivingBatchModule,
