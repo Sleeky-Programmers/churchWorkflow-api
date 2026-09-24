@@ -49,7 +49,7 @@ export class TitleService {
   }
 
   // Church-wide: titles are shared by all branches, so this is keyed by
-  // churchId only — never branchId, unlike branch-scoped resources.
+  // ChurchId only — never branchId, unlike branch-scoped resources.
   async findAll(
     tenant: TenantContext,
     pagination?: { page: number; limit: number },
@@ -66,7 +66,9 @@ export class TitleService {
       .find({ churchId: tenant.churchId })
       .sort({ sortOrder: 1, name: 1 });
 
-    if (!pagination) return query.lean();
+    if (!pagination) {
+      return query.lean();
+    }
 
     const itemCount = await this.titleModel.countDocuments({
       churchId: tenant.churchId,

@@ -549,7 +549,7 @@ export class DepartmentService {
       .lean();
 
     // Styled workbook themed off the app's design system (primary blue
-    // palette from the frontend Tailwind config) rather than a bare CSV.
+    // Palette from the frontend Tailwind config) rather than a bare CSV.
     const workbook = new Workbook();
     workbook.creator = 'Church Workflow';
     workbook.created = new Date();
@@ -574,7 +574,7 @@ export class DepartmentService {
     titleCell.fill = {
       type: 'pattern',
       pattern: 'solid',
-      fgColor: { argb: 'FF0C5FB3' }, // primary-500
+      fgColor: { argb: 'FF0C5FB3' }, // Primary-500
     };
     titleCell.alignment = { vertical: 'middle', horizontal: 'center' };
     sheet.getRow(1).height = 30;
@@ -582,11 +582,10 @@ export class DepartmentService {
     // Sub-caption row
     sheet.mergeCells(2, 1, 2, COLUMN_COUNT);
     const captionCell = sheet.getCell(2, 1);
-    captionCell.value =
-      `${departments.length} department${departments.length === 1 ? '' : 's'} · Generated ${new Date().toLocaleDateString(
-        'en-US',
-        { year: 'numeric', month: 'long', day: 'numeric' },
-      )}`;
+    captionCell.value = `${departments.length} department${departments.length === 1 ? '' : 's'} · Generated ${new Date().toLocaleDateString(
+      'en-US',
+      { year: 'numeric', month: 'long', day: 'numeric' },
+    )}`;
     captionCell.font = {
       name: 'Calibri',
       size: 10,
@@ -621,11 +620,11 @@ export class DepartmentService {
       cell.fill = {
         type: 'pattern',
         pattern: 'solid',
-        fgColor: { argb: 'FF3D7FC2' }, // primary-400
+        fgColor: { argb: 'FF3D7FC2' }, // Primary-400
       };
       cell.alignment = { vertical: 'middle', horizontal: 'left' };
       cell.border = {
-        bottom: { style: 'thin', color: { argb: 'FF0B56A3' } }, // primary-600
+        bottom: { style: 'thin', color: { argb: 'FF0B56A3' } }, // Primary-600
       };
     });
     headerRow.height = 22;
@@ -667,7 +666,7 @@ export class DepartmentService {
           cell.fill = {
             type: 'pattern',
             pattern: 'solid',
-            fgColor: { argb: 'FFE7EFF7' }, // primary-50
+            fgColor: { argb: 'FFE7EFF7' }, // Primary-50
           };
         }
       });
@@ -693,7 +692,9 @@ export class DepartmentService {
       let maxWidth = 12;
       column.eachCell?.({ includeEmpty: true }, (cell) => {
         const length = String(cell.value ?? '').length;
-        if (length > maxWidth) maxWidth = length;
+        if (length > maxWidth) {
+          maxWidth = length;
+        }
       });
       column.width = Math.min(Math.max(maxWidth + 4, 12), 42);
     });
@@ -705,7 +706,7 @@ export class DepartmentService {
     const lastDataRow = 4 + departments.length;
     for (let col = 1; col <= COLUMN_COUNT; col++) {
       sheet.getCell(lastDataRow, col).border = {
-        bottom: { style: 'thin', color: { argb: 'FFB4CDE7' } }, // primary-100
+        bottom: { style: 'thin', color: { argb: 'FFB4CDE7' } }, // Primary-100
       };
     }
 

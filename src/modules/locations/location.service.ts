@@ -27,8 +27,8 @@ export class LocationService {
   }
 
   // Church-wide: locations are shared by all branches, so this is keyed by
-  // churchId only — never branchId. No default seeding — unlike titles,
-  // there's no sensible universal list of auditorium names.
+  // ChurchId only — never branchId. No default seeding — unlike titles,
+  // There's no sensible universal list of auditorium names.
   async findAll(
     tenant: TenantContext,
     pagination?: { page: number; limit: number },
@@ -37,7 +37,9 @@ export class LocationService {
       .find({ churchId: tenant.churchId })
       .sort({ sortOrder: 1, name: 1 });
 
-    if (!pagination) return query.lean();
+    if (!pagination) {
+      return query.lean();
+    }
 
     const itemCount = await this.locationModel.countDocuments({
       churchId: tenant.churchId,

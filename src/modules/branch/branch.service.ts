@@ -36,8 +36,8 @@ export class BranchService {
   }
 
   // Branch names must be unique within a church (case-insensitive) so the
-  // branch switcher and management list stay unambiguous. Excludes a branch
-  // being updated from its own check.
+  // Branch switcher and management list stay unambiguous. Excludes a branch
+  // Being updated from its own check.
   private async assertNameAvailable(
     churchId: Types.ObjectId,
     name: string,
@@ -46,7 +46,10 @@ export class BranchService {
     const duplicate = await this.branchModel.findOne({
       churchId,
       _id: excludeBranchId ? { $ne: excludeBranchId } : undefined,
-      name: { $regex: `^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' },
+      name: {
+        $regex: `^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`,
+        $options: 'i',
+      },
     });
 
     if (duplicate) {
@@ -70,9 +73,9 @@ export class BranchService {
   }
 
   // Used by the branch management settings page, not general tenant
-  // scoping - includes inactive branches, unlike listForTenant (whose
-  // accessibleBranchIds deliberately excludes them), so a deactivated
-  // branch stays visible with a "Reactivate" action instead of vanishing.
+  // Scoping - includes inactive branches, unlike listForTenant (whose
+  // AccessibleBranchIds deliberately excludes them), so a deactivated
+  // Branch stays visible with a "Reactivate" action instead of vanishing.
   async listAllForManagement(
     authUser: Admin,
     pagination?: { page: number; limit: number },
@@ -83,7 +86,9 @@ export class BranchService {
       .find({ churchId: authUser.churchId })
       .sort({ isHQ: -1, createdAt: 1 });
 
-    if (!pagination) return { branches: await query.lean() };
+    if (!pagination) {
+      return { branches: await query.lean() };
+    }
 
     const itemCount = await this.branchModel.countDocuments({
       churchId: authUser.churchId,

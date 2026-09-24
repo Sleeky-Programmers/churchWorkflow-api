@@ -13,9 +13,7 @@ import {
 } from '../../common/utils/enums.utils';
 import { Subscription } from '../../schemas/subscription.schema';
 import { AdminActivityLogService } from '../admin-activity-log/admin-activity-log.service';
-import {
-  NotificationService,
-} from '../notification/notification.service';
+import { NotificationService } from '../notification/notification.service';
 import { PaymentService } from '../payment/payment.service';
 
 @Injectable()
@@ -315,8 +313,8 @@ export class SubscriptionService {
     const sub = await this.getSubscription(churchId);
 
     // Legacy subscription docs created before branch limits were introduced
-    // can be missing branchLimit (or have it stored as 0) - fall back to the
-    // current plan's limit instead of silently allowing unlimited branches.
+    // Can be missing branchLimit (or have it stored as 0) - fall back to the
+    // Current plan's limit instead of silently allowing unlimited branches.
     const branchLimit =
       sub.branchLimit || (await this.getPlanBranchLimit(sub.plan));
 
@@ -324,10 +322,10 @@ export class SubscriptionService {
       return { allowed: true };
     }
 
-    // countActive() already returns the number of active branches, so when
-    // it equals the limit there is no room for another one. Strictly greater
-    // would let a church exceed the limit when branches were created while
-    // the limit was higher (e.g. on a bigger plan).
+    // CountActive() already returns the number of active branches, so when
+    // It equals the limit there is no room for another one. Strictly greater
+    // Would let a church exceed the limit when branches were created while
+    // The limit was higher (e.g. on a bigger plan).
     if (currentBranchCount >= branchLimit) {
       return {
         allowed: false,

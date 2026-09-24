@@ -17,7 +17,7 @@ export class Title extends Document {
   sortOrder: number;
 
   // System-seeded titles (from the shared title catalog) can be
-  // deactivated/renamed but not deleted, unlike church-created ones.
+  // Deactivated/renamed but not deleted, unlike church-created ones.
   @Prop({ default: false })
   isSystem: boolean;
 }
