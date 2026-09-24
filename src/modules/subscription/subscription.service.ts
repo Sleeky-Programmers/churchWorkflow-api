@@ -1,6 +1,6 @@
 import { Model, PipelineStage, Types } from 'mongoose';
 
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 
 import {
@@ -11,45 +11,111 @@ import {
   PlanType,
   SubscriptionStatus,
 } from '../../common/utils/enums.utils';
+import { PlanPricing } from '../../schemas/plan-pricing.schema';
 import { Subscription } from '../../schemas/subscription.schema';
 import { AdminActivityLogService } from '../admin-activity-log/admin-activity-log.service';
 import { NotificationService } from '../notification/notification.service';
 import { PaymentService } from '../payment/payment.service';
+import { SubscriptionPlanCodesService } from '../subscription-plan-codes/subscription-plan-codes.service';
+import { UpdatePlanPricingDto } from './dto/update-plan-pricing.dto';
 
 @Injectable()
-export class SubscriptionService {
+export class SubscriptionService implements OnModuleInit {
   constructor(
     @InjectModel(Subscription.name)
     private subscriptionModel: Model<Subscription>,
+    @InjectModel(PlanPricing.name)
+    private planPricingModel: Model<PlanPricing>,
     private paymentService: PaymentService,
     private adminActivityLogService: AdminActivityLogService,
     private notificationService: NotificationService,
+    private subscriptionPlanCodesService: SubscriptionPlanCodesService,
   ) {}
 
-  private readonly planLimits = {
+  // In-memory cache of the DB-backed plan pricing/details, warmed on
+  // Module init and kept fresh by updatePlanPricing(). Reading it stays
+  // Synchronous so existing call sites (many of them non-async) don't need
+  // To change.
+  private readonly planConfigCache = new Map<PlanType, PlanPricing>();
+
+  private readonly defaultPlanConfig: Record<
+    PlanType,
+    {
+      name: string;
+      monthlyPrice: number;
+      yearlyPrice: number;
+      features: string[];
+      memberLimit: number;
+      userLimit: number;
+      branchLimit: number;
+      customRolesEnabled: boolean;
+      popular: boolean;
+    }
+  > = {
     [PlanType.STARTER]: {
-      members: 100,
-      users: 3,
-      branches: 2,
-      customRoles: false,
+      name: 'Starter',
+      monthlyPrice: 0,
+      yearlyPrice: 0,
+      features: [
+        'Small teams',
+        'Membership management',
+        'Up to 3 users',
+        'Up to 100 members',
+        'Attendance tracking',
+      ],
+      memberLimit: 100,
+      userLimit: 3,
+      branchLimit: 2,
+      customRolesEnabled: false,
+      popular: false,
     },
     [PlanType.GROWTH]: {
-      members: 500,
-      users: 10,
-      branches: 5,
-      customRoles: true,
+      name: 'Growth',
+      monthlyPrice: 20000,
+      yearlyPrice: 200000,
+      features: [
+        'Everything in Starter',
+        'Up to 10 users',
+        'Up to 500 members',
+        'Custom roles & permissions',
+      ],
+      memberLimit: 500,
+      userLimit: 10,
+      branchLimit: 5,
+      customRolesEnabled: true,
+      popular: true,
     },
     [PlanType.EXPANSION]: {
-      members: 1500,
-      users: 25,
-      branches: 25,
-      customRoles: true,
+      name: 'Expansion',
+      monthlyPrice: 45000,
+      yearlyPrice: 450000,
+      features: [
+        'Everything in Growth',
+        'Up to 25 users',
+        'Up to 1,500 members',
+      ],
+      memberLimit: 1500,
+      userLimit: 25,
+      branchLimit: 25,
+      customRolesEnabled: true,
+      popular: false,
     },
     [PlanType.ENTERPRISE]: {
-      members: -1,
-      users: -1,
-      branches: -1,
-      customRoles: true,
+      name: 'Enterprise',
+      monthlyPrice: 100000,
+      yearlyPrice: 1000000,
+      features: [
+        'Everything in Expansion',
+        'Priority support',
+        'Unlimited users',
+        'Advanced controls',
+        'Unlimited members',
+      ],
+      memberLimit: -1,
+      userLimit: -1,
+      branchLimit: -1,
+      customRolesEnabled: true,
+      popular: false,
     },
   };
 
@@ -60,28 +126,92 @@ export class SubscriptionService {
     [PlanType.ENTERPRISE]: 3,
   };
 
-  getPlanAmount(plan: PlanType, billingCycle: BillingCycle): number {
-    const pricing: Record<PlanType, Record<BillingCycle, number>> = {
-      [PlanType.STARTER]: {
-        [BillingCycle.MONTHLY]: 0,
-        [BillingCycle.YEARLY]: 0,
-      },
-      [PlanType.GROWTH]: {
-        [BillingCycle.MONTHLY]: 20000,
-        [BillingCycle.YEARLY]: 200000,
-      },
-      [PlanType.EXPANSION]: {
-        [BillingCycle.MONTHLY]: 45000,
-        [BillingCycle.YEARLY]: 450000,
-      },
-      [PlanType.ENTERPRISE]: {
-        [BillingCycle.MONTHLY]: 100000,
-        [BillingCycle.YEARLY]: 1000000,
-      },
-    };
+  async onModuleInit() {
+    await this.loadPlanConfigCache();
+  }
 
-    const planPricing = pricing[plan] || pricing[PlanType.STARTER];
-    return planPricing[billingCycle] ?? planPricing[BillingCycle.MONTHLY];
+  private async loadPlanConfigCache() {
+    for (const plan of Object.values(PlanType)) {
+      let doc = await this.planPricingModel.findOne({ plan });
+      if (!doc) {
+        doc = await this.planPricingModel.create({
+          plan,
+          ...this.defaultPlanConfig[plan],
+        });
+      }
+      this.planConfigCache.set(plan, doc);
+    }
+  }
+
+  private getPlanConfig(plan: PlanType): PlanPricing {
+    return (
+      this.planConfigCache.get(plan) ||
+      this.planConfigCache.get(PlanType.STARTER)!
+    );
+  }
+
+  private describePlanPricingChanges(
+    before: PlanPricing,
+    dto: UpdatePlanPricingDto,
+  ): string {
+    const changes: string[] = [];
+
+    for (const key of Object.keys(dto) as (keyof UpdatePlanPricingDto)[]) {
+      const newValue = dto[key];
+      if (newValue === undefined) {
+        continue;
+      }
+
+      const oldValue = (before as any)[key];
+      const format = (value: unknown) =>
+        Array.isArray(value) ? `[${value.join(', ')}]` : String(value);
+
+      if (JSON.stringify(oldValue) !== JSON.stringify(newValue)) {
+        changes.push(`${key}: ${format(oldValue)} → ${format(newValue)}`);
+      }
+    }
+
+    return changes.length > 0 ? changes.join('; ') : 'no field changes';
+  }
+
+  async updatePlanPricing(
+    plan: PlanType,
+    dto: UpdatePlanPricingDto,
+    productAdminId: string,
+  ) {
+    const before = this.getPlanConfig(plan);
+    const changeSummary = this.describePlanPricingChanges(before, dto);
+
+    const updated = await this.planPricingModel.findOneAndUpdate(
+      { plan },
+      { $set: { ...dto, updatedBy: productAdminId } },
+      { new: true },
+    );
+
+    if (!updated) {
+      throw new NotFoundException(`Plan pricing not found for ${plan}`);
+    }
+
+    this.planConfigCache.set(plan, updated);
+
+    // The cached Paystack plan code/amount for this plan is now stale.
+    await this.subscriptionPlanCodesService.deleteByPlan(plan);
+
+    await this.adminActivityLogService.create({
+      adminId: productAdminId as any,
+      action: 'UPDATE_PLAN_PRICING',
+      details: `Updated ${plan} plan pricing/details — ${changeSummary}`,
+      plan: plan as any,
+    } as any);
+
+    return this.getPlans().find((p) => p.type === plan);
+  }
+
+  getPlanAmount(plan: PlanType, billingCycle: BillingCycle): number {
+    const config = this.getPlanConfig(plan);
+    return billingCycle === BillingCycle.YEARLY
+      ? config.yearlyPrice
+      : config.monthlyPrice;
   }
 
   async getSubscription(churchId: Types.ObjectId) {
@@ -126,7 +256,7 @@ export class SubscriptionService {
 
   // Atomic find-or-create, to prevent duplicate Subscription docs per church.
   async findOrCreateSubscription(churchId: Types.ObjectId) {
-    const limits = this.planLimits[PlanType.STARTER];
+    const limits = this.getPlanConfig(PlanType.STARTER);
     const trialEndDate = new Date();
     trialEndDate.setDate(trialEndDate.getDate() + 7);
 
@@ -137,10 +267,10 @@ export class SubscriptionService {
           churchId,
           plan: PlanType.STARTER,
           status: SubscriptionStatus.TRIAL,
-          memberLimit: limits.members,
-          userLimit: limits.users,
-          branchLimit: limits.branches,
-          customRolesEnabled: limits.customRoles,
+          memberLimit: limits.memberLimit,
+          userLimit: limits.userLimit,
+          branchLimit: limits.branchLimit,
+          customRolesEnabled: limits.customRolesEnabled,
           endDate: trialEndDate,
           gracePeriodEndDate: trialEndDate,
         },
@@ -175,7 +305,7 @@ export class SubscriptionService {
       churchId: new Types.ObjectId(data.churchId),
     });
 
-    const limits = this.planLimits[data.plan];
+    const limits = this.getPlanConfig(data.plan);
     const startDate = new Date();
     const endDate = new Date();
 
@@ -202,10 +332,10 @@ export class SubscriptionService {
       {
         plan: data.plan,
         status: SubscriptionStatus.ACTIVE,
-        memberLimit: limits.members,
-        userLimit: limits.users,
-        branchLimit: limits.branches,
-        customRolesEnabled: limits.customRoles,
+        memberLimit: limits.memberLimit,
+        userLimit: limits.userLimit,
+        branchLimit: limits.branchLimit,
+        customRolesEnabled: limits.customRolesEnabled,
         startDate,
         endDate,
         isAutoRenew: data.autoRenew,
@@ -492,69 +622,21 @@ export class SubscriptionService {
   }
 
   getPlans() {
-    const numberOfMonths = 12;
-    const yearlyDiscountRate = 0.83;
-
-    return Object.values(PlanType).map((plan) => ({
-      type: plan,
-      name: this.formatPlanName(plan),
-
-      monthlyPrice: this.getPlanAmount(plan, BillingCycle.MONTHLY),
-
-      yearlyPrice: Math.round(
-        this.getPlanAmount(plan, BillingCycle.MONTHLY) *
-          numberOfMonths *
-          yearlyDiscountRate,
-      ),
-
-      features: this.getPlanFeatures(plan),
-
-      popular: plan === PlanType.GROWTH,
-    }));
-  }
-
-  private getPlanFeatures(plan: PlanType): string[] {
-    switch (plan) {
-      case PlanType.STARTER:
-        return [
-          'Small teams',
-          'Membership management',
-          'Up to 3 users',
-          'Up to 100 members',
-          'Attendance tracking',
-        ];
-
-      case PlanType.GROWTH:
-        return [
-          'Everything in Starter',
-          'Up to 10 users',
-          'Up to 500 members',
-          'Custom roles & permissions',
-        ];
-
-      case PlanType.EXPANSION:
-        return [
-          'Everything in Growth',
-          'Up to 25 users',
-          'Up to 1,500 members',
-        ];
-
-      case PlanType.ENTERPRISE:
-        return [
-          'Everything in Expansion',
-          'Priority support',
-          'Unlimited users',
-          'Advanced controls',
-          'Unlimited members',
-        ];
-
-      default:
-        return [];
-    }
-  }
-
-  private formatPlanName(plan: PlanType) {
-    return plan.charAt(0) + plan.slice(1).toLowerCase();
+    return Object.values(PlanType).map((plan) => {
+      const config = this.getPlanConfig(plan);
+      return {
+        type: plan,
+        name: config.name,
+        monthlyPrice: config.monthlyPrice,
+        yearlyPrice: config.yearlyPrice,
+        features: config.features,
+        popular: config.popular,
+        memberLimit: config.memberLimit,
+        userLimit: config.userLimit,
+        branchLimit: config.branchLimit,
+        customRolesEnabled: config.customRolesEnabled,
+      };
+    });
   }
 
   private mapToChurchStatus(subscription: Subscription) {
@@ -772,15 +854,15 @@ export class SubscriptionService {
   }
 
   async getPlanMemberLimit(plan: PlanType): Promise<number> {
-    return this.planLimits[plan].members || 0;
+    return this.getPlanConfig(plan).memberLimit || 0;
   }
 
   async getPlanUserLimit(plan: PlanType): Promise<number> {
-    return this.planLimits[plan].users || 0;
+    return this.getPlanConfig(plan).userLimit || 0;
   }
 
   async getPlanBranchLimit(plan: PlanType): Promise<number> {
-    return this.planLimits[plan].branches ?? 0;
+    return this.getPlanConfig(plan).branchLimit ?? 0;
   }
 
   async updateGracePeriod(churchId: Types.ObjectId, gracePeriodEndDate: Date) {
