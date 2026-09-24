@@ -1,9 +1,9 @@
-// Canonical title catalog - kept in sync by hand with the frontend's copy
-// (church-workflow/src/lib/titles.ts). The two apps are separate repos with
-// No shared-package infrastructure today, so this is documentation/a
-// Reference list, not a validation source: member/admin title fields accept
-// Any free text up to 50 chars (see CreateMemberDto, CreateAdminDto), so a
-// Title outside this list is always allowed.
+// Canonical title catalog. This is now the seed source for each church's
+// Title collection (see modules/titles/title.service.ts DEFAULT_TITLES) -
+// New churches get these as their starting, editable list. It is not a
+// Validation source: member/admin title fields accept any free text up to
+// 50 chars (see CreateMemberDto, CreateAdminDto), so a title outside this
+// List (or a church's edited list) is always allowed.
 export const TITLE_CATEGORIES: Record<string, string[]> = {
   General: [
     'Mr',

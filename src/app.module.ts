@@ -37,9 +37,14 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { AdminActivityLogModule } from './modules/admin-activity-log/admin-activity-log.module';
 import { OverviewModule } from './modules/overview/overview.module';
 import { BranchModule } from './modules/branch/branch.module';
-import { GivingRecordModule } from './modules/giving-records/giving-record.module';
+import { TitleModule } from './modules/titles/title.module';
+import { LocationModule } from './modules/locations/location.module';
 import { ExpenseModule } from './modules/expenses/expense.module';
 import { RequisitionModule } from './modules/requisitions/requisition.module';
+import { GivingBatchModule } from './modules/giving-batches/giving-batch.module';
+import { OfferingTypeModule } from './modules/offering-types/offering-type.module';
+import { CurrencyModule } from './modules/currencies/currency.module';
+import { OnlineGivingModule } from './modules/online-giving/online-giving.module';
 
 @Module({
   imports: [
@@ -101,9 +106,14 @@ import { RequisitionModule } from './modules/requisitions/requisition.module';
     AdminActivityLogModule,
     OverviewModule,
     BranchModule,
-    GivingRecordModule,
+    TitleModule,
+    LocationModule,
     ExpenseModule,
     RequisitionModule,
+    GivingBatchModule,
+    OfferingTypeModule,
+    CurrencyModule,
+    OnlineGivingModule,
   ],
   controllers: [AppController],
   providers: [AppService],

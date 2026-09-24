@@ -1,3 +1,5 @@
+import { Model, Types } from 'mongoose';
+
 import {
   BadRequestException,
   ForbiddenException,
@@ -5,12 +7,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
 
+import { paginationMeta } from '../../common/helpers/pagination.helper';
 import { TenantContext } from '../../common/interfaces/tenant-context.interface';
 import { AdminAccessScope } from '../../common/utils/enums.utils';
-import { Admin } from '../../schemas/admin.schema';
 import { AdminBranchAccess } from '../../schemas/admin-branch-access.schema';
+import { Admin } from '../../schemas/admin.schema';
 import { Branch } from '../../schemas/branch.schema';
 import { SubscriptionService } from '../subscription/subscription.service';
 import { CreateBranchDto } from './dto/create-branch.dto';
@@ -33,6 +35,30 @@ export class BranchService {
     }
   }
 
+  // Branch names must be unique within a church (case-insensitive) so the
+  // Branch switcher and management list stay unambiguous. Excludes a branch
+  // Being updated from its own check.
+  private async assertNameAvailable(
+    churchId: Types.ObjectId,
+    name: string,
+    excludeBranchId?: Types.ObjectId | string,
+  ) {
+    const duplicate = await this.branchModel.findOne({
+      churchId,
+      _id: excludeBranchId ? { $ne: excludeBranchId } : undefined,
+      name: {
+        $regex: `^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`,
+        $options: 'i',
+      },
+    });
+
+    if (duplicate) {
+      throw new BadRequestException(
+        `A branch named "${name.trim()}" already exists in this church`,
+      );
+    }
+  }
+
   async listForTenant(tenant: TenantContext) {
     const branches = await this.branchModel
       .find({ _id: { $in: tenant.accessibleBranchIds } })
@@ -46,8 +72,43 @@ export class BranchService {
     };
   }
 
+  // Used by the branch management settings page, not general tenant
+  // Scoping - includes inactive branches, unlike listForTenant (whose
+  // AccessibleBranchIds deliberately excludes them), so a deactivated
+  // Branch stays visible with a "Reactivate" action instead of vanishing.
+  async listAllForManagement(
+    authUser: Admin,
+    pagination?: { page: number; limit: number },
+  ) {
+    this.assertOrgWide(authUser);
+
+    const query = this.branchModel
+      .find({ churchId: authUser.churchId })
+      .sort({ isHQ: -1, createdAt: 1 });
+
+    if (!pagination) {
+      return { branches: await query.lean() };
+    }
+
+    const itemCount = await this.branchModel.countDocuments({
+      churchId: authUser.churchId,
+    });
+    const branches = await query
+      .skip((pagination.page - 1) * pagination.limit)
+      .limit(pagination.limit)
+      .lean();
+
+    return {
+      branches,
+      pagination: paginationMeta({ ...pagination, itemCount }),
+    };
+  }
+
   async create(authUser: Admin, dto: CreateBranchDto) {
     this.assertOrgWide(authUser);
+
+    const name = dto.name.trim();
+    await this.assertNameAvailable(authUser.churchId, name);
 
     const currentBranchCount = await this.countActive(authUser.churchId);
     const limitCheck = await this.subscriptionService.checkBranchLimit(
@@ -60,7 +121,7 @@ export class BranchService {
 
     return this.branchModel.create({
       churchId: authUser.churchId,
-      name: dto.name.trim(),
+      name,
       alias: dto.alias || null,
       address: dto.address || null,
       country: dto.country || null,
@@ -129,7 +190,16 @@ export class BranchService {
 
     const updatePayload: Partial<Branch> = {};
     if (typeof dto.name === 'string') {
-      updatePayload.name = dto.name.trim();
+      const name = dto.name.trim();
+      if (!name) {
+        throw new BadRequestException('Branch name cannot be empty');
+      }
+      await this.assertNameAvailable(
+        authUser.churchId,
+        name,
+        branch._id as Types.ObjectId,
+      );
+      updatePayload.name = name;
     }
     if (dto.alias !== undefined) {
       updatePayload.alias = dto.alias;
@@ -159,6 +229,29 @@ export class BranchService {
     );
 
     return this.branchModel.findById(branchId).lean();
+  }
+
+  async remove(authUser: Admin, branchId: string) {
+    this.assertOrgWide(authUser);
+
+    const branch = await this.branchModel.findOne({
+      _id: branchId,
+      churchId: authUser.churchId,
+    });
+    if (!branch) {
+      throw new NotFoundException('Branch not found');
+    }
+
+    if (branch.isHQ) {
+      throw new BadRequestException(
+        'The Head Office branch was created automatically and cannot be deleted',
+      );
+    }
+
+    await this.branchModel.deleteOne({ _id: branchId });
+    await this.adminBranchAccessModel.deleteMany({ branchId });
+
+    return { message: 'Branch deleted' };
   }
 
   async grantAccess(authUser: Admin, branchId: string, adminId: string) {

@@ -19,6 +19,7 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "migrate:backfill-branch-hq-and-org-wide": "ts-node -r tsconfig-paths/register src/scripts/backfill-branch-hq-and-org-wide.script.ts",
+    "migrate:giving-records-to-batches": "ts-node -r tsconfig-paths/register src/scripts/migrate-giving-records-to-batches.script.ts",
     "prepare": "husky"
   },
   "dependencies": {
@@ -41,6 +42,7 @@
     "cloudinary": "^2.9.0",
     "crypto-js": "^4.2.0",
     "csv-parser": "^3.2.0",
+    "exceljs": "^4.4.0",
     "google-auth-library": "^10.6.1",
     "json2csv": "^6.0.0-alpha.2",
     "mongoose": "^8.9.4",

@@ -8,6 +8,7 @@ import {
 } from '../../schemas/subscription.schema';
 import { PaymentModule } from '../payment/payment.module';
 import { AdminActivityLogModule } from '../admin-activity-log/admin-activity-log.module';
+import { NotificationModule } from '../notification/notification.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { AdminActivityLogModule } from '../admin-activity-log/admin-activity-log
     ]),
     forwardRef(() => PaymentModule),
     AdminActivityLogModule,
+    NotificationModule,
   ],
   controllers: [SubscriptionController],
   providers: [SubscriptionService],

@@ -32,6 +32,9 @@ export const envConfig = () => ({
     baseUrl: process.env.FLUTTERWAVE_BASE_URL,
     redirectUrl: process.env.FLUTTERWAVE_REDIRECT_URL,
   },
+  giving: {
+    redirectUrl: process.env.GIVING_REDIRECT_URL,
+  },
   productAdmin: {
     seedName: process.env.PRODUCT_ADMIN_SEED_NAME,
     seedEmail: process.env.PRODUCT_ADMIN_SEED_EMAIL,

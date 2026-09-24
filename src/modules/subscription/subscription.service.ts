@@ -6,12 +6,14 @@ import { InjectModel } from '@nestjs/mongoose';
 import {
   BillingCycle,
   MemberLimitType,
+  NotificationType,
   PaymentProvider,
   PlanType,
   SubscriptionStatus,
 } from '../../common/utils/enums.utils';
 import { Subscription } from '../../schemas/subscription.schema';
 import { AdminActivityLogService } from '../admin-activity-log/admin-activity-log.service';
+import { NotificationService } from '../notification/notification.service';
 import { PaymentService } from '../payment/payment.service';
 
 @Injectable()
@@ -21,6 +23,7 @@ export class SubscriptionService {
     private subscriptionModel: Model<Subscription>,
     private paymentService: PaymentService,
     private adminActivityLogService: AdminActivityLogService,
+    private notificationService: NotificationService,
   ) {}
 
   private readonly planLimits = {
@@ -227,6 +230,11 @@ export class SubscriptionService {
         details: `Subscription created for plan ${data.plan}`,
         plan: data.plan as any,
       } as any);
+      await this.notificationService.createNotification(data.churchId, {
+        title: 'Subscription Activated',
+        body: `Your ${data.plan} plan subscription is now active.`,
+        type: NotificationType.SUBSCRIPTION,
+      });
     } else if (existing.plan !== data.plan) {
       const isUpgrade = this.planRank[data.plan] > this.planRank[existing.plan];
       await this.adminActivityLogService.create({
@@ -236,6 +244,15 @@ export class SubscriptionService {
           (isPlanChange ? ' (remaining duration carried over)' : ''),
         plan: data.plan as any,
       } as any);
+      await this.notificationService.createNotification(data.churchId, {
+        title: isUpgrade
+          ? 'Subscription Upgraded 🎉'
+          : 'Subscription Plan Changed',
+        body: isUpgrade
+          ? `Your church has been upgraded from the ${existing.plan} plan to the ${data.plan} plan. Enjoy your new features!`
+          : `Your plan was changed from ${existing.plan} to ${data.plan}.`,
+        type: NotificationType.SUBSCRIPTION,
+      });
     } else {
       await this.adminActivityLogService.create({
         action: 'Subscription Updated',
@@ -294,14 +311,25 @@ export class SubscriptionService {
 
   async checkBranchLimit(churchId: Types.ObjectId, currentBranchCount: number) {
     const sub = await this.getSubscription(churchId);
-    if (sub.branchLimit === -1) {
+
+    // Legacy subscription docs created before branch limits were introduced
+    // Can be missing branchLimit (or have it stored as 0) - fall back to the
+    // Current plan's limit instead of silently allowing unlimited branches.
+    const branchLimit =
+      sub.branchLimit || (await this.getPlanBranchLimit(sub.plan));
+
+    if (branchLimit === -1) {
       return { allowed: true };
     }
 
-    if (currentBranchCount >= sub.branchLimit) {
+    // CountActive() already returns the number of active branches, so when
+    // It equals the limit there is no room for another one. Strictly greater
+    // Would let a church exceed the limit when branches were created while
+    // The limit was higher (e.g. on a bigger plan).
+    if (currentBranchCount >= branchLimit) {
       return {
         allowed: false,
-        message: `You're using ${currentBranchCount} of ${sub.branchLimit} branches. Deactivate a branch or upgrade to add more.`,
+        message: `You're using ${currentBranchCount} of ${branchLimit} branches. Deactivate a branch or upgrade to add more.`,
       };
     }
 
@@ -710,6 +738,12 @@ export class SubscriptionService {
       subscription.status = SubscriptionStatus.SUSPENDED;
       subscription.pausedAt = new Date();
       await subscription.save();
+
+      await this.notificationService.createNotification(churchId, {
+        title: 'Subscription Suspended',
+        body: `Your ${subscription.plan} plan subscription has been suspended. Resume it to restore full access.`,
+        type: NotificationType.SUBSCRIPTION,
+      });
     }
   }
 
@@ -719,6 +753,12 @@ export class SubscriptionService {
       subscription.status = SubscriptionStatus.ACTIVE;
       subscription.pausedAt = null;
       await subscription.save();
+
+      await this.notificationService.createNotification(churchId, {
+        title: 'Subscription Resumed',
+        body: `Your ${subscription.plan} plan subscription is active again.`,
+        type: NotificationType.SUBSCRIPTION,
+      });
     }
   }
 

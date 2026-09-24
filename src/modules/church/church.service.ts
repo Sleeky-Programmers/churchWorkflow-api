@@ -56,6 +56,45 @@ export class ChurchService {
     return await this.churchModel.findById(id);
   }
 
+  // Public giving pages resolve the church by slug instead of the raw
+  // ChurchId. Older churches created before slugs existed are self-healed
+  // Here the first time they're looked up by slug.
+  async findBySlug(slug: string) {
+    return await this.churchModel.findOne({ slug });
+  }
+
+  async ensureSlug(churchId: Types.ObjectId | string) {
+    const church = await this.churchModel.findById(churchId);
+    if (!church) {
+      throw new NotFoundException('Church not found');
+    }
+    if (church.slug) {
+      return church.slug;
+    }
+
+    const slug = await this.generateUniqueSlug(church.name);
+    church.slug = slug;
+    await church.save();
+    return slug;
+  }
+
+  private async generateUniqueSlug(name: string): Promise<string> {
+    const base =
+      (name || 'church')
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') || 'church';
+
+    let slug = base;
+    let suffix = 0;
+    while (await this.churchModel.exists({ slug })) {
+      suffix += 1;
+      slug = `${base}-${suffix}`;
+    }
+    return slug;
+  }
+
   async findAllChurches() {
     return await this.churchModel.find().lean();
   }
@@ -272,10 +311,13 @@ export class ChurchService {
       publicId = filePublicId;
     }
 
+    const slug = await this.generateUniqueSlug(churchIdentityDto.name);
+
     const church = await this.churchModel.create({
       ...churchIdentityDto,
       logoUrl: url,
       logoPublicId: publicId,
+      slug,
     });
 
     // The church's own creation produces its head branch, and the founding

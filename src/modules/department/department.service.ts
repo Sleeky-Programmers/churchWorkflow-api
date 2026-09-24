@@ -1,5 +1,7 @@
 import { Model, Types } from 'mongoose';
 
+import { Workbook } from 'exceljs';
+
 import {
   BadRequestException,
   ConflictException,
@@ -543,8 +545,60 @@ export class DepartmentService {
       .find({ ...buildTenantFilter(tenant), ...ownershipFilter })
       .populate('hod', 'firstName lastName email')
       .populate('members', 'fullName email')
+      .sort({ name: 1 })
       .lean();
 
+    // Styled workbook themed off the app's design system (primary blue
+    // Palette from the frontend Tailwind config) rather than a bare CSV.
+    const workbook = new Workbook();
+    workbook.creator = 'Church Workflow';
+    workbook.created = new Date();
+
+    const sheet = workbook.addWorksheet('Departments', {
+      views: [{ state: 'frozen', ySplit: 4 }],
+      pageSetup: { orientation: 'landscape', fitToPage: true },
+    });
+
+    const COLUMN_COUNT = 7;
+
+    // Title banner
+    sheet.mergeCells(1, 1, 1, COLUMN_COUNT);
+    const titleCell = sheet.getCell(1, 1);
+    titleCell.value = 'Departments & Units Report';
+    titleCell.font = {
+      name: 'Calibri',
+      size: 16,
+      bold: true,
+      color: { argb: 'FFFFFFFF' },
+    };
+    titleCell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FF0C5FB3' }, // Primary-500
+    };
+    titleCell.alignment = { vertical: 'middle', horizontal: 'center' };
+    sheet.getRow(1).height = 30;
+
+    // Sub-caption row
+    sheet.mergeCells(2, 1, 2, COLUMN_COUNT);
+    const captionCell = sheet.getCell(2, 1);
+    captionCell.value = `${departments.length} department${departments.length === 1 ? '' : 's'} · Generated ${new Date().toLocaleDateString(
+      'en-US',
+      { year: 'numeric', month: 'long', day: 'numeric' },
+    )}`;
+    captionCell.font = {
+      name: 'Calibri',
+      size: 10,
+      italic: true,
+      color: { argb: 'FF6B7280' },
+    };
+    captionCell.alignment = { vertical: 'middle', horizontal: 'center' };
+    sheet.getRow(2).height = 18;
+
+    // Spacer row
+    sheet.getRow(3).height = 6;
+
+    // Header row
     const header = [
       'Name',
       'Description',
@@ -554,35 +608,110 @@ export class DepartmentService {
       'Members Count',
       'Created At',
     ];
+    const headerRow = sheet.getRow(4);
+    headerRow.values = header;
+    headerRow.eachCell((cell) => {
+      cell.font = {
+        name: 'Calibri',
+        size: 11,
+        bold: true,
+        color: { argb: 'FFFFFFFF' },
+      };
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF3D7FC2' }, // Primary-400
+      };
+      cell.alignment = { vertical: 'middle', horizontal: 'left' };
+      cell.border = {
+        bottom: { style: 'thin', color: { argb: 'FF0B56A3' } }, // Primary-600
+      };
+    });
+    headerRow.height = 22;
 
-    const rows = departments.map((dept: any) => {
-      const escapedName = (dept.name || '').replace(/"/g, '""');
-      const escapedDesc = (dept.description || '').replace(/"/g, '""');
+    // Data rows - zebra striping for readability
+    departments.forEach((dept: any, index: number) => {
+      const row = sheet.getRow(5 + index);
       const hodName = dept.hod
-        ? `${dept.hod.firstName} ${dept.hod.lastName}`
-            .trim()
-            .replace(/"/g, '""')
+        ? `${dept.hod.firstName || ''} ${dept.hod.lastName || ''}`.trim()
         : 'None';
-      const hodEmail = dept.hod?.email
-        ? dept.hod.email.replace(/"/g, '""')
-        : '';
       const membersCount = Array.isArray(dept.members)
         ? dept.members.length
         : 0;
-      const createdAt = new Date(dept.createdAt).toISOString();
 
-      return [
-        `"${escapedName}"`,
-        `"${escapedDesc}"`,
-        `"${dept.status}"`,
-        `"${hodName}"`,
-        `"${hodEmail}"`,
+      row.values = [
+        dept.name || '',
+        dept.description || '—',
+        dept.status || '—',
+        hodName || 'None',
+        dept.hod?.email || '—',
         membersCount,
-        `"${createdAt}"`,
+        dept.createdAt
+          ? new Date(dept.createdAt).toLocaleDateString('en-US', {
+              year: 'numeric',
+              month: 'short',
+              day: 'numeric',
+            })
+          : '—',
       ];
+
+      const isActive = (dept.status || '').toUpperCase() === 'ACTIVE';
+
+      row.eachCell({ includeEmpty: true }, (cell) => {
+        cell.font = { name: 'Calibri', size: 11 };
+        cell.alignment = { vertical: 'middle' };
+
+        // Zebra stripe on even data rows
+        if (index % 2 === 1) {
+          cell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFE7EFF7' }, // Primary-50
+          };
+        }
+      });
+
+      // Status chip: green tint for active, red tint for inactive
+      const statusCell = row.getCell(3);
+      statusCell.font = {
+        name: 'Calibri',
+        size: 11,
+        bold: true,
+        color: { argb: isActive ? 'FF047857' : 'FFB91C1C' },
+      };
+      statusCell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: isActive ? 'FFD1FAE5' : 'FFFEE2E2' },
+      };
+      statusCell.alignment = { vertical: 'middle', horizontal: 'center' };
     });
 
-    return [header.join(','), ...rows.map((row) => row.join(','))].join('\n');
+    // Column widths tuned to content
+    sheet.columns.forEach((column) => {
+      let maxWidth = 12;
+      column.eachCell?.({ includeEmpty: true }, (cell) => {
+        const length = String(cell.value ?? '').length;
+        if (length > maxWidth) {
+          maxWidth = length;
+        }
+      });
+      column.width = Math.min(Math.max(maxWidth + 4, 12), 42);
+    });
+    sheet.getColumn(2).width = 42; // Description
+    sheet.getColumn(5).width = 28; // HOD Email
+    sheet.getColumn(7).width = 14; // Created At
+
+    // Thin bottom border across the table extent
+    const lastDataRow = 4 + departments.length;
+    for (let col = 1; col <= COLUMN_COUNT; col++) {
+      sheet.getCell(lastDataRow, col).border = {
+        bottom: { style: 'thin', color: { argb: 'FFB4CDE7' } }, // Primary-100
+      };
+    }
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    return buffer;
   }
 
   private toUniqueIds(ids: string[]) {

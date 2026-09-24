@@ -3,7 +3,12 @@ import { Types } from 'mongoose';
 import { lastValueFrom } from 'rxjs';
 
 import { HttpService } from '@nestjs/axios';
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import {
+  forwardRef,
+  Inject,
+  Injectable,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 import {
@@ -14,6 +19,7 @@ import {
 } from '../../common/utils/enums.utils';
 import { AdminActivityLogService } from '../admin-activity-log/admin-activity-log.service';
 import { CouponService } from '../coupon/coupon.service';
+import { OnlineGivingService } from '../online-giving/online-giving.service';
 import { PaymentService } from '../payment/payment.service';
 import { SubscriptionPlanCodesService } from '../subscription-plan-codes/subscription-plan-codes.service';
 import { SubscriptionService } from '../subscription/subscription.service';
@@ -31,9 +37,49 @@ export class PaystackService {
     private readonly couponService: CouponService,
     private readonly subscriptionPlanCodesService: SubscriptionPlanCodesService,
     private adminActivityLogService: AdminActivityLogService,
+    @Inject(forwardRef(() => OnlineGivingService))
+    private readonly onlineGivingService: OnlineGivingService,
   ) {
     this.secretKey = this.configService.get<string>('paystack.secretKey');
     this.baseUrl = this.configService.get<string>('paystack.baseUrl');
+  }
+
+  // Separate from initializeTransaction (which is billing/subscription
+  // Specific: it creates a Payment record and assumes a plan/billingCycle).
+  // This reuses only the raw Paystack HTTP call pattern for one-off,
+  // Non-subscription online giving donations.
+  async initializeGivingTransaction(data: {
+    email?: string;
+    amount: number;
+    currencyCode: string;
+    metadata: Record<string, any>;
+  }) {
+    try {
+      const payload = {
+        email: data.email || 'donor@giving.church',
+        amount: data.amount * 100,
+        currency: data.currencyCode,
+        callback_url:
+          this.configService.get<string>('giving.redirectUrl') || '',
+        metadata: data.metadata,
+      };
+
+      const response = await lastValueFrom(
+        this.httpService.post(
+          `${this.baseUrl}/transaction/initialize`,
+          payload,
+          { headers: this.headers },
+        ),
+      );
+
+      const { reference, authorization_url } = response.data.data;
+
+      return { reference, authorizationUrl: authorization_url };
+    } catch (error: any) {
+      throw new InternalServerErrorException(
+        error.response?.data?.message || 'Paystack initialization failed',
+      );
+    }
   }
 
   verifyWebhookSignature(payload: any, signature: string): boolean {
@@ -219,6 +265,14 @@ export class PaystackService {
     switch (event) {
       case 'charge.success': {
         const { reference, metadata, paid_at } = data;
+
+        if (metadata && metadata.type === 'online_giving') {
+          await this.onlineGivingService.fulfillFromWebhook(
+            metadata,
+            reference,
+          );
+          break;
+        }
 
         if (metadata && metadata.churchId) {
           await this.paymentService.updatePaymentStatus(
