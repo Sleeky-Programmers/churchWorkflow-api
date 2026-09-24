@@ -467,6 +467,7 @@ export class PaystackService {
       let planCodeData: any = null;
 
       planCodeData = await this.subscriptionPlanCodesService.findPlanCode(
+        data.metadata.plan,
         data.metadata.billingCycle,
       );
 
@@ -477,6 +478,7 @@ export class PaystackService {
         );
 
         planCodeData = await this.subscriptionPlanCodesService.createPlanCode(
+          data.metadata.plan,
           data.metadata.billingCycle,
           planCode,
         );

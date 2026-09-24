@@ -1,23 +1,26 @@
 import {
   Body,
   Controller,
-  Delete,
   Get,
   Param,
-  Patch,
   Post,
   Query,
   UseGuards,
 } from '@nestjs/common';
 import { AdminActivityLogService } from './admin-activity-log.service';
 import { CreateAdminActivityLogDto } from './dto/create-admin-activity-log.dto';
-import { UpdateAdminActivityLogDto } from './dto/update-admin-activity-log.dto';
 import { AdminActivityLogFilterDto } from './dto/admin-activity-log-filter.dto';
-import { JwtAuthGuard } from '../auth/guard/jwt-auth.guard';
+import { ProductAdminJwtAuthGuard } from '../product-admin/guard/product-jwt-auth.guard';
 import { AuthUser } from '../../common/decorators/auth-user.decorator';
-import { Admin } from '../../schemas/admin.schema';
+import { ProductAdmin } from '../../schemas/product-admin.schema';
 
-@UseGuards(JwtAuthGuard)
+// This is the audit trail for platform/product-admin actions (adminId refs
+// ProductAdmin, not per-church Admin). Any authenticated product admin can
+// View it (it's a general admin-portal feature, not gated by module
+// Permissions) but church-tenant admins can never reach it — and there is
+// Deliberately no update/delete route, since an audit log that can be
+// Edited or erased after the fact isn't one.
+@UseGuards(ProductAdminJwtAuthGuard)
 @Controller('admin-activity-log')
 export class AdminActivityLogController {
   constructor(
@@ -26,7 +29,7 @@ export class AdminActivityLogController {
 
   @Post()
   async create(
-    @AuthUser() user: Admin,
+    @AuthUser() user: ProductAdmin,
     @Body() dto: CreateAdminActivityLogDto,
   ) {
     const payload: any = { ...dto };
@@ -41,21 +44,13 @@ export class AdminActivityLogController {
     return this.adminActivityLogService.list(filter);
   }
 
+  @Get('stats')
+  async stats() {
+    return this.adminActivityLogService.stats();
+  }
+
   @Get(':id')
   async find(@Param('id') id: string) {
     return this.adminActivityLogService.findById(id);
-  }
-
-  @Patch(':id')
-  async update(
-    @Param('id') id: string,
-    @Body() dto: UpdateAdminActivityLogDto,
-  ) {
-    return this.adminActivityLogService.update(id, dto as any);
-  }
-
-  @Delete(':id')
-  async remove(@Param('id') id: string) {
-    return this.adminActivityLogService.remove(id);
   }
 }
