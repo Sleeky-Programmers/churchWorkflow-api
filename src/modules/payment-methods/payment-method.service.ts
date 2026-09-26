@@ -15,10 +15,10 @@ import {
 } from '../../schemas/giving-entry.schema';
 import { PaymentMethod } from '../../schemas/payment-method.schema';
 
-// class-validator's @IsEnum checks membership against the enum's *values*
+// Class-validator's @IsEnum checks membership against the enum's *values*
 // (e.g. 'Cash'), not its keys (e.g. 'CASH') - so the enum's own values are
-// used as the canonical preset code, avoiding the key/value mismatch that
-// previously existed between this enum and the frontend's hardcoded list.
+// Used as the canonical preset code, avoiding the key/value mismatch that
+// Previously existed between this enum and the frontend's hardcoded list.
 export const PAYMENT_METHOD_PRESETS = Object.values(
   GivingEntryPaymentMethod,
 ).map((value) => ({
@@ -58,7 +58,11 @@ export class PaymentMethodService {
 
   async create(
     tenant: TenantContext,
-    dto: { code: GivingEntryPaymentMethod; isActive?: boolean; sortOrder?: number },
+    dto: {
+      code: GivingEntryPaymentMethod;
+      isActive?: boolean;
+      sortOrder?: number;
+    },
   ) {
     const preset = PAYMENT_METHOD_PRESETS.find((p) => p.code === dto.code);
     if (!preset) {

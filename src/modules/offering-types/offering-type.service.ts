@@ -138,7 +138,7 @@ export class OfferingTypeService {
       throw new NotFoundException('Offering type not found');
     }
 
-    // offeringTypeId is a globally-unique ObjectId, so a direct reference
+    // OfferingTypeId is a globally-unique ObjectId, so a direct reference
     // Check across entries is safe without joining through batches.
     const inUse = await this.givingEntryModel.exists({
       offeringTypeId: new Types.ObjectId(id),

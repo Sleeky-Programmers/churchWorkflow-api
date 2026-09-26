@@ -602,9 +602,7 @@ export class ChurchServicesService {
   // Only for legacy services saved without a day.
   private matchesServiceWeekday(service: any, dayIndex: number): boolean {
     const expectedDay = service.day || ServiceDay.MONDAY;
-    return (
-      expectedDay === ChurchServicesService.WEEKDAY_BY_INDEX[dayIndex]
-    );
+    return expectedDay === ChurchServicesService.WEEKDAY_BY_INDEX[dayIndex];
   }
 
   private isServiceOnDate(service: any, date: Date) {
