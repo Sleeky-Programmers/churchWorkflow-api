@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Post,
@@ -64,5 +65,14 @@ export class CurrencyController {
   })
   setDefault(@CurrentTenant() tenant: TenantContext, @Param('id') id: string) {
     return this.currencyService.setDefault(tenant, id);
+  }
+
+  @Delete(':id')
+  @RequirePermissions({
+    section: ModuleSections.GIVING,
+    level: AccessLevel.FULL_ACCESS,
+  })
+  remove(@CurrentTenant() tenant: TenantContext, @Param('id') id: string) {
+    return this.currencyService.remove(tenant, id);
   }
 }

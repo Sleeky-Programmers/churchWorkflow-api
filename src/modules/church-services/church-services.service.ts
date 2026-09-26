@@ -584,6 +584,29 @@ export class ChurchServicesService {
     return results;
   }
 
+  private static readonly WEEKDAY_BY_INDEX = {
+    0: ServiceDay.SUNDAY,
+    1: ServiceDay.MONDAY,
+    2: ServiceDay.TUESDAY,
+    3: ServiceDay.WEDNESDAY,
+    4: ServiceDay.THURSDAY,
+    5: ServiceDay.FRIDAY,
+    6: ServiceDay.SATURDAY,
+  } as const;
+
+  // WEEKLY_MONDAY/MONTHLY_FIRST_MONDAY are historical recurrence names that
+  // Actually mean "weekly/monthly on whatever day this service runs" -
+  // Every weekly service is saved with recurrence WEEKLY_MONDAY regardless
+  // Of its actual day (see frontend attendance page), so the match has to
+  // Be against service.day, not literally Monday. Falls back to Monday
+  // Only for legacy services saved without a day.
+  private matchesServiceWeekday(service: any, dayIndex: number): boolean {
+    const expectedDay = service.day || ServiceDay.MONDAY;
+    return (
+      expectedDay === ChurchServicesService.WEEKDAY_BY_INDEX[dayIndex]
+    );
+  }
+
   private isServiceOnDate(service: any, date: Date) {
     const startOfDay = new Date(date);
     startOfDay.setHours(0, 0, 0, 0);
@@ -630,16 +653,7 @@ export class ChurchServicesService {
         }
 
         if (service.day) {
-          const weekdayMap = {
-            0: ServiceDay.SUNDAY,
-            1: ServiceDay.MONDAY,
-            2: ServiceDay.TUESDAY,
-            3: ServiceDay.WEDNESDAY,
-            4: ServiceDay.THURSDAY,
-            5: ServiceDay.FRIDAY,
-            6: ServiceDay.SATURDAY,
-          } as const;
-          return service.day === weekdayMap[dayIndex];
+          return this.matchesServiceWeekday(service, dayIndex);
         }
 
         return false;
@@ -651,10 +665,10 @@ export class ChurchServicesService {
         return dayIndex >= 1 && dayIndex <= 5;
       }
       case Recurrence.WEEKLY_MONDAY: {
-        return dayIndex === 1;
+        return this.matchesServiceWeekday(service, dayIndex);
       }
       case Recurrence.MONTHLY_FIRST_MONDAY: {
-        if (dayIndex !== 1) {
+        if (!this.matchesServiceWeekday(service, dayIndex)) {
           return false;
         }
         const dayOfMonth = date.getDate();
@@ -727,16 +741,7 @@ export class ChurchServicesService {
         }
 
         if (service.day) {
-          const weekdayMap = {
-            0: ServiceDay.SUNDAY,
-            1: ServiceDay.MONDAY,
-            2: ServiceDay.TUESDAY,
-            3: ServiceDay.WEDNESDAY,
-            4: ServiceDay.THURSDAY,
-            5: ServiceDay.FRIDAY,
-            6: ServiceDay.SATURDAY,
-          } as const;
-          return service.day === weekdayMap[dayIndex];
+          return this.matchesServiceWeekday(service, dayIndex);
         }
 
         return false;
@@ -748,10 +753,10 @@ export class ChurchServicesService {
         return dayIndex >= 1 && dayIndex <= 5;
       }
       case Recurrence.WEEKLY_MONDAY: {
-        return dayIndex === 1;
+        return this.matchesServiceWeekday(service, dayIndex);
       }
       case Recurrence.MONTHLY_FIRST_MONDAY: {
-        return dayIndex === 1 && day <= 7;
+        return this.matchesServiceWeekday(service, dayIndex) && day <= 7;
       }
       case Recurrence.ANNUALLY: {
         if (!service.startDate) {

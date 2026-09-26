@@ -20,6 +20,9 @@ export class OfferingType extends Document {
   // Deactivated/renamed but not deleted, unlike church-created ones.
   @Prop({ default: false })
   isSystem: boolean;
+
+  @Prop({ default: false })
+  isDefault: boolean;
 }
 
 export const OfferingTypeSchema = SchemaFactory.createForClass(OfferingType);
