@@ -121,10 +121,6 @@ export class ActivityLogService {
       .populate('adminId', 'firstName lastName');
   }
 
-  async delete(id: string) {
-    return await this.activityLogModel.findByIdAndDelete(id);
-  }
-
   async deleteByAdminId(adminId: Types.ObjectId) {
     return await this.activityLogModel.deleteMany({ adminId });
   }

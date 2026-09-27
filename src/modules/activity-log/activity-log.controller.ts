@@ -1,7 +1,6 @@
 import {
   Controller,
   Get,
-  Delete,
   Param,
   Res,
   UseGuards,
@@ -30,11 +29,6 @@ export class ActivityLogController {
   @Get(':id')
   async findById(@Param('id') id: string) {
     return this.activityLogService.findById(id);
-  }
-
-  @Delete(':id')
-  async delete(@Param('id') id: string) {
-    return this.activityLogService.delete(id);
   }
 
   @Get('export/csv')
