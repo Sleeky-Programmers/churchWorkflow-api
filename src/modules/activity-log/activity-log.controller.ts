@@ -1,12 +1,4 @@
-import {
-  Controller,
-  Get,
-  Delete,
-  Param,
-  Res,
-  UseGuards,
-  Query,
-} from '@nestjs/common';
+import { Controller, Get, Param, Res, UseGuards, Query } from '@nestjs/common';
 import { ActivityLogService } from './activity-log.service';
 import { Response } from 'express';
 import { Admin } from '../../schemas/admin.schema';
@@ -30,11 +22,6 @@ export class ActivityLogController {
   @Get(':id')
   async findById(@Param('id') id: string) {
     return this.activityLogService.findById(id);
-  }
-
-  @Delete(':id')
-  async delete(@Param('id') id: string) {
-    return this.activityLogService.delete(id);
   }
 
   @Get('export/csv')

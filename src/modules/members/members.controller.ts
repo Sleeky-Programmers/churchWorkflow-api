@@ -15,6 +15,11 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 
+import {
+  FileValidationInterceptor,
+  FileValidationOptions,
+} from '../../common/interceptors/file-validation.interceptor';
+
 import { AuthUser } from '../../common/decorators/auth-user.decorator';
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { RequirePermissions } from '../../common/decorators/permissions.decorator';
@@ -44,7 +49,14 @@ export class MembersController {
     section: ModuleSections.MEMBERS,
     level: AccessLevel.MANAGE,
   })
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file'), FileValidationInterceptor)
+  @FileValidationOptions({
+    allowedMimeTypes: [
+      'text/csv',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    ],
+  })
   createMembersByCsv(
     @AuthUser() authUser: Admin,
     @CurrentTenant() tenant: TenantContext,

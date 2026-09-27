@@ -235,6 +235,7 @@ export class AdminService {
       firstName: updated.firstName,
       lastName: updated.lastName,
       email: updated.email,
+      phoneNumber: updated.phoneNumber ?? null,
     };
   }
 

@@ -45,6 +45,8 @@ import { GivingBatchModule } from './modules/giving-batches/giving-batch.module'
 import { OfferingTypeModule } from './modules/offering-types/offering-type.module';
 import { CurrencyModule } from './modules/currencies/currency.module';
 import { OnlineGivingModule } from './modules/online-giving/online-giving.module';
+import { PaymentMethodModule } from './modules/payment-methods/payment-method.module';
+import { GivingConfigModule } from './modules/giving-config/giving-config.module';
 
 @Module({
   imports: [
@@ -114,6 +116,8 @@ import { OnlineGivingModule } from './modules/online-giving/online-giving.module
     OfferingTypeModule,
     CurrencyModule,
     OnlineGivingModule,
+    PaymentMethodModule,
+    GivingConfigModule,
   ],
   controllers: [AppController],
   providers: [AppService],

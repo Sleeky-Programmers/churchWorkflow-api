@@ -8,6 +8,8 @@ export enum GivingEntryPaymentMethod {
   BANK_TRANSFER = 'Bank Transfer',
   POS = 'POS',
   USSD = 'USSD',
+  CARD = 'Card',
+  MOBILE_MONEY = 'Mobile Money',
   CHEQUE = 'Cheque',
   ONLINE = 'Online',
 }

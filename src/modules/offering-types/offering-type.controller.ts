@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Post,
@@ -55,5 +56,23 @@ export class OfferingTypeController {
     @Body() dto: UpdateOfferingTypeDto,
   ) {
     return this.offeringTypeService.update(tenant, id, dto);
+  }
+
+  @Put(':id/set-default')
+  @RequirePermissions({
+    section: ModuleSections.GIVING,
+    level: AccessLevel.FULL_ACCESS,
+  })
+  setDefault(@CurrentTenant() tenant: TenantContext, @Param('id') id: string) {
+    return this.offeringTypeService.setDefault(tenant, id);
+  }
+
+  @Delete(':id')
+  @RequirePermissions({
+    section: ModuleSections.GIVING,
+    level: AccessLevel.FULL_ACCESS,
+  })
+  remove(@CurrentTenant() tenant: TenantContext, @Param('id') id: string) {
+    return this.offeringTypeService.remove(tenant, id);
   }
 }
