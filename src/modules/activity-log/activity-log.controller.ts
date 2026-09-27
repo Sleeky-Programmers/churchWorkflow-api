@@ -1,11 +1,4 @@
-import {
-  Controller,
-  Get,
-  Param,
-  Res,
-  UseGuards,
-  Query,
-} from '@nestjs/common';
+import { Controller, Get, Param, Res, UseGuards, Query } from '@nestjs/common';
 import { ActivityLogService } from './activity-log.service';
 import { Response } from 'express';
 import { Admin } from '../../schemas/admin.schema';

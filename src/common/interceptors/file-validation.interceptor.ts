@@ -37,11 +37,7 @@ export function FileValidationOptions(options?: {
   maxSizeMb?: number;
   allowedMimeTypes?: string[];
 }): MethodDecorator {
-  return (
-    _target: any,
-    _key?: any,
-    descriptor?: any,
-  ) => {
+  return (_target: any, _key?: any, descriptor?: any) => {
     if (descriptor) {
       Reflect.defineMetadata(
         FILE_VALIDATION_OPTIONS,

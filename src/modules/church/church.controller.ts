@@ -15,9 +15,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 
 import { AuthUser } from '../../common/decorators/auth-user.decorator';
-import {
-  FileValidationInterceptor,
-} from '../../common/interceptors/file-validation.interceptor';
+import { FileValidationInterceptor } from '../../common/interceptors/file-validation.interceptor';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Admin } from '../../schemas/admin.schema';

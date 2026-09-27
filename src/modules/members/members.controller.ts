@@ -13,9 +13,7 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import {
-  FileInterceptor,
-} from '@nestjs/platform-express';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 import {
   FileValidationInterceptor,
@@ -51,10 +49,7 @@ export class MembersController {
     section: ModuleSections.MEMBERS,
     level: AccessLevel.MANAGE,
   })
-  @UseInterceptors(
-    FileInterceptor('file'),
-    FileValidationInterceptor,
-  )
+  @UseInterceptors(FileInterceptor('file'), FileValidationInterceptor)
   @FileValidationOptions({
     allowedMimeTypes: [
       'text/csv',
