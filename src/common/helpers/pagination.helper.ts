@@ -57,8 +57,8 @@ export class MembersFilterDto extends PaginationBaseDto {
   filter?: MemberFilter;
 
   // Independent facet filters — applied together (AND) so the UI can combine
-  // gender + marital status + membership status in one query, unlike the
-  // legacy single `filter` param which only carries one facet.
+  // Gender + marital status + membership status in one query, unlike the
+  // Legacy single `filter` param which only carries one facet.
   @IsOptional()
   @IsEnum(Gender)
   gender?: Gender;

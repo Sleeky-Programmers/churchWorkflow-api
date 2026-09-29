@@ -44,5 +44,6 @@ export class MemberPastoralSettings extends Document {
   countSmallTeams: boolean;
 }
 
-export const MemberPastoralSettingsSchema =
-  SchemaFactory.createForClass(MemberPastoralSettings);
+export const MemberPastoralSettingsSchema = SchemaFactory.createForClass(
+  MemberPastoralSettings,
+);

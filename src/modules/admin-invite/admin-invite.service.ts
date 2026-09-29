@@ -132,7 +132,7 @@ export class AdminInviteService {
     }
 
     // Only shared system roles or roles owned by the admin's own church can
-    // be attached to an invitation.
+    // Be attached to an invitation.
     if (
       role.churchId &&
       authUser.churchId &&
@@ -263,8 +263,11 @@ export class AdminInviteService {
   }
 
   // Tenancy guard: an admin may only act on invites that belong to their own
-  // church. Without this, any inviteId is globally addressable (IDOR).
-  private assertInviteBelongsToChurch(invite: Invite, churchId: Types.ObjectId) {
+  // Church. Without this, any inviteId is globally addressable (IDOR).
+  private assertInviteBelongsToChurch(
+    invite: Invite,
+    churchId: Types.ObjectId,
+  ) {
     if (!churchId || invite.churchId?.toString() !== churchId.toString()) {
       throw new NotFoundException('Invite not found');
     }
@@ -317,7 +320,7 @@ export class AdminInviteService {
     }
 
     // Prevent assigning a role that belongs to a different church (or a
-    // system role other than the shared system roles).
+    // System role other than the shared system roles).
     if (
       role.churchId &&
       authUser.churchId &&

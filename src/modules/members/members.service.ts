@@ -575,9 +575,15 @@ export class MembersService {
 
     // Independent facet filters (combined with AND). The legacy single-string
     // `filter` param still works for backwards compatibility.
-    if (dto.gender) query.gender = dto.gender;
-    if (dto.maritalStatus) query.maritalStatus = dto.maritalStatus;
-    if (dto.membershipStatus) query.membershipStatus = dto.membershipStatus;
+    if (dto.gender) {
+      query.gender = dto.gender;
+    }
+    if (dto.maritalStatus) {
+      query.maritalStatus = dto.maritalStatus;
+    }
+    if (dto.membershipStatus) {
+      query.membershipStatus = dto.membershipStatus;
+    }
 
     if (search) {
       query.$or = [

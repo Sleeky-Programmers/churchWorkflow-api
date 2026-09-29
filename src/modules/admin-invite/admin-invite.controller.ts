@@ -53,15 +53,14 @@ export class AdminInviteController {
     @Body('key') key: string,
     @Param('inviteId') inviteId: string,
   ) {
-    return await this.adminInviteService.removeUser(
-      authUser,
-      inviteId,
-      key,
-    );
+    return await this.adminInviteService.removeUser(authUser, inviteId, key);
   }
 
   @Delete('/:inviteId')
-  async deleteInvitation(@AuthUser() authUser: Admin, @Param('inviteId') inviteId: string) {
+  async deleteInvitation(
+    @AuthUser() authUser: Admin,
+    @Param('inviteId') inviteId: string,
+  ) {
     return await this.adminInviteService.deleteInvitation(authUser, inviteId);
   }
 

@@ -35,7 +35,7 @@ export class PermissionsGuard implements CanActivate {
     const role = user.churchRole as unknown as Role;
 
     // A role that has been disabled must not be usable, even for sections
-    // that nominally have permissions in their array.
+    // That nominally have permissions in their array.
     if (role.status === RoleStatus.DISABLED) {
       throw new ForbiddenException(
         'Access denied. Your assigned role has been disabled.',

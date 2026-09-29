@@ -9,9 +9,7 @@ import { Model, Types } from 'mongoose';
 import { TenantContext } from '../../common/interfaces/tenant-context.interface';
 import { Attendance } from '../../schemas/attendance.schema';
 import { ChurchService } from '../../schemas/church-service.schema';
-import {
-  MemberPastoralSettings,
-} from '../../schemas/member-pastoral-settings.schema';
+import { MemberPastoralSettings } from '../../schemas/member-pastoral-settings.schema';
 import {
   PastoralAlert,
   PastoralAlertCategory,
@@ -118,8 +116,8 @@ export class PastoralService {
     const current = await this.getSettings(churchId);
 
     // Threshold ordering: needsFollowUp <= atRisk <= inactive. Validate
-    // against the merged (saved + incoming) values so partial updates are
-    // checked as a whole.
+    // Against the merged (saved + incoming) values so partial updates are
+    // Checked as a whole.
     const merged = {
       needsFollowUpThreshold:
         update.needsFollowUpThreshold ?? current.needsFollowUpThreshold,
@@ -128,7 +126,11 @@ export class PastoralService {
     };
 
     for (const [key, value] of Object.entries(merged)) {
-      if (!Number.isInteger(value) || (value as number) < 1 || (value as number) > 52) {
+      if (
+        !Number.isInteger(value) ||
+        (value as number) < 1 ||
+        (value as number) > 52
+      ) {
         throw new BadRequestException(
           `${key} must be a whole number between 1 and 52`,
         );
@@ -213,9 +215,13 @@ export class PastoralService {
         result.weeksSinceLast,
         effective,
       );
-      if (level === 'needs-follow-up') needsFollowUp++;
-      else if (level === 'at-risk') atRisk++;
-      else if (level === 'inactive') inactive++;
+      if (level === 'needs-follow-up') {
+        needsFollowUp++;
+      } else if (level === 'at-risk') {
+        atRisk++;
+      } else if (level === 'inactive') {
+        inactive++;
+      }
     }
 
     return { needsFollowUp, atRisk, inactive, totalMembers: members.length };
@@ -227,7 +233,7 @@ export class PastoralService {
 
   private buildMemberFilter(tenant: TenantContext) {
     // Branch-scoped admins only see their branch's members; org-wide admins
-    // see everything in the church.
+    // See everything in the church.
     const filter: Record<string, unknown> = { churchId: tenant.churchId };
     if (tenant.branchId) {
       filter.branchId = tenant.branchId;
@@ -280,7 +286,10 @@ export class PastoralService {
     serviceIds: Types.ObjectId[],
   ) {
     if (!serviceIds.length) {
-      return { sessions: [] as { key: string; date: Date }[], presentByMember: new Map<string, Set<string>>() };
+      return {
+        sessions: [] as { key: string; date: Date }[],
+        presentByMember: new Map<string, Set<string>>(),
+      };
     }
 
     const records = await this.attendanceModel
@@ -298,14 +307,20 @@ export class PastoralService {
     for (const record of records) {
       const serviceId = record.churchServiceId?.toString();
       const date = record.date ? new Date(record.date) : null;
-      if (!serviceId || !date || isNaN(date.getTime())) continue;
+      if (!serviceId || !date || isNaN(date.getTime())) {
+        continue;
+      }
 
       const day = date.toISOString().split('T')[0];
       const key = `${serviceId}|${day}`;
-      if (!sessionMap.has(key)) sessionMap.set(key, date);
+      if (!sessionMap.has(key)) {
+        sessionMap.set(key, date);
+      }
 
       const memberId = record.memberId?.toString();
-      if (!memberId) continue;
+      if (!memberId) {
+        continue;
+      }
 
       if (!presentByMember.has(memberId)) {
         presentByMember.set(memberId, new Set());
@@ -340,10 +355,12 @@ export class PastoralService {
       : 0;
 
     // Consecutive absences: walk backwards from the most recent session,
-    // stopping at the first session the member attended.
+    // Stopping at the first session the member attended.
     let absences = 0;
     for (const session of memberSessions) {
-      if (presentKeys?.has(session.key)) break;
+      if (presentKeys?.has(session.key)) {
+        break;
+      }
       absences++;
     }
 
@@ -383,7 +400,11 @@ export class PastoralService {
       });
     }
 
-    if (attendanceRate > 0 && attendanceRate < 60 && memberSessions.length >= 3) {
+    if (
+      attendanceRate > 0 &&
+      attendanceRate < 60 &&
+      memberSessions.length >= 3
+    ) {
       alerts.push({
         category: PastoralAlertCategory.DECLINE,
         severity: PastoralAlertSeverity.MEDIUM,
@@ -420,8 +441,8 @@ export class PastoralService {
     }
 
     // Positive: recent improvement only — an attendance rate that has risen
-    // meaningfully across the last month of sessions, or a member returning
-    // after a long gap who is attending again. Rating every 80%+ member as
+    // Meaningfully across the last month of sessions, or a member returning
+    // After a long gap who is attending again. Rating every 80%+ member as
     // "positive" floods the tab in a healthy church.
     if (memberSessions.length >= 3 && presents.length >= 2) {
       const midpoint = Math.floor(memberSessions.length / 2);
@@ -464,9 +485,15 @@ export class PastoralService {
     if (weeksSinceLast !== null && weeksSinceLast >= CRITICAL_WEEKS) {
       return 'inactive';
     }
-    if (absences >= settings.inactiveThreshold) return 'inactive';
-    if (absences >= settings.atRiskThreshold) return 'at-risk';
-    if (absences >= settings.needsFollowUpThreshold) return 'needs-follow-up';
+    if (absences >= settings.inactiveThreshold) {
+      return 'inactive';
+    }
+    if (absences >= settings.atRiskThreshold) {
+      return 'at-risk';
+    }
+    if (absences >= settings.needsFollowUpThreshold) {
+      return 'needs-follow-up';
+    }
     return null;
   }
 
@@ -600,9 +627,15 @@ export class PastoralService {
         result.weeksSinceLast,
         settings,
       );
-      if (level === 'needs-follow-up') needsFollowUp++;
-      if (level === 'at-risk') atRisk++;
-      if (level === 'inactive') inactive++;
+      if (level === 'needs-follow-up') {
+        needsFollowUp++;
+      }
+      if (level === 'at-risk') {
+        atRisk++;
+      }
+      if (level === 'inactive') {
+        inactive++;
+      }
 
       if (level) {
         attention.push({
@@ -641,17 +674,23 @@ export class PastoralService {
       for (const member of members) {
         const memberId = (member._id as any).toString();
         const keys = presentByMember.get(memberId);
-        if (!keys) continue;
+        if (!keys) {
+          continue;
+        }
 
         for (const key of keys) {
           const date = new Date(key.split('|')[1]);
-          if (date >= weekStart && date <= weekEnd) attendance++;
+          if (date >= weekStart && date <= weekEnd) {
+            attendance++;
+          }
         }
 
         // First-timer: their only ever present session falls in this week
         if (keys.size === 1) {
           const only = new Date(Array.from(keys)[0].split('|')[1]);
-          if (only >= weekStart && only <= weekEnd) firstTimers++;
+          if (only >= weekStart && only <= weekEnd) {
+            firstTimers++;
+          }
         }
       }
 
@@ -677,7 +716,9 @@ export class PastoralService {
       [PastoralAlertSeverity.INFO]: 3,
     };
 
-    const memberMap = new Map(members.map((m) => [(m._id as any).toString(), m]));
+    const memberMap = new Map(
+      members.map((m) => [(m._id as any).toString(), m]),
+    );
     const recentAlerts: DashboardAlert[] = alertDocs
       .map((doc: any) => {
         const member = memberMap.get(doc.memberId?.toString?.());
@@ -690,11 +731,12 @@ export class PastoralService {
           category: doc.category,
           categoryLabel: CATEGORY_LABELS[doc.category] ?? doc.category,
           severity: doc.severity,
-          message: computedAlerts.find(
-            (c) =>
-              c.memberId === doc.memberId?.toString?.() &&
-              c.category === doc.category,
-          )?.message ?? '',
+          message:
+            computedAlerts.find(
+              (c) =>
+                c.memberId === doc.memberId?.toString?.() &&
+                c.category === doc.category,
+            )?.message ?? '',
           resolved: doc.resolved,
           read: doc.read,
           notes: (doc.notes ?? []).map((n: any, i: number) => ({
@@ -705,9 +747,7 @@ export class PastoralService {
           })),
         };
       })
-      .sort(
-        (a, b) => severityOrder[a.severity] - severityOrder[b.severity],
-      );
+      .sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
 
     attention.sort((a, b) => b.absences - a.absences);
 
@@ -774,8 +814,12 @@ export class PastoralService {
     }
 
     const filter: Record<string, unknown> = { churchId: tenant.churchId };
-    if (category) filter.category = category;
-    if (!includeResolved) filter.resolved = false;
+    if (category) {
+      filter.category = category;
+    }
+    if (!includeResolved) {
+      filter.resolved = false;
+    }
 
     const docs = await this.alertModel
       .find(filter)
@@ -803,8 +847,7 @@ export class PastoralService {
           category: doc.category,
           categoryLabel: CATEGORY_LABELS[doc.category] ?? doc.category,
           severity: doc.severity,
-          message:
-            computedMap.get(`${memberId}|${doc.category}`) ?? '',
+          message: computedMap.get(`${memberId}|${doc.category}`) ?? '',
           resolved: doc.resolved,
           read: doc.read,
           notes: (doc.notes ?? []).map((n: any, i: number) => ({
@@ -830,7 +873,9 @@ export class PastoralService {
       _id: new Types.ObjectId(alertId),
       churchId,
     });
-    if (!alert) throw new NotFoundException('Alert not found');
+    if (!alert) {
+      throw new NotFoundException('Alert not found');
+    }
     return alert;
   }
 
@@ -847,7 +892,7 @@ export class PastoralService {
     alert.resolvedBy = resolved ? admin.id : null;
 
     // Accountability: resolving requires a short outcome note that lands in
-    // the alert's note history, marked as a resolve-outcome.
+    // The alert's note history, marked as a resolve-outcome.
     if (resolved && outcomeNote?.trim()) {
       alert.notes.push({
         body: outcomeNote.trim(),
@@ -896,7 +941,9 @@ export class PastoralService {
   ) {
     const alert = await this.getAlertInChurch(alertId, churchId);
     const note = alert.notes[noteIndex];
-    if (!note) throw new NotFoundException('Note not found');
+    if (!note) {
+      throw new NotFoundException('Note not found');
+    }
 
     // Only the author may edit their own note.
     if (note.authorId?.toString() !== adminId.toString()) {
@@ -917,7 +964,9 @@ export class PastoralService {
   ) {
     const alert = await this.getAlertInChurch(alertId, churchId);
     const note = alert.notes[noteIndex];
-    if (!note) throw new NotFoundException('Note not found');
+    if (!note) {
+      throw new NotFoundException('Note not found');
+    }
 
     if (note.authorId?.toString() !== adminId.toString()) {
       throw new NotFoundException('Note not found');

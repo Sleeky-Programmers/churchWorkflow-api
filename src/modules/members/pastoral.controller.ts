@@ -78,10 +78,9 @@ export class PastoralController {
     @Query('countSpecialEvents') countSpecialEvents?: string,
   ) {
     // Optional overrides let the UI preview live counts as sliders move,
-    // before anything is saved.
-    const override: Parameters<
-      typeof this.pastoralService.getImpactCounts
-    >[1] = {};
+    // Before anything is saved.
+    const override: Parameters<typeof this.pastoralService.getImpactCounts>[1] =
+      {};
     const num = (v?: string) =>
       v !== undefined && v !== '' && Number.isInteger(Number(v))
         ? Number(v)
@@ -90,9 +89,12 @@ export class PastoralController {
     override.needsFollowUpThreshold = num(needsFollowUpThreshold);
     override.atRiskThreshold = num(atRiskThreshold);
     override.inactiveThreshold = num(inactiveThreshold);
-    if (trackingMode) override.trackingMode = trackingMode;
-    if (countSpecialEvents !== undefined)
+    if (trackingMode) {
+      override.trackingMode = trackingMode;
+    }
+    if (countSpecialEvents !== undefined) {
       override.countSpecialEvents = countSpecialEvents === 'true';
+    }
 
     return this.pastoralService.getImpactCounts(tenant, override);
   }
@@ -127,11 +129,8 @@ export class PastoralController {
     @Body('outcomeNote') outcomeNote?: string,
   ) {
     // Resolving requires a quick outcome note for accountability; unresolving
-    // does not.
-    if (
-      resolved &&
-      (!outcomeNote || !outcomeNote.trim())
-    ) {
+    // Does not.
+    if (resolved && (!outcomeNote || !outcomeNote.trim())) {
       throw new BadRequestException(
         'An outcome note is required to resolve an alert',
       );

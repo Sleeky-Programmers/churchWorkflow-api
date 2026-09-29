@@ -40,7 +40,7 @@ export class RolesGuard implements CanActivate {
     if ('role' in user && user.role) {
       const role = user.role as any;
       // Only a populated role document counts. An unpopulated ObjectId must
-      // never be treated as Super Admin (fail closed, not open).
+      // Never be treated as Super Admin (fail closed, not open).
       if (typeof role === 'object' && role.name) {
         userRoleName = role.name;
         isSuperAdmin = role.name === 'SUPER_ADMIN';
