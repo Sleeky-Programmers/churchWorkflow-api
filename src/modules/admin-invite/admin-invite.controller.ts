@@ -49,30 +49,44 @@ export class AdminInviteController {
 
   @Delete('remove/:inviteId')
   async removeUser(
+    @AuthUser() authUser: Admin,
     @Body('key') key: string,
     @Param('inviteId') inviteId: string,
   ) {
-    return await this.adminInviteService.removeUser(inviteId, key);
+    return await this.adminInviteService.removeUser(authUser, inviteId, key);
   }
 
   @Delete('/:inviteId')
-  async deleteInvitation(@Param('inviteId') inviteId: string) {
-    return await this.adminInviteService.deleteInvitation(inviteId);
+  async deleteInvitation(
+    @AuthUser() authUser: Admin,
+    @Param('inviteId') inviteId: string,
+  ) {
+    return await this.adminInviteService.deleteInvitation(authUser, inviteId);
   }
 
   @Put('update/:inviteId')
   async suspendOrRestoreUser(
+    @AuthUser() authUser: Admin,
     @Body('option') option: AdminOptions,
     @Param('inviteId') inviteId: string,
   ) {
-    return await this.adminInviteService.suspendOrRestoreUser(inviteId, option);
+    return await this.adminInviteService.suspendOrRestoreUser(
+      authUser,
+      inviteId,
+      option,
+    );
   }
 
   @Put('/:inviteId/:churchRole')
   async changeRole(
+    @AuthUser() authUser: Admin,
     @Param() { inviteId, churchRole }: { inviteId: string; churchRole: string },
   ) {
-    return await this.adminInviteService.changeRole(inviteId, churchRole);
+    return await this.adminInviteService.changeRole(
+      authUser,
+      inviteId,
+      churchRole,
+    );
   }
 
   @Put('resend/:inviteId')

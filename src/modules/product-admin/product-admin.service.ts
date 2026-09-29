@@ -157,7 +157,7 @@ export class ProductAdminService implements OnModuleInit {
 
     try {
       payload = this.jwtService.verify(refreshToken, {
-        secret: this.configService.getOrThrow('JWT_REFRESH_SECRET'),
+        secret: this.configService.getOrThrow('productAdmin.jwtRefreshSecret'),
       });
     } catch {
       throw new UnauthorizedException('Invalid or expired refresh token');

@@ -9,7 +9,7 @@ import {
   PERMISSIONS_KEY,
   PermissionRequirement,
 } from '../decorators/permissions.decorator';
-import { AccessLevel, RoleType } from '../utils/enums.utils';
+import { AccessLevel, RoleStatus, RoleType } from '../utils/enums.utils';
 import { Admin } from '../../schemas/admin.schema';
 import { Role } from '../../schemas/role.schema';
 
@@ -34,15 +34,24 @@ export class PermissionsGuard implements CanActivate {
 
     const role = user.churchRole as unknown as Role;
 
+    // A role that has been disabled must not be usable, even for sections
+    // That nominally have permissions in their array.
+    if (role.status === RoleStatus.DISABLED) {
+      throw new ForbiddenException(
+        'Access denied. Your assigned role has been disabled.',
+      );
+    }
+
     if (role.type === RoleType.SYSTEM && role.roleName === 'Super Admin') {
       return true;
     }
 
     const hasPermission = requiredPermissions.every((requiredPerm) => {
-      const userPerm = role.permissions.find(
+      const userPerm = role.permissions?.find(
         (p) => p.moduleSection === requiredPerm.section,
       );
 
+      // Fail closed: no explicit permission entry means no access.
       if (!userPerm) {
         return false;
       }
