@@ -5,7 +5,10 @@ import {
   CouponFilter,
   CouponStatus,
   CouponType,
+  Gender,
+  MaritalStatus,
   MemberFilter,
+  MembershipStatus,
 } from '../utils/enums.utils';
 
 interface PaginationMetaInterface {
@@ -52,6 +55,21 @@ export class MembersFilterDto extends PaginationBaseDto {
   @IsOptional()
   @IsString()
   filter?: MemberFilter;
+
+  // Independent facet filters — applied together (AND) so the UI can combine
+  // gender + marital status + membership status in one query, unlike the
+  // legacy single `filter` param which only carries one facet.
+  @IsOptional()
+  @IsEnum(Gender)
+  gender?: Gender;
+
+  @IsOptional()
+  @IsEnum(MaritalStatus)
+  maritalStatus?: MaritalStatus;
+
+  @IsOptional()
+  @IsEnum(MembershipStatus)
+  membershipStatus?: MembershipStatus;
 }
 
 export class CouponFilterDto extends PaginationBaseDto {

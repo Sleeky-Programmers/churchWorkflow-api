@@ -131,6 +131,16 @@ export class AdminInviteService {
       throw new NotFoundException('Role not found');
     }
 
+    // Only shared system roles or roles owned by the admin's own church can
+    // be attached to an invitation.
+    if (
+      role.churchId &&
+      authUser.churchId &&
+      role.churchId.toString() !== authUser.churchId.toString()
+    ) {
+      throw new NotFoundException('Role not found');
+    }
+
     const pendingInvites = await this.inviteModel.countDocuments({
       churchId,
       status: AdminInviteStatus.PENDING,
@@ -252,12 +262,22 @@ export class AdminInviteService {
       .sort({ createdAt: -1 });
   }
 
-  async deleteInvitation(inviteId: string) {
+  // Tenancy guard: an admin may only act on invites that belong to their own
+  // church. Without this, any inviteId is globally addressable (IDOR).
+  private assertInviteBelongsToChurch(invite: Invite, churchId: Types.ObjectId) {
+    if (!churchId || invite.churchId?.toString() !== churchId.toString()) {
+      throw new NotFoundException('Invite not found');
+    }
+  }
+
+  async deleteInvitation(authUser: Admin, inviteId: string) {
     const invite = await this.inviteModel.findById(inviteId);
 
     if (!invite) {
       throw new NotFoundException('Invite not found');
     }
+
+    this.assertInviteBelongsToChurch(invite, authUser.churchId);
 
     if (invite.status !== AdminInviteStatus.PENDING) {
       throw new BadRequestException(
@@ -288,11 +308,21 @@ export class AdminInviteService {
     );
   }
 
-  async changeRole(inviteId: string, churchRole: string) {
+  async changeRole(authUser: Admin, inviteId: string, churchRole: string) {
     const churchRoleObjectId = new Types.ObjectId(churchRole);
     const role = await this.rolesService.getRoleById(churchRoleObjectId);
 
     if (!role) {
+      throw new NotFoundException('Role not found');
+    }
+
+    // Prevent assigning a role that belongs to a different church (or a
+    // system role other than the shared system roles).
+    if (
+      role.churchId &&
+      authUser.churchId &&
+      role.churchId.toString() !== authUser.churchId.toString()
+    ) {
       throw new NotFoundException('Role not found');
     }
 
@@ -301,6 +331,8 @@ export class AdminInviteService {
     if (!invite) {
       throw new NotFoundException('Invite not found');
     }
+
+    this.assertInviteBelongsToChurch(invite, authUser.churchId);
 
     const oldRole = await this.rolesService.getRoleById(invite.churchRole);
     const oldRoleName = oldRole.roleName;
@@ -332,12 +364,18 @@ export class AdminInviteService {
     return updatedInvite;
   }
 
-  async suspendOrRestoreUser(inviteId: string, option: AdminOptions) {
+  async suspendOrRestoreUser(
+    authUser: Admin,
+    inviteId: string,
+    option: AdminOptions,
+  ) {
     const invite = await this.inviteModel.findById(inviteId);
 
     if (!invite) {
       throw new NotFoundException('Invite not found');
     }
+
+    this.assertInviteBelongsToChurch(invite, authUser.churchId);
 
     if (invite.status === AdminInviteStatus.PENDING) {
       throw new BadRequestException(
@@ -357,12 +395,14 @@ export class AdminInviteService {
     );
   }
 
-  async removeUser(inviteId: string, key: string) {
+  async removeUser(authUser: Admin, inviteId: string, key: string) {
     const invite = await this.inviteModel.findById(inviteId);
 
     if (!invite) {
       throw new NotFoundException('Invite not found');
     }
+
+    this.assertInviteBelongsToChurch(invite, authUser.churchId);
 
     if (key.toLowerCase() !== 'remove user') {
       throw new BadRequestException('Type "remove user" to delete this user');

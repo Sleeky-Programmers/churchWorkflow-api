@@ -35,16 +35,16 @@ export class RolesGuard implements CanActivate {
 
     let userRoleName: string | null = null;
     let isSuperAdmin = false;
+    let isDisabled = false;
 
     if ('role' in user && user.role) {
       const role = user.role as any;
-      // If role is populated, get the name
+      // Only a populated role document counts. An unpopulated ObjectId must
+      // never be treated as Super Admin (fail closed, not open).
       if (typeof role === 'object' && role.name) {
         userRoleName = role.name;
         isSuperAdmin = role.name === 'SUPER_ADMIN';
-      } else if (typeof role === 'string') {
-        userRoleName = 'SUPER_ADMIN'; // Fallback
-        isSuperAdmin = true;
+        isDisabled = role.status === 'DISABLED';
       }
     } else if ('churchRole' in user && user.churchRole) {
       const role = user.churchRole as any;
@@ -52,10 +52,14 @@ export class RolesGuard implements CanActivate {
         userRoleName = role.roleName;
         isSuperAdmin =
           role.type === RoleType.SYSTEM && role.roleName === 'Super Admin';
+        isDisabled = role.status === 'DISABLED';
       }
-    } else if ('name' in user && user.name) {
-      userRoleName = user.name;
-      isSuperAdmin = user.name === 'SUPER_ADMIN';
+    }
+
+    if (isDisabled) {
+      throw new ForbiddenException(
+        'Access denied. Your assigned role has been disabled.',
+      );
     }
 
     // Super Admin has full access
