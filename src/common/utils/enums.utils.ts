@@ -135,6 +135,32 @@ export enum ModuleSections {
   PAYMENT = 'PAYMENT',
   ADMIN = 'ADMIN',
   SMALL_TEAMS = 'SMALL_TEAMS',
+  ASSETS = 'ASSETS',
+}
+
+export enum AssetCondition {
+  GOOD = 'Good',
+  FAIR = 'Fair',
+  REPAIR = 'Repair',
+  DAMAGED = 'Damaged',
+}
+
+export enum AssetRisk {
+  HIGH = 'High',
+  MEDIUM = 'Medium',
+  LOW = 'Low',
+}
+
+export enum AssetStatus {
+  ACTIVE = 'Active',
+  INACTIVE = 'Inactive',
+  DISPOSED = 'Disposed',
+}
+
+export enum AssetMaintenanceTypeFilter {
+  MAINTENANCE = 'Maintenance',
+  DUE = 'Due',
+  NIL = 'Nil',
 }
 
 export enum NotificationType {
