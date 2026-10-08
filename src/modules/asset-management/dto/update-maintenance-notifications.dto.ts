@@ -1,10 +1,4 @@
-import {
-  IsArray,
-  IsBoolean,
-  IsEmail,
-  IsInt,
-  Min,
-} from 'class-validator';
+import { IsArray, IsBoolean, IsEmail, IsInt, Min } from 'class-validator';
 
 export class UpdateMaintenanceNotificationsDto {
   @IsBoolean()

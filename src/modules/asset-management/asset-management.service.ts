@@ -20,7 +20,10 @@ import { AssetHistory } from '../../schemas/asset-history.schema';
 import { ActivityLogService } from '../activity-log/activity-log.service';
 import { AdminService } from '../admin/admin.service';
 import { FileUploadService } from '../file-upload/file-upload.service';
-import { AssetConditionBreakdownDto, CreateAssetDto } from './dto/create-asset.dto';
+import {
+  AssetConditionBreakdownDto,
+  CreateAssetDto,
+} from './dto/create-asset.dto';
 import { AssetFilterDto } from './dto/asset-filter.dto';
 import { LogServiceDto } from './dto/log-service.dto';
 import { UpdateAssetDto } from './dto/update-asset.dto';
@@ -69,9 +72,13 @@ export class AssetManagementService {
           ? new Types.ObjectId(dto.responsibleAdmin)
           : null,
       responsibleManualName:
-        dto.responsibleMode === 'manual' ? dto.responsibleManualName || null : null,
+        dto.responsibleMode === 'manual'
+          ? dto.responsibleManualName || null
+          : null,
       responsibleManualEmail:
-        dto.responsibleMode === 'manual' ? dto.responsibleManualEmail || null : null,
+        dto.responsibleMode === 'manual'
+          ? dto.responsibleManualEmail || null
+          : null,
       conditions: dto.conditions,
       schedule: {
         frequency: dto.maintenanceEnabled ? dto.frequency || null : null,
@@ -109,9 +116,15 @@ export class AssetManagementService {
 
     const matchStage: any = buildTenantFilter(tenant);
 
-    if (category) matchStage.category = category;
-    if (risk) matchStage.risk = risk;
-    if (status) matchStage.status = status;
+    if (category) {
+      matchStage.category = category;
+    }
+    if (risk) {
+      matchStage.risk = risk;
+    }
+    if (status) {
+      matchStage.status = status;
+    }
 
     if (type === AssetMaintenanceTypeFilter.NIL) {
       matchStage['schedule.frequency'] = null;
@@ -166,7 +179,10 @@ export class AssetManagementService {
           'schedule.nextDue': { $ne: null, $lt: now },
         }),
         this.assetModel.countDocuments({ ...base, risk: 'High' }),
-        this.assetModel.countDocuments({ ...base, condition: AssetCondition.GOOD }),
+        this.assetModel.countDocuments({
+          ...base,
+          condition: AssetCondition.GOOD,
+        }),
       ]);
 
     return { totalAssets, maintenanceDue, highRisk, goodCondition, overdue };
@@ -216,22 +232,41 @@ export class AssetManagementService {
     }
 
     const updatePayload: Record<string, unknown> = {};
-    const historyEntries: { action: string; tone: 'green' | 'amber' | 'purple' | 'blue'; changes?: Record<string, { from: string; to: string }> }[] = [];
+    const historyEntries: {
+      action: string;
+      tone: 'green' | 'amber' | 'purple' | 'blue';
+      changes?: Record<string, { from: string; to: string }>;
+    }[] = [];
 
-    if (dto.name !== undefined) updatePayload.name = dto.name.trim();
-    if (dto.category !== undefined) updatePayload.category = dto.category;
+    if (dto.name !== undefined) {
+      updatePayload.name = dto.name.trim();
+    }
+    if (dto.category !== undefined) {
+      updatePayload.category = dto.category;
+    }
     if (dto.department !== undefined) {
       updatePayload.department = dto.department
         ? new Types.ObjectId(dto.department)
         : null;
     }
-    if (dto.description !== undefined)
+    if (dto.description !== undefined) {
       updatePayload.description = dto.description.trim();
-    if (dto.location !== undefined) updatePayload.location = dto.location.trim();
-    if (dto.owner !== undefined) updatePayload.owner = dto.owner.trim();
-    if (dto.remarks !== undefined) updatePayload.remarks = dto.remarks.trim();
-    if (dto.risk !== undefined) updatePayload.risk = dto.risk;
-    if (dto.status !== undefined) updatePayload.status = dto.status;
+    }
+    if (dto.location !== undefined) {
+      updatePayload.location = dto.location.trim();
+    }
+    if (dto.owner !== undefined) {
+      updatePayload.owner = dto.owner.trim();
+    }
+    if (dto.remarks !== undefined) {
+      updatePayload.remarks = dto.remarks.trim();
+    }
+    if (dto.risk !== undefined) {
+      updatePayload.risk = dto.risk;
+    }
+    if (dto.status !== undefined) {
+      updatePayload.status = dto.status;
+    }
 
     if (dto.responsibleMode === 'system') {
       const nextId = dto.responsibleAdmin || null;
@@ -242,7 +277,9 @@ export class AssetManagementService {
           tone: 'purple',
         });
       }
-      updatePayload.responsibleAdmin = nextId ? new Types.ObjectId(nextId) : null;
+      updatePayload.responsibleAdmin = nextId
+        ? new Types.ObjectId(nextId)
+        : null;
       updatePayload.responsibleManualName = null;
       updatePayload.responsibleManualEmail = null;
     } else if (dto.responsibleMode === 'manual') {
@@ -312,7 +349,9 @@ export class AssetManagementService {
       (deleted.images || [])
         .filter((image) => image.publicId)
         .map((image) =>
-          this.fileUploadService.deleteFile(image.publicId as string).catch(() => null),
+          this.fileUploadService
+            .deleteFile(image.publicId as string)
+            .catch(() => null),
         ),
     );
 
@@ -340,7 +379,9 @@ export class AssetManagementService {
     }
 
     const recordId = `SR-${String(asset.services.length + 1).padStart(4, '0')}`;
-    const nextServiceDate = dto.nextServiceDate ? new Date(dto.nextServiceDate) : null;
+    const nextServiceDate = dto.nextServiceDate
+      ? new Date(dto.nextServiceDate)
+      : null;
 
     asset.services.push({
       recordId,
@@ -459,7 +500,9 @@ export class AssetManagementService {
       throw new NotFoundException('Asset not found');
     }
 
-    const image = asset.images.find((img: any) => img._id.toString() === imageId);
+    const image = asset.images.find(
+      (img: any) => img._id.toString() === imageId,
+    );
     if (!image) {
       throw new NotFoundException('Image not found');
     }
@@ -499,10 +542,18 @@ export class AssetManagementService {
     );
   }
 
-  private deriveCondition(conditions: AssetConditionBreakdownDto): AssetCondition {
-    if (conditions.damaged) return AssetCondition.DAMAGED;
-    if (conditions.repair) return AssetCondition.REPAIR;
-    if (conditions.good) return AssetCondition.GOOD;
+  private deriveCondition(
+    conditions: AssetConditionBreakdownDto,
+  ): AssetCondition {
+    if (conditions.damaged) {
+      return AssetCondition.DAMAGED;
+    }
+    if (conditions.repair) {
+      return AssetCondition.REPAIR;
+    }
+    if (conditions.good) {
+      return AssetCondition.GOOD;
+    }
     return AssetCondition.FAIR;
   }
 
@@ -516,11 +567,19 @@ export class AssetManagementService {
     return next;
   }
 
-  private computeDueState(nextDue: Date | null): 'Upcoming' | 'Due' | 'Overdue' {
-    if (!nextDue) return 'Upcoming';
+  private computeDueState(
+    nextDue: Date | null,
+  ): 'Upcoming' | 'Due' | 'Overdue' {
+    if (!nextDue) {
+      return 'Upcoming';
+    }
     const now = new Date();
-    if (nextDue < now) return 'Overdue';
-    if (nextDue <= this.addDays(now, DUE_WINDOW_DAYS)) return 'Due';
+    if (nextDue < now) {
+      return 'Overdue';
+    }
+    if (nextDue <= this.addDays(now, DUE_WINDOW_DAYS)) {
+      return 'Due';
+    }
     return 'Upcoming';
   }
 
@@ -547,9 +606,13 @@ export class AssetManagementService {
   }
 
   private formatDate(date?: Date | string | null) {
-    if (!date) return '';
+    if (!date) {
+      return '';
+    }
     const parsed = new Date(date);
-    if (Number.isNaN(parsed.getTime())) return '';
+    if (Number.isNaN(parsed.getTime())) {
+      return '';
+    }
     return parsed.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
@@ -558,9 +621,13 @@ export class AssetManagementService {
   }
 
   private formatTime(date?: Date | string | null) {
-    if (!date) return '';
+    if (!date) {
+      return '';
+    }
     const parsed = new Date(date);
-    if (Number.isNaN(parsed.getTime())) return '';
+    if (Number.isNaN(parsed.getTime())) {
+      return '';
+    }
     return parsed.toLocaleTimeString('en-US', {
       hour: 'numeric',
       minute: '2-digit',
@@ -598,7 +665,13 @@ export class AssetManagementService {
         isSystem: false,
       };
     }
-    return { id: null, name: 'Unassigned', email: '', initials: '', isSystem: false };
+    return {
+      id: null,
+      name: 'Unassigned',
+      email: '',
+      initials: '',
+      isSystem: false,
+    };
   }
 
   private toAssetListResponse(asset: any) {

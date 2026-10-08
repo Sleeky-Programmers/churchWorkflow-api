@@ -32,28 +32,45 @@ import { UpdateMaintenanceNotificationsDto } from './dto/update-maintenance-noti
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('assets')
 export class AssetManagementController {
-  constructor(private readonly assetManagementService: AssetManagementService) {}
+  constructor(
+    private readonly assetManagementService: AssetManagementService,
+  ) {}
 
   @Get()
-  @RequirePermissions({ section: ModuleSections.ASSETS, level: AccessLevel.VIEW })
-  findAll(@CurrentTenant() tenant: TenantContext, @Query() dto: AssetFilterDto) {
+  @RequirePermissions({
+    section: ModuleSections.ASSETS,
+    level: AccessLevel.VIEW,
+  })
+  findAll(
+    @CurrentTenant() tenant: TenantContext,
+    @Query() dto: AssetFilterDto,
+  ) {
     return this.assetManagementService.findAll(tenant, dto);
   }
 
   @Get('stats')
-  @RequirePermissions({ section: ModuleSections.ASSETS, level: AccessLevel.VIEW })
+  @RequirePermissions({
+    section: ModuleSections.ASSETS,
+    level: AccessLevel.VIEW,
+  })
   stats(@CurrentTenant() tenant: TenantContext) {
     return this.assetManagementService.stats(tenant);
   }
 
   @Get(':id')
-  @RequirePermissions({ section: ModuleSections.ASSETS, level: AccessLevel.VIEW })
+  @RequirePermissions({
+    section: ModuleSections.ASSETS,
+    level: AccessLevel.VIEW,
+  })
   findById(@CurrentTenant() tenant: TenantContext, @Param('id') id: string) {
     return this.assetManagementService.findById(tenant, id);
   }
 
   @Post()
-  @RequirePermissions({ section: ModuleSections.ASSETS, level: AccessLevel.MANAGE })
+  @RequirePermissions({
+    section: ModuleSections.ASSETS,
+    level: AccessLevel.MANAGE,
+  })
   create(
     @AuthUser() authUser: Admin,
     @CurrentTenant() tenant: TenantContext,
@@ -63,7 +80,10 @@ export class AssetManagementController {
   }
 
   @Put(':id')
-  @RequirePermissions({ section: ModuleSections.ASSETS, level: AccessLevel.MANAGE })
+  @RequirePermissions({
+    section: ModuleSections.ASSETS,
+    level: AccessLevel.MANAGE,
+  })
   update(
     @AuthUser() authUser: Admin,
     @CurrentTenant() tenant: TenantContext,
@@ -87,7 +107,10 @@ export class AssetManagementController {
   }
 
   @Post(':id/services')
-  @RequirePermissions({ section: ModuleSections.ASSETS, level: AccessLevel.MANAGE })
+  @RequirePermissions({
+    section: ModuleSections.ASSETS,
+    level: AccessLevel.MANAGE,
+  })
   logService(
     @AuthUser() authUser: Admin,
     @CurrentTenant() tenant: TenantContext,
@@ -98,7 +121,10 @@ export class AssetManagementController {
   }
 
   @Put(':id/maintenance-notifications')
-  @RequirePermissions({ section: ModuleSections.ASSETS, level: AccessLevel.MANAGE })
+  @RequirePermissions({
+    section: ModuleSections.ASSETS,
+    level: AccessLevel.MANAGE,
+  })
   updateNotifications(
     @AuthUser() authUser: Admin,
     @CurrentTenant() tenant: TenantContext,
@@ -114,7 +140,10 @@ export class AssetManagementController {
   }
 
   @Post(':id/images')
-  @RequirePermissions({ section: ModuleSections.ASSETS, level: AccessLevel.MANAGE })
+  @RequirePermissions({
+    section: ModuleSections.ASSETS,
+    level: AccessLevel.MANAGE,
+  })
   @UseInterceptors(FileInterceptor('file'), FileValidationInterceptor)
   uploadImage(
     @AuthUser() authUser: Admin,
@@ -126,13 +155,21 @@ export class AssetManagementController {
   }
 
   @Delete(':id/images/:imageId')
-  @RequirePermissions({ section: ModuleSections.ASSETS, level: AccessLevel.MANAGE })
+  @RequirePermissions({
+    section: ModuleSections.ASSETS,
+    level: AccessLevel.MANAGE,
+  })
   deleteImage(
     @AuthUser() authUser: Admin,
     @CurrentTenant() tenant: TenantContext,
     @Param('id') id: string,
     @Param('imageId') imageId: string,
   ) {
-    return this.assetManagementService.deleteImage(authUser, tenant, id, imageId);
+    return this.assetManagementService.deleteImage(
+      authUser,
+      tenant,
+      id,
+      imageId,
+    );
   }
 }

@@ -112,9 +112,8 @@ export class AssetServiceRecord {
   @Prop({ default: Date.now })
   createdAt: Date;
 }
-export const AssetServiceRecordSchema = SchemaFactory.createForClass(
-  AssetServiceRecord,
-);
+export const AssetServiceRecordSchema =
+  SchemaFactory.createForClass(AssetServiceRecord);
 
 @Schema({ _id: true, timestamps: false })
 export class AssetImage {

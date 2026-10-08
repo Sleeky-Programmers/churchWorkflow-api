@@ -14,10 +14,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 
-import {
-  AssetRisk,
-  AssetStatus,
-} from '../../../common/utils/enums.utils';
+import { AssetRisk, AssetStatus } from '../../../common/utils/enums.utils';
 
 export class AssetConditionBreakdownDto {
   @IsInt()

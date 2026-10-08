@@ -2,7 +2,10 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 
 import { Asset, AssetSchema } from '../../schemas/asset.schema';
-import { AssetHistory, AssetHistorySchema } from '../../schemas/asset-history.schema';
+import {
+  AssetHistory,
+  AssetHistorySchema,
+} from '../../schemas/asset-history.schema';
 import { ActivityLogModule } from '../activity-log/activity-log.module';
 import { AdminModule } from '../admin/admin.module';
 import { FileUploadModule } from '../file-upload/file-upload.module';
