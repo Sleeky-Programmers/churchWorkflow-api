@@ -48,6 +48,8 @@ import { OnlineGivingModule } from './modules/online-giving/online-giving.module
 import { PaymentMethodModule } from './modules/payment-methods/payment-method.module';
 import { GivingConfigModule } from './modules/giving-config/giving-config.module';
 import { AssetManagementModule } from './modules/asset-management/asset-management.module';
+import { SuggestionsModule } from './modules/suggestions/suggestions.module';
+import { ReportsModule } from './modules/reports/reports.module';
 
 @Module({
   imports: [
@@ -120,6 +122,8 @@ import { AssetManagementModule } from './modules/asset-management/asset-manageme
     PaymentMethodModule,
     GivingConfigModule,
     AssetManagementModule,
+    SuggestionsModule,
+    ReportsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
