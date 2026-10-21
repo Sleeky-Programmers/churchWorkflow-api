@@ -151,7 +151,9 @@ export class ProductAdminService implements OnModuleInit {
       };
     } catch (error) {
       // Keep intended client errors (401) intact; only unexpected failures become 500.
-      if (error instanceof HttpException) throw error;
+      if (error instanceof HttpException) {
+        throw error;
+      }
       this.logger.error('Product admin login failed', (error as Error)?.stack);
       throw new InternalServerErrorException(
         'Unable to log in right now. Please try again later.',
