@@ -3,8 +3,10 @@ import { Model, Types } from 'mongoose';
 
 import {
   BadRequestException,
+  HttpException,
   Injectable,
   InternalServerErrorException,
+  Logger,
   NotFoundException,
   OnModuleInit,
   UnauthorizedException,
@@ -32,6 +34,8 @@ import { ProductAdminLoginDto } from './dto/login.dto';
 
 @Injectable()
 export class ProductAdminService implements OnModuleInit {
+  private readonly logger = new Logger(ProductAdminService.name);
+
   constructor(
     @InjectModel(ProductAdmin.name)
     private productAdminModel: Model<ProductAdmin>,
@@ -127,14 +131,16 @@ export class ProductAdminService implements OnModuleInit {
       const user = await this.validateCredentials(dto.email, dto.password);
 
       if (!user) {
-        throw new BadRequestException('Invalid credentials');
+        throw new UnauthorizedException('Invalid email or password');
       }
 
       const { accessToken, refreshToken } = this.generateTokens(user._id);
 
       const role = await this.rolesService.findById(user.role.toString());
       if (!role) {
-        throw new BadRequestException('Invalid role');
+        throw new UnauthorizedException(
+          'Your account has no valid role. Please contact support.',
+        );
       }
 
       return {
@@ -144,7 +150,14 @@ export class ProductAdminService implements OnModuleInit {
         refreshToken,
       };
     } catch (error) {
-      throw new InternalServerErrorException(error);
+      // Keep intended client errors (401) intact; only unexpected failures become 500.
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      this.logger.error('Product admin login failed', (error as Error)?.stack);
+      throw new InternalServerErrorException(
+        'Unable to log in right now. Please try again later.',
+      );
     }
   }
 
