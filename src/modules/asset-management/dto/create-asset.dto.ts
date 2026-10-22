@@ -1,5 +1,9 @@
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  IsNumber,
+  MaxLength,
   IsBoolean,
   IsDateString,
   IsEmail,
@@ -14,7 +18,11 @@ import {
   ValidateNested,
 } from 'class-validator';
 
-import { AssetRisk, AssetStatus } from '../../../common/utils/enums.utils';
+import {
+  AssetCondition,
+  AssetRisk,
+  AssetStatus,
+} from '../../../common/utils/enums.utils';
 
 export class AssetConditionBreakdownDto {
   @IsInt()
@@ -32,6 +40,36 @@ export class AssetConditionBreakdownDto {
   @IsInt()
   @Min(0)
   damaged: number;
+}
+
+export class AssetUnitDto {
+  // Present when editing an existing unit; omitted for new ones.
+  @IsOptional()
+  @IsString()
+  @MaxLength(60)
+  id?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  serial?: string;
+
+  @IsEnum(AssetCondition)
+  condition: AssetCondition;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  conditionNote?: string;
+
+  @IsOptional()
+  @IsDateString()
+  purchaseDate?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  value?: number;
 }
 
 export class CreateAssetDto {
@@ -79,9 +117,19 @@ export class CreateAssetDto {
   @IsEmail()
   responsibleManualEmail?: string;
 
+  // Legacy shape: still accepted when no units are sent.
+  @IsOptional()
   @ValidateNested()
   @Type(() => AssetConditionBreakdownDto)
-  conditions: AssetConditionBreakdownDto;
+  conditions?: AssetConditionBreakdownDto;
+
+  // One entry per physical item, each with its own condition and details.
+  @IsOptional()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(500)
+  @ValidateNested({ each: true })
+  @Type(() => AssetUnitDto)
+  units?: AssetUnitDto[];
 
   @IsNotEmpty()
   @IsEnum(AssetRisk)

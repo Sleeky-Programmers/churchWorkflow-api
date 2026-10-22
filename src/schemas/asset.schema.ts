@@ -137,6 +137,37 @@ export class AssetImage {
 }
 export const AssetImageSchema = SchemaFactory.createForClass(AssetImage);
 
+/**
+ * A single physical item within an asset (for example one of three laptops).
+ * Captures that item's own condition and details at the time it is added.
+ */
+@Schema({ _id: false })
+export class AssetUnit {
+  @Prop({ required: true })
+  unitId: string;
+
+  // Serial number or tag that tells this item apart from its siblings.
+  @Prop({ default: '' })
+  serial: string;
+
+  @Prop({ enum: AssetCondition, default: AssetCondition.GOOD })
+  condition: AssetCondition;
+
+  // Why the item is not in good condition, or any detail worth keeping.
+  @Prop({ default: '' })
+  conditionNote: string;
+
+  @Prop({ type: Date, default: null })
+  purchaseDate: Date | null;
+
+  @Prop({ type: Number, default: null })
+  value: number | null;
+
+  @Prop({ default: Date.now })
+  addedAt: Date;
+}
+export const AssetUnitSchema = SchemaFactory.createForClass(AssetUnit);
+
 @Schema({ timestamps: true })
 export class Asset extends Document {
   @Prop({ type: SchemaTypes.ObjectId, ref: Church.name })
@@ -195,6 +226,11 @@ export class Asset extends Document {
 
   @Prop({ type: AssetMaintenanceScheduleSchema })
   schedule: AssetMaintenanceSchedule;
+
+  // One entry per physical item. qty, conditions and condition above are
+  // Derived from these whenever they are present.
+  @Prop({ type: [AssetUnitSchema], default: [] })
+  units: AssetUnit[];
 
   @Prop({ type: [AssetServiceRecordSchema], default: [] })
   services: AssetServiceRecord[];
