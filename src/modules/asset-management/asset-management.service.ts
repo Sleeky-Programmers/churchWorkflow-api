@@ -22,6 +22,7 @@ import { AdminService } from '../admin/admin.service';
 import { FileUploadService } from '../file-upload/file-upload.service';
 import {
   AssetConditionBreakdownDto,
+  AssetUnitDto,
   CreateAssetDto,
 } from './dto/create-asset.dto';
 import { AssetFilterDto } from './dto/asset-filter.dto';
@@ -52,6 +53,16 @@ export class AssetManagementService {
 
     const tag = dto.tag?.trim() || this.generateTag();
 
+    const units = dto.units?.length
+      ? this.buildUnits(dto.units, [])
+      : dto.conditions
+        ? this.unitsFromConditions(dto.conditions)
+        : [];
+    if (!units.length) {
+      throw new BadRequestException('Add at least one item to this asset.');
+    }
+    const conditions = this.conditionsFromUnits(units);
+
     const created = await this.assetModel.create({
       churchId: tenant.churchId,
       branchId: tenant.branchId,
@@ -59,8 +70,8 @@ export class AssetManagementService {
       tag,
       category: dto.category,
       department: dto.department ? new Types.ObjectId(dto.department) : null,
-      qty: this.sumConditions(dto.conditions) || 1,
-      condition: this.deriveCondition(dto.conditions),
+      qty: units.length,
+      condition: this.deriveCondition(conditions),
       risk: dto.risk,
       status: dto.status,
       description: dto.description.trim(),
@@ -79,7 +90,8 @@ export class AssetManagementService {
         dto.responsibleMode === 'manual'
           ? dto.responsibleManualEmail || null
           : null,
-      conditions: dto.conditions,
+      conditions,
+      units,
       schedule: {
         frequency: dto.maintenanceEnabled ? dto.frequency || null : null,
         lastService: dto.lastService ? new Date(dto.lastService) : null,
@@ -288,19 +300,27 @@ export class AssetManagementService {
       updatePayload.responsibleManualEmail = dto.responsibleManualEmail || null;
     }
 
-    if (dto.conditions) {
-      const from = this.formatConditions(existing.conditions);
-      const to = this.formatConditions(dto.conditions);
-      if (from !== to) {
+    const previousUnits = this.effectiveUnits(existing);
+    const nextUnits = dto.units?.length
+      ? this.buildUnits(dto.units, previousUnits)
+      : dto.conditions
+        ? this.unitsFromConditions(dto.conditions)
+        : null;
+
+    if (nextUnits) {
+      const conditions = this.conditionsFromUnits(nextUnits);
+      const changes = this.describeUnitChanges(previousUnits, nextUnits);
+      if (Object.keys(changes).length) {
         historyEntries.push({
-          action: 'updated the condition breakdown for this asset',
+          action: 'updated the items and conditions for this asset',
           tone: 'amber',
-          changes: { condition: { from, to } },
+          changes,
         });
       }
-      updatePayload.conditions = dto.conditions;
-      updatePayload.qty = this.sumConditions(dto.conditions) || existing.qty;
-      updatePayload.condition = this.deriveCondition(dto.conditions);
+      updatePayload.units = nextUnits;
+      updatePayload.conditions = conditions;
+      updatePayload.qty = nextUnits.length;
+      updatePayload.condition = this.deriveCondition(conditions);
     }
 
     if (dto.maintenanceEnabled !== undefined || dto.frequency !== undefined) {
@@ -529,6 +549,119 @@ export class AssetManagementService {
     }
   }
 
+  /** Units on the asset, or ones derived from the old condition counts. */
+  private effectiveUnits(asset: any): any[] {
+    if (asset.units?.length) {
+      return asset.units;
+    }
+    return this.unitsFromConditions(
+      asset.conditions || { good: 0, fair: 0, repair: 0, damaged: 0 },
+      true,
+    );
+  }
+
+  private unitsFromConditions(
+    conditions: AssetConditionBreakdownDto,
+    legacy = false,
+  ) {
+    const order: [AssetCondition, number][] = [
+      [AssetCondition.GOOD, conditions.good || 0],
+      [AssetCondition.FAIR, conditions.fair || 0],
+      [AssetCondition.REPAIR, conditions.repair || 0],
+      [AssetCondition.DAMAGED, conditions.damaged || 0],
+    ];
+    const units: any[] = [];
+    for (const [condition, count] of order) {
+      for (let i = 0; i < count; i++) {
+        units.push({
+          unitId: legacy ? `legacy-${units.length}` : this.newUnitId(),
+          serial: '',
+          condition,
+          conditionNote: '',
+          purchaseDate: null,
+          value: null,
+          addedAt: new Date(),
+        });
+      }
+    }
+    return units;
+  }
+
+  private buildUnits(dtoUnits: AssetUnitDto[], existing: any[]) {
+    const known = new Map(existing.map((u) => [u.unitId, u]));
+    return dtoUnits.map((unit) => {
+      const before = unit.id ? known.get(unit.id) : undefined;
+      return {
+        unitId: before ? before.unitId : this.newUnitId(),
+        serial: (unit.serial || '').trim(),
+        condition: unit.condition,
+        conditionNote: (unit.conditionNote || '').trim(),
+        purchaseDate: unit.purchaseDate ? new Date(unit.purchaseDate) : null,
+        value: unit.value ?? null,
+        addedAt: before?.addedAt ?? new Date(),
+      };
+    });
+  }
+
+  private conditionsFromUnits(units: { condition: AssetCondition }[]) {
+    const counts = { good: 0, fair: 0, repair: 0, damaged: 0 };
+    for (const unit of units) {
+      if (unit.condition === AssetCondition.GOOD) {
+        counts.good += 1;
+      } else if (unit.condition === AssetCondition.FAIR) {
+        counts.fair += 1;
+      } else if (unit.condition === AssetCondition.REPAIR) {
+        counts.repair += 1;
+      } else if (unit.condition === AssetCondition.DAMAGED) {
+        counts.damaged += 1;
+      }
+    }
+    return counts;
+  }
+
+  private unitLabel(unit: any, index: number) {
+    return unit.serial ? unit.serial : `Item ${index + 1}`;
+  }
+
+  private describeUnitChanges(before: any[], after: any[]) {
+    const changes: Record<string, { from: string; to: string }> = {};
+    const beforeById = new Map(before.map((u) => [u.unitId, u]));
+    const afterIds = new Set(after.map((u) => u.unitId));
+    let count = 0;
+
+    after.forEach((unit, index) => {
+      const prior = beforeById.get(unit.unitId);
+      if (!prior) {
+        if (count++ < 10) {
+          changes[`Added ${this.unitLabel(unit, index)}`] = {
+            from: '-',
+            to: unit.condition,
+          };
+        }
+      } else if (prior.condition !== unit.condition && count++ < 10) {
+        changes[this.unitLabel(unit, index)] = {
+          from: prior.condition,
+          to: unit.condition,
+        };
+      }
+    });
+
+    before.forEach((unit, index) => {
+      if (!afterIds.has(unit.unitId) && count++ < 10) {
+        changes[`Removed ${this.unitLabel(unit, index)}`] = {
+          from: unit.condition,
+          to: '-',
+        };
+      }
+    });
+
+    return changes;
+  }
+
+  private newUnitId() {
+    return `U-${Math.random().toString(36).slice(2, 10).toUpperCase()}`;
+  }
+
   private generateTag() {
     return `AST-${Date.now().toString(36).toUpperCase().slice(-8)}`;
   }
@@ -685,6 +818,8 @@ export class AssetManagementService {
       departmentId: asset.department?._id?.toString() || null,
       qty: asset.qty,
       condition: asset.condition,
+      needsAttention:
+        (asset.conditions?.repair || 0) + (asset.conditions?.damaged || 0),
       risk: asset.risk,
       status: asset.status,
       maintenance: asset.schedule?.frequency || null,
@@ -720,6 +855,17 @@ export class AssetManagementService {
       remarks: asset.remarks || '',
       responsible,
       conditions: asset.conditions,
+      units: this.effectiveUnits(asset).map((unit: any) => ({
+        id: unit.unitId,
+        serial: unit.serial || '',
+        condition: unit.condition,
+        conditionNote: unit.conditionNote || '',
+        purchaseDate: unit.purchaseDate
+          ? new Date(unit.purchaseDate).toISOString().slice(0, 10)
+          : '',
+        value: unit.value ?? null,
+        addedAt: this.formatDate(unit.addedAt),
+      })),
       schedule: {
         frequency: asset.schedule?.frequency || null,
         lastService: this.formatDate(asset.schedule?.lastService),
