@@ -1,7 +1,7 @@
 /* eslint-disable no-console */
 // Standalone one-off migration script - not wired into app bootstrap.
 // Run with: npm run migrate:pricing-guest-limits -- --dry-run   (report only)
-//           npm run migrate:pricing-guest-limits                (apply)
+//           Npm run migrate:pricing-guest-limits                (apply)
 //
 // Moves the live database onto the plans in
 // "Church Workflow — Pricing, Guest Limits and Upload Changes":
@@ -9,13 +9,13 @@
 //   2. subscriptions: every church's stored limits refreshed from its plan
 //      (memberLimit, guestLimit, branchLimit, userLimit, customRolesEnabled).
 //      Dates, status and provider data are untouched, so paid churches pay the
-//      new price at their next renewal.
+//      New price at their next renewal.
 //   3. Paystack: cached plan codes get the new amounts, so live auto-renewals
-//      renew at the new price.
+//      Renew at the new price.
 //   4. memberpastoralsettings: archiveAfterDays = 90 where missing.
 //   5. Report of churches now over a limit.
 // Safe to run more than once. Restart running API instances afterwards: they
-// cache plan pricing in memory.
+// Cache plan pricing in memory.
 import { NestFactory } from '@nestjs/core';
 import { getModelToken } from '@nestjs/mongoose';
 import { SchedulerRegistry } from '@nestjs/schedule';
@@ -63,8 +63,8 @@ async function run() {
   process.env.DISABLE_IN_PROCESS_CRON = 'true';
 
   // A dry run must not write: stop Mongoose building the new indexes or
-  // creating collections when the app boots. (A real run builds them, the
-  // same as deploying this code.)
+  // Creating collections when the app boots. (A real run builds them, the
+  // Same as deploying this code.)
   if (DRY_RUN) {
     mongoose.set('autoIndex', false);
     mongoose.set('autoCreate', false);
@@ -75,7 +75,7 @@ async function run() {
   });
 
   // Stop the app's scheduled jobs (reminders, renewals...) straight away so
-  // this script never does their work.
+  // This script never does their work.
   for (const job of app.get(SchedulerRegistry).getCronJobs().values()) {
     job.stop();
   }
@@ -199,8 +199,10 @@ async function run() {
       console.log(
         `  ${r.subscriptionCode} → plan ${r.planCode ?? '?'} (${r.interval ?? '?'}): ` +
           `₦${r.currentAmount ?? '?'} → ₦${r.newAmount ?? '?'} ${r.outcome}${r.error ? ` (${r.error})` : ''}` +
-          (r.mismatch ? `
-      ⚠ ${r.mismatch}` : ''),
+          (r.mismatch
+            ? `
+      ⚠ ${r.mismatch}`
+            : ''),
       );
     }
 
@@ -244,7 +246,9 @@ async function run() {
       check('branches', branches, target.branchLimit);
       if (over.length) {
         overCount += 1;
-        console.log(`  church ${sub.churchId} (${sub.plan}): ${over.join(', ')}`);
+        console.log(
+          `  church ${sub.churchId} (${sub.plan}): ${over.join(', ')}`,
+        );
       }
     }
     if (!overCount) {

@@ -94,7 +94,7 @@ export class SearchService {
         name: regex,
       };
       // Same visibility as the departments list: without full access you
-      // only see departments you head.
+      // Only see departments you head.
       if (!can(ModuleSections.DEPARTMENTS, AccessLevel.FULL_ACCESS)) {
         filter.$or = [{ hod: authUser._id }, { assistantHod: authUser._id }];
       }

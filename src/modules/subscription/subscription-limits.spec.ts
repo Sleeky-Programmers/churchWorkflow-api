@@ -28,11 +28,33 @@ function build(sub: Record<string, any>) {
 describe('plan defaults', () => {
   it('match the pricing document', () => {
     const p = DEFAULT_PLAN_CONFIG;
-    expect([p.STARTER.monthlyPrice, p.GROWTH.monthlyPrice, p.EXPANSION.monthlyPrice, p.ENTERPRISE.monthlyPrice]).toEqual([0, 5000, 10000, 50000]);
-    expect([p.STARTER.guestLimit, p.GROWTH.guestLimit, p.EXPANSION.guestLimit, p.ENTERPRISE.guestLimit]).toEqual([200, 1500, 6000, -1]);
-    expect([p.STARTER.memberLimit, p.GROWTH.memberLimit, p.EXPANSION.memberLimit]).toEqual([100, 500, 1500]);
-    expect([p.STARTER.branchLimit, p.GROWTH.branchLimit, p.EXPANSION.branchLimit]).toEqual([1, 5, 25]);
-    expect([p.STARTER.userLimit, p.GROWTH.userLimit, p.EXPANSION.userLimit]).toEqual([3, 10, 25]);
+    expect([
+      p.STARTER.monthlyPrice,
+      p.GROWTH.monthlyPrice,
+      p.EXPANSION.monthlyPrice,
+      p.ENTERPRISE.monthlyPrice,
+    ]).toEqual([0, 5000, 10000, 50000]);
+    expect([
+      p.STARTER.guestLimit,
+      p.GROWTH.guestLimit,
+      p.EXPANSION.guestLimit,
+      p.ENTERPRISE.guestLimit,
+    ]).toEqual([200, 1500, 6000, -1]);
+    expect([
+      p.STARTER.memberLimit,
+      p.GROWTH.memberLimit,
+      p.EXPANSION.memberLimit,
+    ]).toEqual([100, 500, 1500]);
+    expect([
+      p.STARTER.branchLimit,
+      p.GROWTH.branchLimit,
+      p.EXPANSION.branchLimit,
+    ]).toEqual([1, 5, 25]);
+    expect([
+      p.STARTER.userLimit,
+      p.GROWTH.userLimit,
+      p.EXPANSION.userLimit,
+    ]).toEqual([3, 10, 25]);
     // Yearly keeps the ~17% discount: 10 × monthly.
     expect(p.GROWTH.yearlyPrice).toBe(p.GROWTH.monthlyPrice * 10);
     expect(p.EXPANSION.yearlyPrice).toBe(p.EXPANSION.monthlyPrice * 10);
@@ -42,7 +64,11 @@ describe('plan defaults', () => {
 
 describe('SubscriptionService limits', () => {
   it('names the guest limit and the plan to upgrade to', async () => {
-    const service = build({ plan: PlanType.STARTER, memberLimit: 100, guestLimit: 200 });
+    const service = build({
+      plan: PlanType.STARTER,
+      memberLimit: 100,
+      guestLimit: 200,
+    });
     const res = await service.checkGuestLimit(churchId, 201);
     expect(res.allowed).toBe(false);
     expect(res.message).toBe(
@@ -51,20 +77,34 @@ describe('SubscriptionService limits', () => {
   });
 
   it('points Expansion churches to Contact us for Enterprise', async () => {
-    const service = build({ plan: PlanType.EXPANSION, memberLimit: 1500, guestLimit: 6000 });
+    const service = build({
+      plan: PlanType.EXPANSION,
+      memberLimit: 1500,
+      guestLimit: 6000,
+    });
     const res = await service.checkMemberLimit(churchId, 1501);
-    expect(res.message).toContain('Contact us about Enterprise for unlimited members');
+    expect(res.message).toContain(
+      'Contact us about Enterprise for unlimited members',
+    );
   });
 
   it('falls back to the plan limit for legacy subscriptions without guestLimit', async () => {
     const service = build({ plan: PlanType.GROWTH, memberLimit: 500 });
-    expect((await service.getEffectiveLimit(churchId, 'guest')).limit).toBe(1500);
+    expect((await service.getEffectiveLimit(churchId, 'guest')).limit).toBe(
+      1500,
+    );
     expect((await service.checkGuestLimit(churchId, 1500)).allowed).toBe(true);
   });
 
   it('treats -1 as unlimited', async () => {
-    const service = build({ plan: PlanType.ENTERPRISE, memberLimit: -1, guestLimit: -1 });
-    expect((await service.checkGuestLimit(churchId, 1_000_000)).allowed).toBe(true);
+    const service = build({
+      plan: PlanType.ENTERPRISE,
+      memberLimit: -1,
+      guestLimit: -1,
+    });
+    expect((await service.checkGuestLimit(churchId, 1_000_000)).allowed).toBe(
+      true,
+    );
   });
 
   it('Enterprise is not self-serve', () => {

@@ -10,7 +10,11 @@ export function escapeRegex(value: string): string {
 /** Case-insensitive, literal "contains" match for a search box value. */
 export function searchRegex(value: string, maxLength = 100) {
   return {
-    $regex: escapeRegex(String(value ?? '').trim().slice(0, maxLength)),
+    $regex: escapeRegex(
+      String(value ?? '')
+        .trim()
+        .slice(0, maxLength),
+    ),
     $options: 'i',
   };
 }

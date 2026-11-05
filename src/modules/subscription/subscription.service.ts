@@ -54,7 +54,7 @@ export class SubscriptionService implements OnModuleInit {
   private readonly planConfigCache = new Map<PlanType, PlanPricing>();
 
   // Seed values used only when a plan document is missing. Existing documents are
-  // moved to new values by scripts/migrate-pricing-guest-limits.script.ts.
+  // Moved to new values by scripts/migrate-pricing-guest-limits.script.ts.
   private readonly defaultPlanConfig: Record<PlanType, PlanConfigDefaults> =
     DEFAULT_PLAN_CONFIG;
 
@@ -134,8 +134,8 @@ export class SubscriptionService implements OnModuleInit {
     this.planConfigCache.set(plan, updated);
 
     // Push the new amounts onto the cached Paystack plan codes so live
-    // auto-renewals charge the new price; codes Paystack refuses are dropped
-    // and lazily recreated at the next checkout.
+    // Auto-renewals charge the new price; codes Paystack refuses are dropped
+    // And lazily recreated at the next checkout.
     if (dto.monthlyPrice !== undefined || dto.yearlyPrice !== undefined) {
       await this.subscriptionPlanCodesService.syncPlanAmounts(plan, {
         [BillingCycle.MONTHLY]: updated.monthlyPrice,
@@ -144,7 +144,7 @@ export class SubscriptionService implements OnModuleInit {
     }
 
     // Copy changed limits onto every subscription on this plan so they take
-    // effect now rather than at each church's next renewal.
+    // Effect now rather than at each church's next renewal.
     const limitKeys = [
       'memberLimit',
       'guestLimit',

@@ -41,7 +41,9 @@ export class SearchThrottleGuard implements CanActivate {
     // Keep memory bounded: drop the least recently active user.
     if (this.hits.size > MAX_TRACKED_USERS) {
       const oldest = this.hits.keys().next().value;
-      if (oldest !== undefined) this.hits.delete(oldest);
+      if (oldest !== undefined) {
+        this.hits.delete(oldest);
+      }
     }
     return true;
   }

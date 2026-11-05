@@ -36,7 +36,7 @@ export const envConfig = () => ({
     redirectUrl: process.env.GIVING_REDIRECT_URL,
   },
   frontend: {
-    // e.g. https://churchworkflow.com/api/revalidate-pricing (busts the pricing page cache after plan edits)
+    // E.g. https://churchworkflow.com/api/revalidate-pricing (busts the pricing page cache after plan edits)
     revalidatePricingUrl: process.env.FRONTEND_REVALIDATE_PRICING_URL,
     revalidateSecret: process.env.FRONTEND_REVALIDATE_SECRET,
   },

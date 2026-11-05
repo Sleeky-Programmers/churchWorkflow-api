@@ -104,7 +104,10 @@ export class SubscriptionPlanCodesService {
         await lastValueFrom(
           this.httpService.put(
             `${baseUrl}/plan/${code.planCode}`,
-            { amount: Math.round(amount * 100), update_existing_subscriptions: true },
+            {
+              amount: Math.round(amount * 100),
+              update_existing_subscriptions: true,
+            },
             {
               headers: {
                 Authorization: `Bearer ${secretKey}`,
@@ -168,9 +171,12 @@ export class SubscriptionPlanCodesService {
     for (const sub of subscriptions) {
       try {
         const res = await lastValueFrom(
-          this.httpService.get(`${baseUrl}/subscription/${sub.subscriptionCode}`, {
-            headers,
-          }),
+          this.httpService.get(
+            `${baseUrl}/subscription/${sub.subscriptionCode}`,
+            {
+              headers,
+            },
+          ),
         );
         const planObj = res.data?.data?.plan;
         const planCode: string | undefined = planObj?.plan_code;
@@ -178,14 +184,16 @@ export class SubscriptionPlanCodesService {
         const cycle =
           interval === 'annually' ? BillingCycle.YEARLY : BillingCycle.MONTHLY;
         // Paystack plans are created named after our plan type. A plan is
-        // shared by every church that bought that tier, so its price follows
-        // its own tier, not the church's current (possibly overridden) plan.
+        // Shared by every church that bought that tier, so its price follows
+        // Its own tier, not the church's current (possibly overridden) plan.
         const paystackTier = Object.values(PlanType).includes(planObj?.name)
           ? (planObj.name as PlanType)
           : sub.plan;
         const newAmount = amountFor(paystackTier, cycle);
         const currentAmount =
-          typeof planObj?.amount === 'number' ? planObj.amount / 100 : undefined;
+          typeof planObj?.amount === 'number'
+            ? planObj.amount / 100
+            : undefined;
         const base = {
           subscriptionCode: sub.subscriptionCode,
           planCode,
@@ -200,7 +208,11 @@ export class SubscriptionPlanCodesService {
         };
 
         if (!planCode) {
-          results.push({ ...base, outcome: 'failed', error: 'no plan on subscription' });
+          results.push({
+            ...base,
+            outcome: 'failed',
+            error: 'no plan on subscription',
+          });
           continue;
         }
         if (done.has(planCode)) {

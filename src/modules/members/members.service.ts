@@ -204,7 +204,7 @@ export class MembersService {
     let rowIndex = 1;
 
     // Includes archived guests, so re-importing one is reported as a
-    // duplicate (restore them from the archive instead).
+    // Duplicate (restore them from the archive instead).
     const existingMembers = await this.memberModel
       .find(buildTenantFilter(tenant))
       .setOptions({ includeArchived: true })
@@ -307,7 +307,7 @@ export class MembersService {
           }
 
           // Status is required. A blank or unknown value rejects the row;
-          // it is never guessed.
+          // It is never guessed.
           const rawStatus = row.membershipStatus?.trim();
           const normalizedMembershipStatus = rawStatus
             ? MEMBERSHIP_STATUS_MAP[normalizeKey(rawStatus)]
@@ -479,7 +479,10 @@ export class MembersService {
   }
 
   /** Builds the pre-import summary shown to the church. */
-  private async buildCsvReport(churchId: Types.ObjectId, parsed: CsvParseResult) {
+  private async buildCsvReport(
+    churchId: Types.ObjectId,
+    parsed: CsvParseResult,
+  ) {
     const snapshot = await this.guestRulesService.getLimitSnapshot(churchId);
     const over = (room: number | null, adding: number) =>
       room === null ? 0 : Math.max(adding - room, 0);
@@ -554,8 +557,7 @@ export class MembersService {
       }
       throw new BadRequestException({
         message: `This file has ${parts.join(' and ')}. Nothing was imported. Remove rows or upgrade your plan.`,
-        code:
-          report.overBy.members > 0 ? 'MEMBER_LIMIT' : 'GUEST_LIMIT',
+        code: report.overBy.members > 0 ? 'MEMBER_LIMIT' : 'GUEST_LIMIT',
         resource: report.overBy.members > 0 ? 'member' : 'guest',
         ...report,
       });
@@ -1093,7 +1095,9 @@ export class MembersService {
 
     const data = rows.map((m: Record<string, any>) => ({
       ...m,
-      deletesOn: m.archivedAt ? addDays(m.archivedAt, ARCHIVE_RETENTION_DAYS) : null,
+      deletesOn: m.archivedAt
+        ? addDays(m.archivedAt, ARCHIVE_RETENTION_DAYS)
+        : null,
     }));
 
     return {
@@ -1124,7 +1128,8 @@ export class MembersService {
       const text = value === null || value === undefined ? '' : String(value);
       return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
     };
-    const day = (d?: Date | null) => (d ? new Date(d).toISOString().slice(0, 10) : '');
+    const day = (d?: Date | null) =>
+      d ? new Date(d).toISOString().slice(0, 10) : '';
 
     const lines = [headers.join(',')];
     for (const m of rows) {
@@ -1138,7 +1143,9 @@ export class MembersService {
           m.address,
           day(m.dateJoined),
           day(m.archivedAt),
-          day(m.archivedAt ? addDays(m.archivedAt, ARCHIVE_RETENTION_DAYS) : null),
+          day(
+            m.archivedAt ? addDays(m.archivedAt, ARCHIVE_RETENTION_DAYS) : null,
+          ),
         ]
           .map(escape)
           .join(','),
@@ -1148,7 +1155,11 @@ export class MembersService {
   }
 
   /** Restores an archived guest. They count against the guest limit again. */
-  async restoreArchivedMember(authUser: Admin, tenant: TenantContext, id: string) {
+  async restoreArchivedMember(
+    authUser: Admin,
+    tenant: TenantContext,
+    id: string,
+  ) {
     const member = await this.memberModel
       .findOne({
         _id: new Types.ObjectId(id),
@@ -1529,7 +1540,8 @@ export class MembersService {
 
   async getMemberLimitStatus(authUser: Admin) {
     const churchId = authUser.churchId;
-    const subscription = await this.subscriptionService.getSubscription(churchId);
+    const subscription =
+      await this.subscriptionService.getSubscription(churchId);
     const snapshot = await this.guestRulesService.getLimitSnapshot(churchId);
     const { counts, memberLimit, guestLimit } = snapshot;
 
@@ -1558,7 +1570,10 @@ export class MembersService {
       subscription.status === SubscriptionStatus.ACTIVE
     ) {
       gracePeriodEnds = addDays(new Date(), 7);
-      await this.subscriptionService.updateGracePeriod(churchId, gracePeriodEnds);
+      await this.subscriptionService.updateGracePeriod(
+        churchId,
+        gracePeriodEnds,
+      );
     }
 
     const now = new Date();

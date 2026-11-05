@@ -206,7 +206,10 @@ export class GuestLifecycleService {
       { $set: { frequentGuestNotifiedAt: now } },
     );
 
-    const names = fresh.slice(0, 5).map((m) => m.fullName).join(', ');
+    const names = fresh
+      .slice(0, 5)
+      .map((m) => m.fullName)
+      .join(', ');
     const more = fresh.length > 5 ? ` and ${fresh.length - 5} more` : '';
     await this.notificationService.createNotification(churchId, {
       title: 'Guests ready to become members',
@@ -285,7 +288,7 @@ export class GuestLifecycleService {
           greeting: `Hi ${admin.firstName || 'there'},`,
           paragraphs: [
             `${count} guest(s) have been in your archive for almost 12 months with no attendance. They will be permanently deleted on or after ${deleteOnText}.`,
-            'We delete inactive guests so personal data is not kept longer than needed, in line with Nigeria\'s data protection rules.',
+            "We delete inactive guests so personal data is not kept longer than needed, in line with Nigeria's data protection rules.",
             'If you want to keep a copy, export the list before then. To keep someone, restore them from the archive.',
           ],
           button: base ? { text: 'Review and export', link } : undefined,

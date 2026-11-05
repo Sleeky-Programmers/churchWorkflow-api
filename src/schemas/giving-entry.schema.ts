@@ -39,8 +39,8 @@ export class GivingEntry extends Document {
 
   // Giving is not linked to a Member record (only free-text donor fields).
   // Guest rule: guests (VISITOR) must not have giving records. If a memberId
-  // is ever added here, reject VISITORs the way departments and small teams
-  // do (MembersService.assertNoGuests).
+  // Is ever added here, reject VISITORs the way departments and small teams
+  // Do (MembersService.assertNoGuests).
   @Prop({ default: null })
   donorName: string;
 

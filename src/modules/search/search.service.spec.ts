@@ -34,7 +34,9 @@ function fakeModel(rows: any[] | Error) {
         maxTimeMS: () => chain,
         lean: () => chain,
         exec: async () => {
-          if (rows instanceof Error) throw rows;
+          if (rows instanceof Error) {
+            throw rows;
+          }
           return rows.slice(0, chain.limitN ?? rows.length);
         },
       };
@@ -65,9 +67,17 @@ function build(models: Partial<Record<string, any>> = {}) {
     asset: models.asset ?? fakeModel([{ name: 'Adapter' }]),
     admin:
       models.admin ??
-      fakeModel([{ _id: 'u1', firstName: 'Ada', lastName: 'Eze', email: 'a@x' }]),
+      fakeModel([
+        { _id: 'u1', firstName: 'Ada', lastName: 'Eze', email: 'a@x' },
+      ]),
   };
-  const service = new SearchService(m.member, m.department, m.team, m.asset, m.admin);
+  const service = new SearchService(
+    m.member,
+    m.department,
+    m.team,
+    m.asset,
+    m.admin,
+  );
   return { service, ...m };
 }
 
@@ -109,7 +119,11 @@ describe('SearchService', () => {
     const { service } = build();
     const user: any = {
       _id: new Types.ObjectId(),
-      churchRole: { type: RoleType.SYSTEM, roleName: 'Super Admin', permissions: [] },
+      churchRole: {
+        type: RoleType.SYSTEM,
+        roleName: 'Super Admin',
+        permissions: [],
+      },
     };
     const res = await service.search(user, tenant, 'ada', 5);
     expect(Object.keys(res.results).sort()).toEqual([
@@ -119,11 +133,17 @@ describe('SearchService', () => {
       'smallTeams',
       'users',
     ]);
-    expect(res.results.users?.[0]).toEqual({ _id: 'u1', name: 'Ada Eze', email: 'a@x' });
+    expect(res.results.users?.[0]).toEqual({
+      _id: 'u1',
+      name: 'Ada Eze',
+      email: 'a@x',
+    });
   });
 
   it('scopes to the tenant, escapes the query and limits results', async () => {
-    const member = fakeModel(Array.from({ length: 9 }, (_, i) => ({ fullName: `P${i}` })));
+    const member = fakeModel(
+      Array.from({ length: 9 }, (_, i) => ({ fullName: `P${i}` })),
+    );
     const { service } = build({ member });
     const user: any = {
       _id: new Types.ObjectId(),
@@ -147,7 +167,10 @@ describe('SearchService', () => {
       churchRole: role({ [ModuleSections.DEPARTMENTS]: AccessLevel.VIEW }),
     };
     await service.search(user, tenant, 'choir', 5);
-    expect(department.calls[0].$or).toEqual([{ hod: userId }, { assistantHod: userId }]);
+    expect(department.calls[0].$or).toEqual([
+      { hod: userId },
+      { assistantHod: userId },
+    ]);
   });
 
   it('returns other groups when one lookup fails', async () => {

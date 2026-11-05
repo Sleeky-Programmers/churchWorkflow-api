@@ -49,9 +49,9 @@ export interface LimitCounts {
   guests: number;
   /** VISITORs who attended 4+ services in 60 days; they count as members. */
   frequentGuests: number;
-  /** members + frequentGuests: what the member limit is checked against. */
+  /** Members + frequentGuests: what the member limit is checked against. */
   effectiveMembers: number;
-  /** guests - frequentGuests: what the guest limit is checked against. */
+  /** Guests - frequentGuests: what the guest limit is checked against. */
   effectiveGuests: number;
 }
 
@@ -174,9 +174,7 @@ export class GuestRulesService {
       [new Types.ObjectId(memberId)],
       dayKeyDaysAgo(FREQUENT_GUEST_WINDOW_DAYS),
     );
-    return (
-      (sessions.get(String(memberId)) || 0) >= FREQUENT_GUEST_MIN_SERVICES
-    );
+    return (sessions.get(String(memberId)) || 0) >= FREQUENT_GUEST_MIN_SERVICES;
   }
 
   /** Church-wide counts (all branches). Archived people are excluded by the Member schema middleware. */
@@ -296,7 +294,10 @@ export class GuestRulesService {
     if (fromGuest && !toGuest) {
       // Guest → member. A frequent guest is already counted as a member.
       const alreadyCounted = await this.isFrequentGuest(memberId);
-      return { members: alreadyCounted ? 0 : 1, guests: alreadyCounted ? 0 : -1 };
+      return {
+        members: alreadyCounted ? 0 : 1,
+        guests: alreadyCounted ? 0 : -1,
+      };
     }
     // Member → guest. If they meet the 4-in-60 rule they keep counting as a member.
     const staysMember = await this.isFrequentGuest(memberId);

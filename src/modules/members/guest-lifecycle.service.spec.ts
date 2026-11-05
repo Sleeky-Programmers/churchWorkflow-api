@@ -20,7 +20,9 @@ function build(opts: {
 }) {
   const findQueue = [...(opts.findResults ?? [])];
   const memberModel: any = {
-    find: jest.fn(() => lean(findQueue.length ? findQueue.shift() : opts.guests ?? [])),
+    find: jest.fn(() =>
+      lean(findQueue.length ? findQueue.shift() : (opts.guests ?? [])),
+    ),
     updateMany: jest.fn(async (filter: any) => ({
       modifiedCount: filter._id?.$in?.length ?? 0,
     })),
@@ -34,7 +36,9 @@ function build(opts: {
   const attendanceModel: any = { deleteMany: jest.fn(async () => ({})) };
   const departmentModel: any = { updateMany: jest.fn(async () => ({})) };
   const smallTeamModel: any = { updateMany: jest.fn(async () => ({})) };
-  const adminModel: any = { find: () => lean([{ email: 'a@x.org', firstName: 'A' }]) };
+  const adminModel: any = {
+    find: () => lean([{ email: 'a@x.org', firstName: 'A' }]),
+  };
   const guestRules: any = {
     lastPresentDays: jest.fn(async () => opts.lastPresent ?? new Map()),
     getFrequentGuestIds: jest.fn(async () => []),
@@ -53,7 +57,14 @@ function build(opts: {
     notifications,
     email,
   );
-  return { service, memberModel, attendanceModel, notifications, email, departmentModel };
+  return {
+    service,
+    memberModel,
+    attendanceModel,
+    notifications,
+    email,
+    departmentModel,
+  };
 }
 
 describe('GuestLifecycleService', () => {
@@ -80,7 +91,9 @@ describe('GuestLifecycleService', () => {
 
     expect(archived).toBe(2);
     const [filter, update] = memberModel.updateMany.mock.calls[0];
-    expect(filter._id.$in.map(String).sort()).toEqual([String(stale), String(neverOld)].sort());
+    expect(filter._id.$in.map(String).sort()).toEqual(
+      [String(stale), String(neverOld)].sort(),
+    );
     expect(filter.archivedAt).toBeNull();
     expect(update.$set.archivedAt).toEqual(now);
   });
@@ -103,7 +116,11 @@ describe('GuestLifecycleService', () => {
 
     expect(await service.warnBeforeDeletion(churchId, now)).toBe(1);
     expect(notifications.createNotification).toHaveBeenCalled();
-    expect(email.sendEmail).toHaveBeenCalledWith('a@x.org', expect.any(String), expect.any(String));
+    expect(email.sendEmail).toHaveBeenCalledWith(
+      'a@x.org',
+      expect.any(String),
+      expect.any(String),
+    );
     // Only guests archived at least 335 days ago are due for a warning.
     const filter = memberModel.find.mock.calls[0][0];
     expect(filter.archivedAt.$lte).toEqual(daysAgo(335));
@@ -120,7 +137,9 @@ describe('GuestLifecycleService', () => {
     const filter = memberModel.find.mock.calls[0][0];
     expect(filter.archivedAt.$lte).toEqual(daysAgo(365));
     expect(filter.archiveDeletionWarnedAt.$lte).toEqual(daysAgo(30));
-    expect(attendanceModel.deleteMany).toHaveBeenCalledWith({ memberId: { $in: [id] } });
+    expect(attendanceModel.deleteMany).toHaveBeenCalledWith({
+      memberId: { $in: [id] },
+    });
     expect(departmentModel.updateMany).toHaveBeenCalled();
   });
 });

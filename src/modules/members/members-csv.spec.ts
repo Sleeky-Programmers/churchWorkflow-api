@@ -91,7 +91,11 @@ describe('Member CSV import', () => {
     });
 
     await expect(
-      service.createMembersByCsv({ churchId: tenant.churchId } as any, tenant, file),
+      service.createMembersByCsv(
+        { churchId: tenant.churchId } as any,
+        tenant,
+        file,
+      ),
     ).rejects.toMatchObject({
       response: expect.objectContaining({ code: 'MEMBER_LIMIT' }),
     });
