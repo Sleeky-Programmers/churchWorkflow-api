@@ -35,6 +35,11 @@ export class UpdatePlanPricingDto {
   @IsOptional()
   @IsNumber()
   @Min(-1)
+  guestLimit?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(-1)
   userLimit?: number;
 
   @IsOptional()
@@ -49,4 +54,8 @@ export class UpdatePlanPricingDto {
   @IsOptional()
   @IsBoolean()
   popular?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  contactSales?: boolean;
 }

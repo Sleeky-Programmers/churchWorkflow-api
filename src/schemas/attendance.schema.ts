@@ -34,3 +34,6 @@ export class Attendance extends Document {
 export const AttendanceSchema = SchemaFactory.createForClass(Attendance);
 
 AttendanceSchema.index({ churchId: 1, branchId: 1 });
+// Guest rules: "4+ services in 60 days" and "last attended" lookups.
+AttendanceSchema.index({ churchId: 1, status: 1, date: 1, memberId: 1 });
+AttendanceSchema.index({ memberId: 1, status: 1, date: -1 });

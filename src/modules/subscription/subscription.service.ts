@@ -1,6 +1,14 @@
 import { Model, PipelineStage, Types } from 'mongoose';
+import { lastValueFrom } from 'rxjs';
 
-import { Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { HttpService } from '@nestjs/axios';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  OnModuleInit,
+} from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 
 import {
@@ -18,6 +26,9 @@ import { NotificationService } from '../notification/notification.service';
 import { PaymentService } from '../payment/payment.service';
 import { SubscriptionPlanCodesService } from '../subscription-plan-codes/subscription-plan-codes.service';
 import { UpdatePlanPricingDto } from './dto/update-plan-pricing.dto';
+import { DEFAULT_PLAN_CONFIG, PlanConfigDefaults } from './plan-defaults';
+
+export type LimitResource = 'member' | 'guest';
 
 @Injectable()
 export class SubscriptionService implements OnModuleInit {
@@ -30,7 +41,11 @@ export class SubscriptionService implements OnModuleInit {
     private adminActivityLogService: AdminActivityLogService,
     private notificationService: NotificationService,
     private subscriptionPlanCodesService: SubscriptionPlanCodesService,
+    private readonly httpService: HttpService,
+    private readonly configService: ConfigService,
   ) {}
+
+  private readonly logger = new Logger(SubscriptionService.name);
 
   // In-memory cache of the DB-backed plan pricing/details, warmed on
   // Module init and kept fresh by updatePlanPricing(). Reading it stays
@@ -38,86 +53,10 @@ export class SubscriptionService implements OnModuleInit {
   // To change.
   private readonly planConfigCache = new Map<PlanType, PlanPricing>();
 
-  private readonly defaultPlanConfig: Record<
-    PlanType,
-    {
-      name: string;
-      monthlyPrice: number;
-      yearlyPrice: number;
-      features: string[];
-      memberLimit: number;
-      userLimit: number;
-      branchLimit: number;
-      customRolesEnabled: boolean;
-      popular: boolean;
-    }
-  > = {
-    [PlanType.STARTER]: {
-      name: 'Starter',
-      monthlyPrice: 0,
-      yearlyPrice: 0,
-      features: [
-        'Small teams',
-        'Membership management',
-        'Up to 3 users',
-        'Up to 100 members',
-        'Attendance tracking',
-      ],
-      memberLimit: 100,
-      userLimit: 3,
-      branchLimit: 2,
-      customRolesEnabled: false,
-      popular: false,
-    },
-    [PlanType.GROWTH]: {
-      name: 'Growth',
-      monthlyPrice: 20000,
-      yearlyPrice: 200000,
-      features: [
-        'Everything in Starter',
-        'Up to 10 users',
-        'Up to 500 members',
-        'Custom roles & permissions',
-      ],
-      memberLimit: 500,
-      userLimit: 10,
-      branchLimit: 5,
-      customRolesEnabled: true,
-      popular: true,
-    },
-    [PlanType.EXPANSION]: {
-      name: 'Expansion',
-      monthlyPrice: 45000,
-      yearlyPrice: 450000,
-      features: [
-        'Everything in Growth',
-        'Up to 25 users',
-        'Up to 1,500 members',
-      ],
-      memberLimit: 1500,
-      userLimit: 25,
-      branchLimit: 25,
-      customRolesEnabled: true,
-      popular: false,
-    },
-    [PlanType.ENTERPRISE]: {
-      name: 'Enterprise',
-      monthlyPrice: 100000,
-      yearlyPrice: 1000000,
-      features: [
-        'Everything in Expansion',
-        'Priority support',
-        'Unlimited users',
-        'Advanced controls',
-        'Unlimited members',
-      ],
-      memberLimit: -1,
-      userLimit: -1,
-      branchLimit: -1,
-      customRolesEnabled: true,
-      popular: false,
-    },
-  };
+  // Seed values used only when a plan document is missing. Existing documents are
+  // moved to new values by scripts/migrate-pricing-guest-limits.script.ts.
+  private readonly defaultPlanConfig: Record<PlanType, PlanConfigDefaults> =
+    DEFAULT_PLAN_CONFIG;
 
   private readonly planRank: Record<PlanType, number> = {
     [PlanType.STARTER]: 0,
@@ -194,8 +133,33 @@ export class SubscriptionService implements OnModuleInit {
 
     this.planConfigCache.set(plan, updated);
 
-    // The cached Paystack plan code/amount for this plan is now stale.
-    await this.subscriptionPlanCodesService.deleteByPlan(plan);
+    // Push the new amounts onto the cached Paystack plan codes so live
+    // auto-renewals charge the new price; codes Paystack refuses are dropped
+    // and lazily recreated at the next checkout.
+    if (dto.monthlyPrice !== undefined || dto.yearlyPrice !== undefined) {
+      await this.subscriptionPlanCodesService.syncPlanAmounts(plan, {
+        [BillingCycle.MONTHLY]: updated.monthlyPrice,
+        [BillingCycle.YEARLY]: updated.yearlyPrice,
+      });
+    }
+
+    // Copy changed limits onto every subscription on this plan so they take
+    // effect now rather than at each church's next renewal.
+    const limitKeys = [
+      'memberLimit',
+      'guestLimit',
+      'userLimit',
+      'branchLimit',
+      'customRolesEnabled',
+    ] as const;
+    if (limitKeys.some((k) => dto[k] !== undefined)) {
+      await this.subscriptionModel.updateMany(
+        { plan },
+        { $set: this.limitsFromPlan(updated) },
+      );
+    }
+
+    await this.revalidatePricingPage();
 
     await this.adminActivityLogService.create({
       adminId: productAdminId as any,
@@ -205,6 +169,53 @@ export class SubscriptionService implements OnModuleInit {
     } as any);
 
     return this.getPlans().find((p) => p.type === plan);
+  }
+
+  /** The limit fields a subscription copies from its plan. */
+  limitsFromPlan(
+    config: Pick<
+      PlanPricing,
+      | 'memberLimit'
+      | 'guestLimit'
+      | 'userLimit'
+      | 'branchLimit'
+      | 'customRolesEnabled'
+    >,
+  ) {
+    return {
+      memberLimit: config.memberLimit,
+      guestLimit: config.guestLimit ?? 0,
+      userLimit: config.userLimit,
+      branchLimit: config.branchLimit,
+      customRolesEnabled: config.customRolesEnabled,
+    };
+  }
+
+  /** Busts the marketing pricing page's ISR cache. Best effort: never throws. */
+  async revalidatePricingPage() {
+    const url = this.configService.get<string>('frontend.revalidatePricingUrl');
+    if (!url) {
+      return;
+    }
+    const secret = this.configService.get<string>('frontend.revalidateSecret');
+    try {
+      await lastValueFrom(
+        this.httpService.post(
+          url,
+          {},
+          {
+            headers: secret ? { Authorization: `Bearer ${secret}` } : {},
+            timeout: 5000,
+          },
+        ),
+      );
+    } catch (error: any) {
+      this.logger.warn(`Pricing page revalidation failed: ${error?.message}`);
+    }
+  }
+
+  isContactSalesPlan(plan: PlanType): boolean {
+    return !!this.getPlanConfig(plan).contactSales;
   }
 
   getPlanAmount(plan: PlanType, billingCycle: BillingCycle): number {
@@ -267,10 +278,7 @@ export class SubscriptionService implements OnModuleInit {
           churchId,
           plan: PlanType.STARTER,
           status: SubscriptionStatus.TRIAL,
-          memberLimit: limits.memberLimit,
-          userLimit: limits.userLimit,
-          branchLimit: limits.branchLimit,
-          customRolesEnabled: limits.customRolesEnabled,
+          ...this.limitsFromPlan(limits),
           endDate: trialEndDate,
           gracePeriodEndDate: trialEndDate,
         },
@@ -332,10 +340,7 @@ export class SubscriptionService implements OnModuleInit {
       {
         plan: data.plan,
         status: SubscriptionStatus.ACTIVE,
-        memberLimit: limits.memberLimit,
-        userLimit: limits.userLimit,
-        branchLimit: limits.branchLimit,
-        customRolesEnabled: limits.customRolesEnabled,
+        ...this.limitsFromPlan(limits),
         startDate,
         endDate,
         isAutoRenew: data.autoRenew,
@@ -404,23 +409,91 @@ export class SubscriptionService implements OnModuleInit {
     );
   }
 
-  async checkMemberLimit(churchId: Types.ObjectId, projectedCount: number) {
+  /**
+   * Effective limit for a resource on this church's subscription. Legacy
+   * subscription docs may have the field missing or stored as 0, so fall back
+   * to the live plan value rather than blocking every add.
+   */
+  async getEffectiveLimit(
+    churchId: Types.ObjectId,
+    resource: LimitResource,
+  ): Promise<{ limit: number; plan: PlanType }> {
     const sub = await this.getSubscription(churchId);
+    const field = resource === 'member' ? 'memberLimit' : 'guestLimit';
+    const stored = (sub as any)[field] as number | undefined;
+    const limit = stored ? stored : this.getPlanConfig(sub.plan)[field] || 0;
+    return { limit, plan: sub.plan };
+  }
 
-    if (sub.memberLimit === -1) {
-      return { allowed: true, type: MemberLimitType.NONE };
+  /** The cheapest plan above `plan` that raises the given limit, if any. */
+  getUpgradeSuggestion(plan: PlanType, resource: LimitResource) {
+    const field = resource === 'member' ? 'memberLimit' : 'guestLimit';
+    const current = this.getPlanConfig(plan)[field];
+    const next = Object.values(PlanType)
+      .filter((p) => this.planRank[p] > this.planRank[plan])
+      .sort((a, b) => this.planRank[a] - this.planRank[b])
+      .find((p) => {
+        const value = this.getPlanConfig(p)[field];
+        return value === -1 || value > current;
+      });
+    if (!next) {
+      return null;
+    }
+    const config = this.getPlanConfig(next);
+    return {
+      plan: next,
+      name: config.name,
+      limit: config[field],
+      contactSales: !!config.contactSales,
+    };
+  }
+
+  buildLimitMessage(resource: LimitResource, limit: number, plan: PlanType) {
+    const noun = resource === 'member' ? 'members' : 'guests';
+    const upgrade = this.getUpgradeSuggestion(plan, resource);
+    let next = 'Contact us to discuss a custom limit.';
+    if (upgrade) {
+      const amount =
+        upgrade.limit === -1
+          ? `unlimited ${noun}`
+          : `${upgrade.limit.toLocaleString('en-US')} ${noun}`;
+      next = upgrade.contactSales
+        ? `Contact us about ${upgrade.name} for ${amount}.`
+        : `Upgrade to ${upgrade.name} for ${amount}.`;
+    }
+    return `You've reached your plan's ${resource} limit (${limit.toLocaleString('en-US')} ${noun}). ${next}`;
+  }
+
+  async checkResourceLimit(
+    churchId: Types.ObjectId,
+    resource: LimitResource,
+    projectedCount: number,
+  ) {
+    const { limit, plan } = await this.getEffectiveLimit(churchId, resource);
+
+    if (limit === -1) {
+      return { allowed: true, type: MemberLimitType.NONE, limit };
     }
 
-    if (projectedCount > sub.memberLimit) {
+    if (projectedCount > limit) {
       return {
         allowed: false,
-        message:
-          'You cannot add more members because it will be more than the member limit for your plan. Upgrade to continue.',
+        message: this.buildLimitMessage(resource, limit, plan),
         type: MemberLimitType.BLOCK,
+        limit,
+        upgrade: this.getUpgradeSuggestion(plan, resource),
       };
     }
 
-    return { allowed: true, type: MemberLimitType.NONE };
+    return { allowed: true, type: MemberLimitType.NONE, limit };
+  }
+
+  async checkMemberLimit(churchId: Types.ObjectId, projectedCount: number) {
+    return this.checkResourceLimit(churchId, 'member', projectedCount);
+  }
+
+  async checkGuestLimit(churchId: Types.ObjectId, projectedCount: number) {
+    return this.checkResourceLimit(churchId, 'guest', projectedCount);
   }
 
   async checkUserLimit(churchId: Types.ObjectId, currentUserCount: number) {
@@ -522,7 +595,9 @@ export class SubscriptionService implements OnModuleInit {
       gracePeriodEndDate: subscription.gracePeriodEndDate,
       isAutoRenew: subscription.isAutoRenew,
       memberLimit: subscription.memberLimit,
+      guestLimit: subscription.guestLimit,
       userLimit: subscription.userLimit,
+      branchLimit: subscription.branchLimit,
       customRolesEnabled: subscription.customRolesEnabled,
     };
   }
@@ -599,6 +674,7 @@ export class SubscriptionService implements OnModuleInit {
     const churchesByPlan = {
       STARTER: 0,
       GROWTH: 0,
+      EXPANSION: 0,
       ENTERPRISE: 0,
     };
 
@@ -632,9 +708,11 @@ export class SubscriptionService implements OnModuleInit {
         features: config.features,
         popular: config.popular,
         memberLimit: config.memberLimit,
+        guestLimit: config.guestLimit ?? 0,
         userLimit: config.userLimit,
         branchLimit: config.branchLimit,
         customRolesEnabled: config.customRolesEnabled,
+        contactSales: !!config.contactSales,
       };
     });
   }
@@ -806,6 +884,10 @@ export class SubscriptionService implements OnModuleInit {
 
     subscription.startDate = subscription.startDate || now;
     subscription.endDate = newEnd;
+    Object.assign(
+      subscription,
+      this.limitsFromPlan(this.getPlanConfig(subscription.plan)),
+    );
     subscription.status = SubscriptionStatus.ACTIVE;
     subscription.gracePeriodEndDate = null;
 
@@ -861,6 +943,10 @@ export class SubscriptionService implements OnModuleInit {
     return this.getPlanConfig(plan).userLimit || 0;
   }
 
+  async getPlanGuestLimit(plan: PlanType): Promise<number> {
+    return this.getPlanConfig(plan).guestLimit || 0;
+  }
+
   async getPlanBranchLimit(plan: PlanType): Promise<number> {
     return this.getPlanConfig(plan).branchLimit ?? 0;
   }
@@ -895,17 +981,10 @@ export class SubscriptionService implements OnModuleInit {
   }
 
   async getMemberLimitForChurch(churchId: Types.ObjectId): Promise<number> {
-    const subscription = await this.subscriptionModel
-      .findOne({
-        churchId,
-        status: SubscriptionStatus.ACTIVE,
-      })
-      .lean();
+    return (await this.getEffectiveLimit(churchId, 'member')).limit;
+  }
 
-    if (!subscription) {
-      return this.getPlanMemberLimit(PlanType.STARTER);
-    }
-
-    return this.getPlanMemberLimit(subscription.plan);
+  async getGuestLimitForChurch(churchId: Types.ObjectId): Promise<number> {
+    return (await this.getEffectiveLimit(churchId, 'guest')).limit;
   }
 }

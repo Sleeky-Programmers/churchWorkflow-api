@@ -32,6 +32,7 @@ import { DepartmentFilterDto } from './dto/department-filter.dto';
 import { UpdateDepartmentMembersDto } from './dto/update-department-members.dto';
 import { UpdateDepartmentStatusDto } from './dto/update-department-status.dto';
 import { UpdateDepartmentDto } from './dto/update-department.dto';
+import { escapeRegex, searchRegex } from '../../common/helpers/regex.helper';
 
 @Injectable()
 export class DepartmentService {
@@ -172,12 +173,12 @@ export class DepartmentService {
         ...(matchStage.$and || []),
         {
           $or: [
-            { name: { $regex: search, $options: 'i' } },
+            { name: searchRegex(search) },
             {
               $expr: {
                 $regexMatch: {
                   input: { $concat: ['$hod.firstName', ' ', '$hod.lastName'] },
-                  regex: search,
+                  regex: escapeRegex(search),
                   options: 'i',
                 },
               },
@@ -188,7 +189,7 @@ export class DepartmentService {
     }
 
     if (name) {
-      matchStage.name = { $regex: name, $options: 'i' };
+      matchStage.name = searchRegex(name);
     }
     if (hod) {
       matchStage.hod = new Types.ObjectId(hod);
@@ -225,8 +226,8 @@ export class DepartmentService {
           $match: search
             ? {
                 $or: [
-                  { name: { $regex: search, $options: 'i' } },
-                  { hodFullName: { $regex: search, $options: 'i' } },
+                  { name: searchRegex(search) },
+                  { hodFullName: searchRegex(search) },
                 ],
               }
             : {},
@@ -430,7 +431,12 @@ export class DepartmentService {
     this.assertCanAccessDepartment(authUser, department);
 
     const memberIds = this.toUniqueIds(dto.memberIds);
-    await this.assertMembersInChurch(tenant, memberIds);
+    // Removing is always allowed; only additions must not be guests.
+    await this.assertMembersInChurch(
+      tenant,
+      memberIds,
+      dto.action === DepartmentMemberAction.ADD,
+    );
 
     let updateQuery = {};
     const memberObjectIds = memberIds.map(
@@ -721,6 +727,7 @@ export class DepartmentService {
   private async assertMembersInChurch(
     tenant: TenantContext,
     memberIds: string[],
+    rejectGuests = true,
   ) {
     if (!memberIds.length) {
       return;
@@ -734,6 +741,11 @@ export class DepartmentService {
       throw new BadRequestException(
         'One or more members were not found in this church',
       );
+    }
+
+    // Guests stay basic: they can't be added to a department.
+    if (rejectGuests) {
+      await this.membersService.assertNoGuests(memberIds, tenant);
     }
   }
 

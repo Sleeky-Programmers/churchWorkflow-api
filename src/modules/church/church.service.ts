@@ -36,6 +36,7 @@ import { BlockChurchDto, UnblockChurchDto } from './dto/block-church.dto';
 import { ChurchFilterDto } from './dto/church-filter.dto';
 import { ChurchIdentityDto } from './dto/church-identity.dto';
 import { UpdateChurchPlanDto } from './dto/update-church-plan.dto';
+import { searchRegex } from '../../common/helpers/regex.helper';
 
 @Injectable()
 export class ChurchService {
@@ -113,8 +114,8 @@ export class ChurchService {
     // Build search query
     if (search) {
       query.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { address: { $regex: search, $options: 'i' } },
+        { name: searchRegex(search) },
+        { address: searchRegex(search) },
       ];
     }
 

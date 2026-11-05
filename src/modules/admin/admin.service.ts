@@ -20,6 +20,7 @@ import { RolesService } from '../roles/roles.service';
 import { SubscriptionService } from '../subscription/subscription.service';
 import { CreateAdminDto } from './dto/create-admin.dto';
 import { CreateSuperAdminDto } from './dto/create-super-admin.dto';
+import { searchRegex } from '../../common/helpers/regex.helper';
 
 @Injectable()
 export class AdminService {
@@ -113,9 +114,9 @@ export class AdminService {
 
     if (search) {
       query.$or = [
-        { firstName: { $regex: search, $options: 'i' } },
-        { lastName: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } },
+        { firstName: searchRegex(search) },
+        { lastName: searchRegex(search) },
+        { email: searchRegex(search) },
       ];
     }
 

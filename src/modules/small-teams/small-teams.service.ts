@@ -30,6 +30,7 @@ import { MembersService } from '../members/members.service';
 import { AdminService } from '../admin/admin.service';
 import { AttendanceService } from '../attendance/attendance.service';
 import { ChurchServicesService } from '../church-services/church-services.service';
+import { searchRegex } from '../../common/helpers/regex.helper';
 
 @Injectable()
 export class SmallTeamsService {
@@ -121,7 +122,7 @@ export class SmallTeamsService {
     }
 
     if (search) {
-      query.name = { $regex: search, $options: 'i' };
+      query.name = searchRegex(search);
     }
 
     const [teams, itemCount] = await Promise.all([
@@ -235,7 +236,7 @@ export class SmallTeamsService {
 
     if (dto.memberIds) {
       const memberIds = this.toUniqueIds(dto.memberIds);
-      await this.assertMembersInChurch(tenant, memberIds);
+      await this.assertMembersInChurch(tenant, memberIds, existing.memberIds);
       updatePayload.memberIds = memberIds.map(
         (memberId) => new Types.ObjectId(memberId),
       );
@@ -266,7 +267,7 @@ export class SmallTeamsService {
     this.assertCanAccessTeam(authUser, team);
 
     const memberIds = this.toUniqueIds(dto.memberIds);
-    await this.assertMembersInChurch(tenant, memberIds);
+    await this.assertMembersInChurch(tenant, memberIds, team.memberIds);
 
     team.memberIds = memberIds.map((memberId) => new Types.ObjectId(memberId));
     await team.save();
@@ -440,9 +441,15 @@ export class SmallTeamsService {
     return Array.from(new Set(ids.filter(Boolean)));
   }
 
+  /**
+   * `currentIds` are the team's existing members: only newly added people are
+   * checked against the guest rule, so a team that already holds a guest from
+   * before this rule can still be edited (and the guest removed).
+   */
   private async assertMembersInChurch(
     tenant: TenantContext,
     memberIds: string[],
+    currentIds: Types.ObjectId[] = [],
   ) {
     if (!memberIds.length) {
       return;
@@ -458,6 +465,13 @@ export class SmallTeamsService {
         'One or more members were not found in this church',
       );
     }
+
+    // Guests stay basic: they can't be added to a small team.
+    const existing = new Set(currentIds.map((id) => String(id)));
+    await this.membersService.assertNoGuests(
+      memberIds.filter((id) => !existing.has(String(id))),
+      tenant,
+    );
   }
 
   private async assertLeaderInChurch(authUser: Admin, leaderId?: string) {

@@ -76,6 +76,22 @@ export class Member extends Document {
   @Prop({ default: false })
   isActive: boolean;
 
+  /**
+   * Set when an inactive guest (VISITOR) is auto-archived. Archived people are
+   * hidden from every member query (see the middleware below) and count
+   * towards no limit. They are permanently deleted 12 months after archiving.
+   */
+  @Prop({ type: Date, default: null })
+  archivedAt: Date | null;
+
+  /** When the church was warned (in-app + email) that this archived guest will be deleted in 30 days. */
+  @Prop({ type: Date, default: null })
+  archiveDeletionWarnedAt: Date | null;
+
+  /** When the church was prompted to convert this guest after 4+ services in 60 days. */
+  @Prop({ type: Date, default: null })
+  frequentGuestNotifiedAt: Date | null;
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -83,3 +99,44 @@ export class Member extends Document {
 export const MemberSchema = SchemaFactory.createForClass(Member);
 
 MemberSchema.index({ churchId: 1, branchId: 1 });
+MemberSchema.index({ churchId: 1, archivedAt: 1, membershipStatus: 1 });
+
+/**
+ * Archived guests are invisible by default. Any query whose filter mentions
+ * `archivedAt` (or that passes the `includeArchived` option) opts out, which is
+ * how the archive list, restore, and the lifecycle job reach them. Deletes are
+ * not filtered.
+ */
+const ARCHIVE_FILTERED_QUERIES = [
+  'find',
+  'findOne',
+  'countDocuments',
+  'findOneAndUpdate',
+  'updateOne',
+  'updateMany',
+  'distinct',
+] as const;
+
+for (const op of ARCHIVE_FILTERED_QUERIES) {
+  MemberSchema.pre(op as any, function (this: any) {
+    if (this.getOptions?.().includeArchived) {
+      return;
+    }
+    const filter = this.getFilter?.() ?? {};
+    if (!Object.prototype.hasOwnProperty.call(filter, 'archivedAt')) {
+      this.where({ archivedAt: null });
+    }
+  });
+}
+
+MemberSchema.pre('aggregate', function (this: any) {
+  if (this.options?.includeArchived) {
+    return;
+  }
+  const pipeline = this.pipeline();
+  const first = pipeline[0];
+  if (first?.$match && 'archivedAt' in first.$match) {
+    return;
+  }
+  pipeline.unshift({ $match: { archivedAt: null } });
+});

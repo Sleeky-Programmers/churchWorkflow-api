@@ -1,5 +1,7 @@
 import { forwardRef, Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
+import { HttpModule } from '@nestjs/axios';
+import { ConfigModule } from '@nestjs/config';
 import { SubscriptionService } from './subscription.service';
 import { SubscriptionController } from './subscription.controller';
 import {
@@ -17,6 +19,8 @@ import { SubscriptionPlanCodesModule } from '../subscription-plan-codes/subscrip
 
 @Module({
   imports: [
+    ConfigModule,
+    HttpModule,
     MongooseModule.forFeature([
       { name: Subscription.name, schema: SubscriptionSchema },
       { name: PlanPricing.name, schema: PlanPricingSchema },

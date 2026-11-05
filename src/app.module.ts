@@ -47,6 +47,7 @@ import { CurrencyModule } from './modules/currencies/currency.module';
 import { OnlineGivingModule } from './modules/online-giving/online-giving.module';
 import { PaymentMethodModule } from './modules/payment-methods/payment-method.module';
 import { GivingConfigModule } from './modules/giving-config/giving-config.module';
+import { SearchModule } from './modules/search/search.module';
 import { AssetManagementModule } from './modules/asset-management/asset-management.module';
 
 @Module({
@@ -119,6 +120,7 @@ import { AssetManagementModule } from './modules/asset-management/asset-manageme
     OnlineGivingModule,
     PaymentMethodModule,
     GivingConfigModule,
+    SearchModule,
     AssetManagementModule,
   ],
   controllers: [AppController],

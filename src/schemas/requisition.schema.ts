@@ -7,6 +7,27 @@ import { Department } from './department.schema';
 import { Expense } from './expense.schema';
 import { RequisitionStatus } from '../common/utils/enums.utils';
 
+// A reviewer or the requester asking for / giving clarification without
+// Changing the requisition's status.
+@Schema({ _id: true, timestamps: { createdAt: true, updatedAt: false } })
+export class RequisitionComment {
+  _id: Types.ObjectId;
+
+  @Prop({ type: SchemaTypes.ObjectId, ref: 'Admin', required: true })
+  authorId: Types.ObjectId;
+
+  @Prop({ required: true })
+  authorName: string;
+
+  @Prop({ required: true })
+  body: string;
+
+  createdAt: Date;
+}
+
+export const RequisitionCommentSchema =
+  SchemaFactory.createForClass(RequisitionComment);
+
 @Schema({ timestamps: true })
 export class Requisition extends Document {
   @Prop({ type: SchemaTypes.ObjectId, ref: Church.name })
@@ -48,6 +69,9 @@ export class Requisition extends Document {
   // Set once approved and auto-converted into an Expense.
   @Prop({ type: SchemaTypes.ObjectId, ref: Expense.name, default: null })
   expenseId: Types.ObjectId | null;
+
+  @Prop({ type: [RequisitionCommentSchema], default: [] })
+  comments: RequisitionComment[];
 }
 
 export const RequisitionSchema = SchemaFactory.createForClass(Requisition);

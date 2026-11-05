@@ -9,7 +9,11 @@ import {
   PERMISSIONS_KEY,
   PermissionRequirement,
 } from '../decorators/permissions.decorator';
-import { AccessLevel, RoleStatus, RoleType } from '../utils/enums.utils';
+import { RoleStatus } from '../utils/enums.utils';
+import {
+  hasSufficientAccess,
+  isSuperAdminRole,
+} from '../utils/permissions.util';
 import { Admin } from '../../schemas/admin.schema';
 import { Role } from '../../schemas/role.schema';
 
@@ -42,7 +46,7 @@ export class PermissionsGuard implements CanActivate {
       );
     }
 
-    if (role.type === RoleType.SYSTEM && role.roleName === 'Super Admin') {
+    if (isSuperAdminRole(role)) {
       return true;
     }
 
@@ -56,7 +60,7 @@ export class PermissionsGuard implements CanActivate {
         return false;
       }
 
-      return this.hasSufficientAccess(userPerm.accessLevel, requiredPerm.level);
+      return hasSufficientAccess(userPerm.accessLevel, requiredPerm.level);
     });
 
     if (!hasPermission) {
@@ -66,19 +70,5 @@ export class PermissionsGuard implements CanActivate {
     }
 
     return true;
-  }
-
-  private hasSufficientAccess(
-    userAccess: AccessLevel,
-    requiredAccess: AccessLevel,
-  ): boolean {
-    const accessHierarchy = {
-      [AccessLevel.NO_ACCESS]: 0,
-      [AccessLevel.VIEW]: 1,
-      [AccessLevel.MANAGE]: 2,
-      [AccessLevel.FULL_ACCESS]: 3,
-    };
-
-    return accessHierarchy[userAccess] >= accessHierarchy[requiredAccess];
   }
 }

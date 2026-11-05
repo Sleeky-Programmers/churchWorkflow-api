@@ -38,6 +38,9 @@ export class Subscription extends Document {
   memberLimit: number;
 
   @Prop({ default: 0 })
+  guestLimit: number;
+
+  @Prop({ default: 0 })
   userLimit: number;
 
   @Prop({ default: 0 })

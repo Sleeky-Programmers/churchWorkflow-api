@@ -12,5 +12,11 @@
       "source": "/(.*)",
       "destination": "/src/main.ts"
     }
+  ],
+  "crons": [
+    {
+      "path": "/api/v1/internal/cron/guest-lifecycle",
+      "schedule": "0 1 * * *"
+    }
   ]
 }

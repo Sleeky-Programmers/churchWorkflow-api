@@ -17,6 +17,10 @@ export class Notification extends Document {
   @Prop()
   type: NotificationType;
 
+  // Null = visible to everyone in the church; set = only that admin sees it.
+  @Prop({ type: SchemaTypes.ObjectId, ref: 'Admin', default: null })
+  recipientId: Types.ObjectId | null;
+
   @Prop({ default: false })
   isRead: boolean;
 }

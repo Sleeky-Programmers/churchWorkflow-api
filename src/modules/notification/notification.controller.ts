@@ -1,5 +1,7 @@
 import { Controller, Get, Param, Put, Query, UseGuards } from '@nestjs/common';
 
+import { Types } from 'mongoose';
+
 import { AuthUser } from '../../common/decorators/auth-user.decorator';
 import { PaginationBaseDto } from '../../common/helpers/pagination.helper';
 import { Admin } from '../../schemas/admin.schema';
@@ -20,13 +22,17 @@ export class NotificationController {
     return this.notificationService.getNotifications(
       authUser.churchId,
       paginationBaseDto,
+      authUser._id as Types.ObjectId,
     );
   }
 
   @UseGuards(JwtAuthGuard)
   @Put('read-all')
   async markAllAsRead(@AuthUser() authUser: Admin) {
-    return this.notificationService.markAllAsRead(authUser.churchId);
+    return this.notificationService.markAllAsRead(
+      authUser.churchId,
+      authUser._id as Types.ObjectId,
+    );
   }
 
   @UseGuards(JwtAuthGuard)

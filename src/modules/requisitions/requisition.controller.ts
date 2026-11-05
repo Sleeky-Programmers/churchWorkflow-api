@@ -17,6 +17,7 @@ import { TenantContext } from '../../common/interfaces/tenant-context.interface'
 import { AccessLevel, ModuleSections } from '../../common/utils/enums.utils';
 import { Admin } from '../../schemas/admin.schema';
 import { JwtAuthGuard } from '../auth/guard/jwt-auth.guard';
+import { CommentRequisitionDto } from './dto/comment-requisition.dto';
 import { CreateRequisitionDto } from './dto/create-requisition.dto';
 import { RejectRequisitionDto } from './dto/reject-requisition.dto';
 import { RequisitionFilterDto } from './dto/requisition-filter.dto';
@@ -64,6 +65,20 @@ export class RequisitionController {
     @Param('id') id: string,
   ) {
     return this.requisitionService.findById(authUser, tenant, id);
+  }
+
+  @Post(':id/comments')
+  @RequirePermissions({
+    section: ModuleSections.REQUESTS,
+    level: AccessLevel.VIEW,
+  })
+  addComment(
+    @AuthUser() authUser: Admin,
+    @CurrentTenant() tenant: TenantContext,
+    @Param('id') id: string,
+    @Body() dto: CommentRequisitionDto,
+  ) {
+    return this.requisitionService.addComment(authUser, tenant, id, dto);
   }
 
   @Put(':id/approve')

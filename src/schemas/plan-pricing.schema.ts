@@ -29,6 +29,10 @@ export class PlanPricing extends Document {
   @Prop({ default: 0 })
   memberLimit: number;
 
+  /** Separate cap for people with status VISITOR. -1 = unlimited. */
+  @Prop({ default: 0 })
+  guestLimit: number;
+
   @Prop({ default: 0 })
   userLimit: number;
 
@@ -40,6 +44,10 @@ export class PlanPricing extends Document {
 
   @Prop({ default: false })
   popular: boolean;
+
+  /** When true the plan is not self-serve: shown as "From ₦X / month" with a Contact us button, activated manually by admins. */
+  @Prop({ default: false })
+  contactSales: boolean;
 
   @Prop({ type: SchemaTypes.ObjectId, ref: ProductAdmin.name, default: null })
   updatedBy: Types.ObjectId | null;

@@ -23,6 +23,14 @@ import { NotificationModule } from '../notification/notification.module';
 import { AttendanceModule } from '../attendance/attendance.module';
 import { ChurchServicesModule } from '../church-services/church-services.module';
 import { SubscriptionModule } from '../subscription/subscription.module';
+import { Department, DepartmentSchema } from '../../schemas/department.schema';
+import { SmallTeam, SmallTeamSchema } from '../../schemas/small-team.schema';
+import { GuestRulesService } from './guest-rules.service';
+import { GuestLifecycleService } from './guest-lifecycle.service';
+import { InternalCronController } from './internal-cron.controller';
+import { Admin, AdminSchema } from '../../schemas/admin.schema';
+import { EmailModule } from '../email/email.module';
+import { ConfigModule } from '@nestjs/config';
 
 @Module({
   imports: [
@@ -35,15 +43,25 @@ import { SubscriptionModule } from '../subscription/subscription.module';
         schema: MemberPastoralSettingsSchema,
       },
       { name: PastoralAlert.name, schema: PastoralAlertSchema },
+      { name: Department.name, schema: DepartmentSchema },
+      { name: SmallTeam.name, schema: SmallTeamSchema },
+      { name: Admin.name, schema: AdminSchema },
     ]),
+    ConfigModule,
+    EmailModule,
     ActivityLogModule,
     NotificationModule,
     ChurchServicesModule,
     forwardRef(() => AttendanceModule),
     SubscriptionModule,
   ],
-  controllers: [MembersController, PastoralController],
-  providers: [MembersService, PastoralService],
-  exports: [MembersService],
+  controllers: [MembersController, PastoralController, InternalCronController],
+  providers: [
+    MembersService,
+    PastoralService,
+    GuestRulesService,
+    GuestLifecycleService,
+  ],
+  exports: [MembersService, GuestRulesService],
 })
 export class MembersModule {}

@@ -35,6 +35,12 @@ export class UpdatePastoralSettingsDto {
   inactiveThreshold?: number;
 
   @IsOptional()
+  @IsInt()
+  @Min(30)
+  @Max(180)
+  archiveAfterDays?: number;
+
+  @IsOptional()
   @IsIn(PASTORAL_TRACKING_MODES)
   trackingMode?: (typeof PASTORAL_TRACKING_MODES)[number];
 

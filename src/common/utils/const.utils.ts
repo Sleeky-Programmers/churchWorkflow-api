@@ -37,11 +37,15 @@ export const MARITAL_STATUS_MAP: Record<string, MaritalStatus | null> = {
 };
 
 export const MEMBERSHIP_STATUS_MAP: Record<string, MembershipStatus> = {
-  MEMBER: MembershipStatus.MEMBER,
-  ACTIVE: MembershipStatus.MEMBER,
-  'NEW MEMBER': MembershipStatus.MEMBER,
-  VOLUNTEER: MembershipStatus.VOLUNTEER,
-  LEADER: MembershipStatus.LEADER,
+  // Allowed CSV values (case-insensitive): Visitor, New convert, Member,
+  // Volunteer, Worker, Leader. Anything else is rejected, never guessed.
   VISITOR: MembershipStatus.VISITOR,
-  INACTIVE: MembershipStatus.VISITOR,
+  GUEST: MembershipStatus.VISITOR,
+  'NEW CONVERT': MembershipStatus.CONVERT,
+  NEW_CONVERT: MembershipStatus.CONVERT,
+  CONVERT: MembershipStatus.CONVERT,
+  MEMBER: MembershipStatus.MEMBER,
+  VOLUNTEER: MembershipStatus.VOLUNTEER,
+  WORKER: MembershipStatus.WORKER,
+  LEADER: MembershipStatus.LEADER,
 };

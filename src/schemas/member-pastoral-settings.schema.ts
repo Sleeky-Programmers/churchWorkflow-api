@@ -42,6 +42,11 @@ export class MemberPastoralSettings extends Document {
 
   @Prop({ default: false })
   countSmallTeams: boolean;
+
+  // Guests (VISITOR) with no attendance for this many days are auto-archived
+  // and stop counting towards the guest limit. Church-configurable, 30-180.
+  @Prop({ default: 90, min: 30, max: 180 })
+  archiveAfterDays: number;
 }
 
 export const MemberPastoralSettingsSchema = SchemaFactory.createForClass(

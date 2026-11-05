@@ -70,6 +70,12 @@ export class MembersFilterDto extends PaginationBaseDto {
   @IsOptional()
   @IsEnum(MembershipStatus)
   membershipStatus?: MembershipStatus;
+
+  // Used by member pickers (departments, small teams) to hide guests, who
+  // can't be added to groups.
+  @IsOptional()
+  @IsEnum(MembershipStatus)
+  excludeStatus?: MembershipStatus;
 }
 
 export class CouponFilterDto extends PaginationBaseDto {
