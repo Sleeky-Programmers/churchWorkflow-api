@@ -21,6 +21,7 @@
     "migrate:backfill-branch-hq-and-org-wide": "ts-node -r tsconfig-paths/register src/scripts/backfill-branch-hq-and-org-wide.script.ts",
     "migrate:giving-records-to-batches": "ts-node -r tsconfig-paths/register src/scripts/migrate-giving-records-to-batches.script.ts",
     "migrate:backfill-asset-units": "ts-node -r tsconfig-paths/register src/scripts/backfill-asset-units.script.ts",
+    "migrate:pricing-guest-limits": "ts-node -r tsconfig-paths/register src/scripts/migrate-pricing-guest-limits.script.ts",
     "prepare": "husky"
   },
   "dependencies": {

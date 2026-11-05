@@ -9,11 +9,13 @@ import {
   Post,
   Put,
   Query,
+  Res,
   UploadedFile,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { Response } from 'express';
 
 import {
   FileValidationInterceptor,
@@ -71,6 +73,88 @@ export class MembersController {
       tenant,
       file.buffer,
     );
+  }
+
+  /** Validates the file and returns the import summary without writing anything. */
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Post('csv/preview')
+  @RequirePermissions({
+    section: ModuleSections.MEMBERS,
+    level: AccessLevel.MANAGE,
+  })
+  @UseInterceptors(FileInterceptor('file'), FileValidationInterceptor)
+  @FileValidationOptions({
+    allowedMimeTypes: [
+      'text/csv',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    ],
+  })
+  previewMembersCsv(
+    @AuthUser() authUser: Admin,
+    @CurrentTenant() tenant: TenantContext,
+    @UploadedFile() file: any,
+  ) {
+    if (!file) {
+      throw new BadRequestException('CSV file is required');
+    }
+    return this.membersService.previewMembersCsv(authUser, tenant, file.buffer);
+  }
+
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Get('frequent-guests')
+  @RequirePermissions({
+    section: ModuleSections.MEMBERS,
+    level: AccessLevel.VIEW,
+  })
+  getFrequentGuests(@AuthUser() authUser: Admin) {
+    return this.membersService.getFrequentGuests(authUser);
+  }
+
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Get('archived')
+  @RequirePermissions({
+    section: ModuleSections.MEMBERS,
+    level: AccessLevel.VIEW,
+  })
+  getArchivedMembers(
+    @CurrentTenant() tenant: TenantContext,
+    @Query() dto: MembersFilterDto,
+  ) {
+    return this.membersService.getArchivedMembers(tenant, dto);
+  }
+
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Get('archived/export')
+  @RequirePermissions({
+    section: ModuleSections.MEMBERS,
+    level: AccessLevel.MANAGE,
+  })
+  async exportArchivedMembers(
+    @CurrentTenant() tenant: TenantContext,
+    @Res() res: Response,
+  ) {
+    const csvText = await this.membersService.exportArchivedMembersCsv(tenant);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename="archived-guests.csv"',
+    );
+    res.send(csvText);
+  }
+
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Post('/:id/restore')
+  @RequirePermissions({
+    section: ModuleSections.MEMBERS,
+    level: AccessLevel.MANAGE,
+  })
+  restoreArchivedMember(
+    @AuthUser() authUser: Admin,
+    @CurrentTenant() tenant: TenantContext,
+    @Param('id') id: string,
+  ) {
+    return this.membersService.restoreArchivedMember(authUser, tenant, id);
   }
 
   @UseGuards(JwtAuthGuard, PermissionsGuard)

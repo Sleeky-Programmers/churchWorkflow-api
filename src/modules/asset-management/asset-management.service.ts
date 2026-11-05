@@ -29,6 +29,7 @@ import { AssetFilterDto } from './dto/asset-filter.dto';
 import { LogServiceDto } from './dto/log-service.dto';
 import { UpdateAssetDto } from './dto/update-asset.dto';
 import { UpdateMaintenanceNotificationsDto } from './dto/update-maintenance-notifications.dto';
+import { searchRegex } from '../../common/helpers/regex.helper';
 
 const DUE_WINDOW_DAYS = 7;
 
@@ -151,9 +152,9 @@ export class AssetManagementService {
 
     if (search) {
       matchStage.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { tag: { $regex: search, $options: 'i' } },
-        { category: { $regex: search, $options: 'i' } },
+        { name: searchRegex(search) },
+        { tag: searchRegex(search) },
+        { category: searchRegex(search) },
       ];
     }
 

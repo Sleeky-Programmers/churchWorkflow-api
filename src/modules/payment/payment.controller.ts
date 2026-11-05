@@ -45,6 +45,14 @@ export class PaymentController {
   ) {
     const { promoCode, provider } = body as any;
 
+    // Contact-sales plans (Enterprise) are quoted and activated manually from
+    // The admin console, never bought self-serve.
+    if (this.subscriptionService.isContactSalesPlan(body.plan)) {
+      throw new BadRequestException(
+        'Enterprise is activated by our team. Contact us to get started.',
+      );
+    }
+
     const existingSub: any = await this.subscriptionService.getSubscription(
       authUser.churchId,
     );

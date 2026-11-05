@@ -111,9 +111,21 @@ export class PastoralService {
       trackingMode: string;
       countSpecialEvents: boolean;
       countSmallTeams: boolean;
+      archiveAfterDays: number;
     }>,
   ) {
     const current = await this.getSettings(churchId);
+
+    if (
+      update.archiveAfterDays !== undefined &&
+      (!Number.isInteger(update.archiveAfterDays) ||
+        update.archiveAfterDays < 30 ||
+        update.archiveAfterDays > 180)
+    ) {
+      throw new BadRequestException(
+        'Guest archive period must be a whole number of days between 30 and 180',
+      );
+    }
 
     // Threshold ordering: needsFollowUp <= atRisk <= inactive. Validate
     // Against the merged (saved + incoming) values so partial updates are

@@ -16,6 +16,7 @@ import { Coupon } from '../../schemas/coupon.schema';
 import { AdminActivityLogService } from '../admin-activity-log/admin-activity-log.service';
 import { CreateCouponDto } from './dto/create-coupon.dto';
 import { UpdateCouponDto } from './dto/update-coupon.dto';
+import { searchRegex } from '../../common/helpers/regex.helper';
 
 @Injectable()
 export class CouponService {
@@ -106,8 +107,8 @@ export class CouponService {
     // Search filter
     if (search) {
       query.$or = [
-        { code: { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } },
+        { code: searchRegex(search) },
+        { description: searchRegex(search) },
       ];
     }
 

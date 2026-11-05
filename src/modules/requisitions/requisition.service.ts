@@ -26,6 +26,7 @@ import { ActivityLogService } from '../activity-log/activity-log.service';
 import { ChurchService } from '../church/church.service';
 import { ExpenseService } from '../expenses/expense.service';
 import { NotificationService } from '../notification/notification.service';
+import { CommentRequisitionDto } from './dto/comment-requisition.dto';
 import { CreateRequisitionDto } from './dto/create-requisition.dto';
 import { RejectRequisitionDto } from './dto/reject-requisition.dto';
 import { RequisitionFilterDto } from './dto/requisition-filter.dto';
@@ -210,6 +211,67 @@ export class RequisitionService {
     return this.toResponse(requisition, requisition.departmentId);
   }
 
+  async addComment(
+    authUser: Admin,
+    tenant: TenantContext,
+    id: string,
+    dto: CommentRequisitionDto,
+  ) {
+    const body = dto.body.trim();
+    if (!body) {
+      throw new BadRequestException('Comment cannot be empty');
+    }
+
+    const requisition = await this.requisitionModel
+      .findOne({ _id: id, ...buildTenantFilter(tenant) })
+      .populate('departmentId', 'name hod assistantHod')
+      .populate('requestedBy', 'firstName lastName email');
+    if (!requisition) {
+      throw new NotFoundException('Requisition not found');
+    }
+
+    const department = requisition.departmentId as any;
+    if (
+      !this.hasFullRequestsAccess(authUser) &&
+      !this.isDepartmentHead(authUser, department)
+    ) {
+      throw new ForbiddenException(
+        'You can only comment on requests for a department you head',
+      );
+    }
+
+    const authorName =
+      `${authUser.firstName || ''} ${authUser.lastName || ''}`.trim() ||
+      authUser.email ||
+      'Admin';
+
+    requisition.comments.push({
+      authorId: authUser._id as Types.ObjectId,
+      authorName,
+      body,
+    } as any);
+    await requisition.save();
+
+    await this.activityLogService.create(authUser, {
+      action: 'Comment on Requisition',
+      module: ModuleSections.REQUESTS,
+      details: `Commented on requisition "${requisition.title}" for ${department.name}`,
+    });
+
+    const requester = requisition.requestedBy as any;
+    const requesterId = requester?._id?.toString?.() || requester?.toString?.();
+    if (requesterId && requesterId !== authUser._id.toString()) {
+      await this.notificationService.createNotification(tenant.churchId, {
+        title: 'New Comment on Your Request',
+        body: `${authorName} commented on "${requisition.title}": ${body}`,
+        type: NotificationType.REQUISITION,
+        recipientId: requesterId,
+      });
+    }
+
+    return this.toResponse(requisition, department);
+  }
+
   async approve(authUser: Admin, tenant: TenantContext, id: string) {
     const requisition = await this.requisitionModel
       .findOne({ _id: id, ...buildTenantFilter(tenant) })
@@ -357,6 +419,13 @@ export class RequisitionService {
       reviewedAt: requisition.reviewedAt || null,
       reviewNote: requisition.reviewNote || null,
       expenseId: requisition.expenseId?.toString() || null,
+      comments: (requisition.comments || []).map((c: any) => ({
+        id: c._id?.toString(),
+        authorId: c.authorId?.toString(),
+        authorName: c.authorName,
+        body: c.body,
+        createdAt: c.createdAt,
+      })),
       createdAt: requisition.createdAt,
       updatedAt: requisition.updatedAt,
     };

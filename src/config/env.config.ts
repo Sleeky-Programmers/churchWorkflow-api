@@ -35,6 +35,15 @@ export const envConfig = () => ({
   giving: {
     redirectUrl: process.env.GIVING_REDIRECT_URL,
   },
+  frontend: {
+    // E.g. https://churchworkflow.com/api/revalidate-pricing (busts the pricing page cache after plan edits)
+    revalidatePricingUrl: process.env.FRONTEND_REVALIDATE_PRICING_URL,
+    revalidateSecret: process.env.FRONTEND_REVALIDATE_SECRET,
+  },
+  cron: {
+    // Bearer secret for POST /internal/cron/* (Vercel Cron sends `Authorization: Bearer $CRON_SECRET`)
+    secret: process.env.CRON_SECRET,
+  },
   productAdmin: {
     seedName: process.env.PRODUCT_ADMIN_SEED_NAME,
     seedEmail: process.env.PRODUCT_ADMIN_SEED_EMAIL,

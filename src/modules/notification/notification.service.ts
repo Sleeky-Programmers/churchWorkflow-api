@@ -26,25 +26,41 @@ export class NotificationService {
       title: notificationDto.title,
       body: notificationDto.body,
       type: notificationDto.type,
+      recipientId: notificationDto.recipientId
+        ? new Types.ObjectId(notificationDto.recipientId.toString())
+        : null,
     });
+  }
+
+  // Church-wide notifications plus the ones addressed to this admin.
+  private visibleTo(churchId: Types.ObjectId, adminId?: Types.ObjectId) {
+    return {
+      churchId,
+      $or: [
+        { recipientId: null },
+        ...(adminId ? [{ recipientId: adminId }] : []),
+      ],
+    };
   }
 
   async getNotifications(
     churchId: Types.ObjectId,
     paginationBaseDto: PaginationBaseDto,
+    adminId?: Types.ObjectId,
   ) {
     const { page, limit } = paginationBaseDto;
 
     const skip = (page - 1) * limit;
+    const filter = this.visibleTo(churchId, adminId);
 
     const [notifications, itemCount] = await Promise.all([
       this.notificationModel
-        .find({ churchId })
+        .find(filter)
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit),
 
-      this.notificationModel.countDocuments({ churchId }),
+      this.notificationModel.countDocuments(filter),
     ]);
 
     return {
@@ -65,9 +81,9 @@ export class NotificationService {
     );
   }
 
-  async markAllAsRead(churchId: Types.ObjectId) {
+  async markAllAsRead(churchId: Types.ObjectId, adminId?: Types.ObjectId) {
     return await this.notificationModel.updateMany(
-      { churchId, isRead: false },
+      { ...this.visibleTo(churchId, adminId), isRead: false },
       { isRead: true },
     );
   }

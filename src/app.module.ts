@@ -47,6 +47,7 @@ import { CurrencyModule } from './modules/currencies/currency.module';
 import { OnlineGivingModule } from './modules/online-giving/online-giving.module';
 import { PaymentMethodModule } from './modules/payment-methods/payment-method.module';
 import { GivingConfigModule } from './modules/giving-config/giving-config.module';
+import { SearchModule } from './modules/search/search.module';
 import { AssetManagementModule } from './modules/asset-management/asset-management.module';
 import { SuggestionsModule } from './modules/suggestions/suggestions.module';
 import { ReportsModule } from './modules/reports/reports.module';
@@ -121,6 +122,7 @@ import { ReportsModule } from './modules/reports/reports.module';
     OnlineGivingModule,
     PaymentMethodModule,
     GivingConfigModule,
+    SearchModule,
     AssetManagementModule,
     SuggestionsModule,
     ReportsModule,

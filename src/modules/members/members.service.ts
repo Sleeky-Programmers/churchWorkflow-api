@@ -36,12 +36,14 @@ import {
   MembershipStatus,
   ModuleSections,
   NotificationType,
-  PlanType,
+  SubscriptionStatus,
 } from '../../common/utils/enums.utils';
 import { TenantContext } from '../../common/interfaces/tenant-context.interface';
 import { buildTenantFilter } from '../../common/utils/tenant-filter.util';
 import { Admin } from '../../schemas/admin.schema';
+import { Department } from '../../schemas/department.schema';
 import { Member } from '../../schemas/member.schema';
+import { SmallTeam } from '../../schemas/small-team.schema';
 import { ActivityLogService } from '../activity-log/activity-log.service';
 import { AttendanceService } from '../attendance/attendance.service';
 import { ChurchServicesService } from '../church-services/church-services.service';
@@ -54,6 +56,26 @@ import {
 } from './dto/member-attendance-filter.dto';
 import { MemberManagementDto } from './dto/member-management.dto';
 import { UpdateMemberDto } from './dto/update-member.dto';
+import {
+  ARCHIVE_RETENTION_DAYS,
+  addDays,
+  isGuestStatus,
+} from './guest-rules.constants';
+import { GuestRulesService } from './guest-rules.service';
+import { searchRegex } from '../../common/helpers/regex.helper';
+
+type CsvRowError = { row: number; column?: string; reason: string };
+
+export interface CsvParseResult {
+  members: Partial<Member>[];
+  errors: CsvRowError[];
+  totalRows: number;
+  addMembers: number;
+  addGuests: number;
+}
+
+const GUEST_GROUP_ERROR =
+  "Guests can't be added to a department, small team or cell group. Change them to a member first.";
 
 const csv = require('csv-parser');
 
@@ -69,6 +91,11 @@ export class MembersService {
     private readonly activityLogService: ActivityLogService,
     private readonly notificationService: NotificationService,
     private readonly subscriptionService: SubscriptionService,
+    private readonly guestRulesService: GuestRulesService,
+    @InjectModel(Department.name)
+    private readonly departmentModel: Model<Department>,
+    @InjectModel(SmallTeam.name)
+    private readonly smallTeamModel: Model<SmallTeam>,
   ) {}
 
   async countMembersByChurch(churchId: Types.ObjectId) {
@@ -157,13 +184,16 @@ export class MembersService {
     };
   }
 
-  async createMembersByCsv(
-    authUser: Admin,
+  /**
+   * Parses and validates an import file without writing anything. Shared by
+   * the preview and the import so both report exactly the same rows.
+   */
+  async parseAndValidateCsv(
     tenant: TenantContext,
     fileBuffer: Buffer,
-  ) {
+  ): Promise<CsvParseResult> {
     const members: Partial<Member>[] = [];
-    const errors: { row: number; column?: string; reason: string }[] = [];
+    const errors: CsvRowError[] = [];
     const existingEmailSet = new Set<string>();
     const existingIdentitySet = new Set<string>();
     const existingPhoneSet = new Set<string>();
@@ -173,8 +203,11 @@ export class MembersService {
 
     let rowIndex = 1;
 
+    // Includes archived guests, so re-importing one is reported as a
+    // Duplicate (restore them from the archive instead).
     const existingMembers = await this.memberModel
       .find(buildTenantFilter(tenant))
+      .setOptions({ includeArchived: true })
       .select('email fullName phoneNumber birthday')
       .lean();
 
@@ -273,9 +306,33 @@ export class MembersService {
             });
           }
 
-          const normalizedMembershipStatus =
-            MEMBERSHIP_STATUS_MAP[normalizeKey(row.membershipStatus)] ||
-            MembershipStatus.MEMBER;
+          // Status is required. A blank or unknown value rejects the row;
+          // It is never guessed.
+          const rawStatus = row.membershipStatus?.trim();
+          const normalizedMembershipStatus = rawStatus
+            ? MEMBERSHIP_STATUS_MAP[normalizeKey(rawStatus)]
+            : undefined;
+          if (!rawStatus) {
+            rowErrors.push({
+              column: 'status',
+              reason:
+                'Status is required. Allowed values: Visitor, New convert, Member, Volunteer, Worker, Leader',
+            });
+          } else if (!normalizedMembershipStatus) {
+            rowErrors.push({
+              column: 'status',
+              reason: `Invalid status "${rawStatus}". Allowed values: Visitor, New convert, Member, Volunteer, Worker, Leader`,
+            });
+          } else if (
+            isGuestStatus(normalizedMembershipStatus) &&
+            row.cellGroupName?.trim()
+          ) {
+            rowErrors.push({
+              column: 'cellGroupName',
+              reason:
+                'Guests (Visitor) cannot have a cell group. Remove it or set a member status.',
+            });
+          }
 
           const isBaptized = parseBoolean(row.isBaptized);
           if (row.isBaptized?.trim() && isBaptized === null) {
@@ -408,26 +465,102 @@ export class MembersService {
       throw new BadRequestException('Failed to parse CSV file');
     }
 
-    if (errors.length > 0) {
+    const addGuests = members.filter((m) =>
+      isGuestStatus(m.membershipStatus),
+    ).length;
+
+    return {
+      members,
+      errors,
+      totalRows: rowIndex - 1,
+      addMembers: members.length - addGuests,
+      addGuests,
+    };
+  }
+
+  /** Builds the pre-import summary shown to the church. */
+  private async buildCsvReport(
+    churchId: Types.ObjectId,
+    parsed: CsvParseResult,
+  ) {
+    const snapshot = await this.guestRulesService.getLimitSnapshot(churchId);
+    const over = (room: number | null, adding: number) =>
+      room === null ? 0 : Math.max(adding - room, 0);
+    const overBy = {
+      members: over(snapshot.room.members, parsed.addMembers),
+      guests: over(snapshot.room.guests, parsed.addGuests),
+    };
+
+    return {
+      totalRows: parsed.totalRows,
+      validRows: parsed.members.length,
+      addMembers: parsed.addMembers,
+      addGuests: parsed.addGuests,
+      room: snapshot.room,
+      limits: { members: snapshot.memberLimit, guests: snapshot.guestLimit },
+      overBy,
+      totalErrors: parsed.errors.length,
+      errors: parsed.errors,
+      canImport:
+        parsed.errors.length === 0 &&
+        parsed.members.length > 0 &&
+        overBy.members === 0 &&
+        overBy.guests === 0,
+    };
+  }
+
+  async previewMembersCsv(
+    authUser: Admin,
+    tenant: TenantContext,
+    fileBuffer: Buffer,
+  ) {
+    const parsed = await this.parseAndValidateCsv(tenant, fileBuffer);
+    return this.buildCsvReport(authUser.churchId, parsed);
+  }
+
+  /**
+   * All-or-nothing import: any rejected row or any limit overrun blocks the
+   * whole file, so a church never gets a partial import without knowing.
+   */
+  async createMembersByCsv(
+    authUser: Admin,
+    tenant: TenantContext,
+    fileBuffer: Buffer,
+  ) {
+    const parsed = await this.parseAndValidateCsv(tenant, fileBuffer);
+    const { members } = parsed;
+    const report = await this.buildCsvReport(authUser.churchId, parsed);
+
+    if (parsed.errors.length > 0) {
       throw new BadRequestException({
-        message: 'CSV validation failed. No members were imported.',
-        totalErrors: errors.length,
-        errors,
+        message: `CSV validation failed: ${parsed.errors.length} row error(s). No members were imported.`,
+        code: 'CSV_INVALID',
+        ...report,
       });
     }
 
-    // Check member limit before bulk inserting
-    const currentMembers = await this.countMembersByChurch(authUser.churchId);
-    const projectedCount = currentMembers + members.length;
-    const limitCheck = await this.subscriptionService.checkMemberLimit(
-      authUser.churchId,
-      projectedCount,
-    );
+    if (!members.length) {
+      throw new BadRequestException({
+        message: 'The file has no rows to import.',
+        code: 'CSV_EMPTY',
+        ...report,
+      });
+    }
 
-    if (!limitCheck.allowed && limitCheck.type === 'BLOCK') {
-      throw new BadRequestException(
-        limitCheck.message || 'Member limit reached',
-      );
+    if (report.overBy.members > 0 || report.overBy.guests > 0) {
+      const parts: string[] = [];
+      if (report.overBy.members > 0) {
+        parts.push(`${report.overBy.members} over the member limit`);
+      }
+      if (report.overBy.guests > 0) {
+        parts.push(`${report.overBy.guests} over the guest limit`);
+      }
+      throw new BadRequestException({
+        message: `This file has ${parts.join(' and ')}. Nothing was imported. Remove rows or upgrade your plan.`,
+        code: report.overBy.members > 0 ? 'MEMBER_LIMIT' : 'GUEST_LIMIT',
+        resource: report.overBy.members > 0 ? 'member' : 'guest',
+        ...report,
+      });
     }
 
     const insertedDocs = await this.memberModel.insertMany(members);
@@ -435,7 +568,7 @@ export class MembersService {
     await this.activityLogService.create(authUser, {
       action: 'Bulk Member Import',
       module: ModuleSections.MEMBERS,
-      details: `Imported ${insertedDocs.length} members via CSV.`,
+      details: `Imported ${insertedDocs.length} people via CSV (${parsed.addMembers} members, ${parsed.addGuests} guests).`,
     });
 
     await this.notificationService.createNotification(authUser.churchId, {
@@ -446,6 +579,8 @@ export class MembersService {
 
     return {
       inserted: insertedDocs.length,
+      addMembers: parsed.addMembers,
+      addGuests: parsed.addGuests,
     };
   }
 
@@ -498,20 +633,16 @@ export class MembersService {
       }
     }
 
-    // Check member limit before creating single member
-    const currentMembersCount = await this.countMembersByChurch(
-      authUser.churchId,
-    );
-    const singleLimitCheck = await this.subscriptionService.checkMemberLimit(
-      authUser.churchId,
-      currentMembersCount + 1,
-    );
-
-    if (!singleLimitCheck.allowed && singleLimitCheck.type === 'BLOCK') {
-      throw new BadRequestException(
-        singleLimitCheck.message || 'Member limit reached',
-      );
+    const isGuest = isGuestStatus(payload.membershipStatus);
+    if (isGuest && payload.cellGroupName?.trim()) {
+      throw new BadRequestException(GUEST_GROUP_ERROR);
     }
+
+    // Guests count towards the guest limit, everyone else towards the member limit.
+    await this.guestRulesService.assertWithinLimits(authUser.churchId, {
+      members: isGuest ? 0 : 1,
+      guests: isGuest ? 1 : 0,
+    });
 
     const createdMember = await this.memberModel.create({
       churchId: tenant.churchId,
@@ -526,8 +657,8 @@ export class MembersService {
     });
 
     await this.notificationService.createNotification(authUser.churchId, {
-      title: 'New Member Added',
-      body: `${createdMember.fullName} has been added as a member.`,
+      title: isGuest ? 'New Guest Added' : 'New Member Added',
+      body: `${createdMember.fullName} has been added as a ${isGuest ? 'guest' : 'member'}.`,
       type: NotificationType.MEMBER,
     });
 
@@ -583,13 +714,15 @@ export class MembersService {
     }
     if (dto.membershipStatus) {
       query.membershipStatus = dto.membershipStatus;
+    } else if (dto.excludeStatus) {
+      query.membershipStatus = { $ne: dto.excludeStatus };
     }
 
     if (search) {
       query.$or = [
-        { fullName: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } },
-        { phoneNumber: { $regex: search, $options: 'i' } },
+        { fullName: searchRegex(search) },
+        { email: searchRegex(search) },
+        { phoneNumber: searchRegex(search) },
       ];
     }
 
@@ -681,6 +814,28 @@ export class MembersService {
       _id: { $in: memberIds.map((id) => new Types.ObjectId(id)) },
       ...buildTenantFilter(tenant),
     });
+  }
+
+  /**
+   * Throws if any of `memberIds` is a guest (VISITOR). Guests stay basic: they
+   * can't join departments, small teams or cell groups.
+   */
+  async assertNoGuests(memberIds: string[], tenant: TenantContext) {
+    if (!memberIds?.length) {
+      return;
+    }
+    const guests = await this.memberModel
+      .find({
+        _id: { $in: memberIds.map((id) => new Types.ObjectId(id)) },
+        ...buildTenantFilter(tenant),
+        membershipStatus: MembershipStatus.VISITOR,
+      })
+      .select('fullName')
+      .lean();
+    if (guests.length) {
+      const names = guests.map((g) => g.fullName).join(', ');
+      throw new BadRequestException(`${GUEST_GROUP_ERROR} Guests: ${names}.`);
+    }
   }
 
   private async assertMemberInTenant(tenant: TenantContext, memberId: string) {
@@ -828,11 +983,213 @@ export class MembersService {
       }
     }
 
+    const nextStatus =
+      updateMemberDto.membershipStatus !== undefined
+        ? updateMemberDto.membershipStatus
+        : member.membershipStatus;
+    const nextCellGroup =
+      updateMemberDto.cellGroupName !== undefined
+        ? updateMemberDto.cellGroupName
+        : member.cellGroupName;
+
+    const touchesGuestRules =
+      updateMemberDto.membershipStatus !== undefined ||
+      updateMemberDto.cellGroupName !== undefined;
+
+    if (touchesGuestRules && isGuestStatus(nextStatus)) {
+      if (
+        updateMemberDto.cellGroupName !== undefined &&
+        nextCellGroup?.trim()
+      ) {
+        // Explicitly giving a guest a cell group.
+        throw new BadRequestException(GUEST_GROUP_ERROR);
+      }
+      if (nextCellGroup?.trim()) {
+        // Changing to guest clears the (free-text) cell group.
+        (updateMemberDto as any).cellGroupName = null;
+      }
+
+      if (!isGuestStatus(member.membershipStatus)) {
+        // Demoting to guest: they must leave their groups first.
+        const memberObjectId = new Types.ObjectId(id);
+        const [departments, teams] = await Promise.all([
+          this.departmentModel
+            .find({ members: memberObjectId })
+            .select('name')
+            .lean(),
+          this.smallTeamModel
+            .find({ memberIds: memberObjectId })
+            .select('name')
+            .lean(),
+        ]);
+        const groups = [...departments, ...teams].map((g: any) => g.name);
+        if (groups.length) {
+          throw new BadRequestException(
+            `Remove ${member.fullName} from ${groups.join(', ')} before changing them to a guest. Guests can't be in departments or small teams.`,
+          );
+        }
+      }
+    }
+
+    if (nextStatus !== member.membershipStatus) {
+      const delta = await this.guestRulesService.statusChangeDelta(
+        new Types.ObjectId(id),
+        member.membershipStatus,
+        nextStatus,
+      );
+      await this.guestRulesService.assertWithinLimits(member.churchId, delta);
+    }
+
     return await this.memberModel.findOneAndUpdate(
       { _id: id, ...buildTenantFilter(tenant) },
       updateMemberDto,
       { new: true },
     );
+  }
+
+  // ───────────────────────────────────────────────────────────────────────
+  // Guests: frequent guests and the archive
+  // ───────────────────────────────────────────────────────────────────────
+
+  /** Guests who attended 4+ services in 60 days and now count as members. */
+  async getFrequentGuests(authUser: Admin) {
+    const ids = await this.guestRulesService.getFrequentGuestIds(
+      authUser.churchId,
+    );
+    if (!ids.length) {
+      return { data: [], total: 0 };
+    }
+    const data = await this.memberModel
+      .find({ _id: { $in: ids.map((i) => new Types.ObjectId(i)) } })
+      .select('fullName phoneNumber email membershipStatus branchId')
+      .lean();
+    return { data, total: data.length };
+  }
+
+  async getArchivedMembers(
+    tenant: TenantContext,
+    dto: MembersFilterDto,
+  ): Promise<{ data: Record<string, any>[]; pagination: any }> {
+    const { page, limit, search } = dto;
+    const skip = (page - 1) * limit;
+    const query: any = {
+      ...buildTenantFilter(tenant),
+      archivedAt: { $ne: null },
+    };
+    if (search) {
+      query.$or = [
+        { fullName: searchRegex(search) },
+        { email: searchRegex(search) },
+        { phoneNumber: searchRegex(search) },
+      ];
+    }
+    const [rows, itemCount] = await Promise.all([
+      this.memberModel
+        .find(query)
+        .sort({ archivedAt: 1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      this.memberModel.countDocuments(query),
+    ]);
+
+    const data = rows.map((m: Record<string, any>) => ({
+      ...m,
+      deletesOn: m.archivedAt
+        ? addDays(m.archivedAt, ARCHIVE_RETENTION_DAYS)
+        : null,
+    }));
+
+    return {
+      data,
+      pagination: paginationMeta({ page, limit, itemCount }),
+    };
+  }
+
+  /** CSV of the archived guests, so a church can keep a copy before deletion. */
+  async exportArchivedMembersCsv(tenant: TenantContext): Promise<string> {
+    const rows = await this.memberModel
+      .find({ ...buildTenantFilter(tenant), archivedAt: { $ne: null } })
+      .sort({ archivedAt: 1 })
+      .lean();
+
+    const headers = [
+      'Full Name',
+      'Phone Number',
+      'Email',
+      'Gender',
+      'Status',
+      'Address',
+      'Date Joined',
+      'Archived On',
+      'Deletes On',
+    ];
+    const escape = (value: unknown) => {
+      const text = value === null || value === undefined ? '' : String(value);
+      return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+    };
+    const day = (d?: Date | null) =>
+      d ? new Date(d).toISOString().slice(0, 10) : '';
+
+    const lines = [headers.join(',')];
+    for (const m of rows) {
+      lines.push(
+        [
+          m.fullName,
+          m.phoneNumber,
+          m.email,
+          m.gender,
+          m.membershipStatus,
+          m.address,
+          day(m.dateJoined),
+          day(m.archivedAt),
+          day(
+            m.archivedAt ? addDays(m.archivedAt, ARCHIVE_RETENTION_DAYS) : null,
+          ),
+        ]
+          .map(escape)
+          .join(','),
+      );
+    }
+    return lines.join('\n');
+  }
+
+  /** Restores an archived guest. They count against the guest limit again. */
+  async restoreArchivedMember(
+    authUser: Admin,
+    tenant: TenantContext,
+    id: string,
+  ) {
+    const member = await this.memberModel
+      .findOne({
+        _id: new Types.ObjectId(id),
+        ...buildTenantFilter(tenant),
+        archivedAt: { $ne: null },
+      })
+      .lean();
+    if (!member) {
+      throw new NotFoundException('Archived guest not found');
+    }
+
+    const isGuest = isGuestStatus(member.membershipStatus);
+    await this.guestRulesService.assertWithinLimits(authUser.churchId, {
+      members: isGuest ? 0 : 1,
+      guests: isGuest ? 1 : 0,
+    });
+
+    const restored = await this.memberModel.findOneAndUpdate(
+      { _id: member._id, archivedAt: { $ne: null } },
+      { $set: { archivedAt: null, archiveDeletionWarnedAt: null } },
+      { new: true },
+    );
+
+    await this.activityLogService.create(authUser, {
+      action: 'Restored Guest',
+      module: ModuleSections.MEMBERS,
+      details: `Restored ${member.fullName} from the guest archive`,
+    });
+
+    return restored;
   }
 
   async deleteMember(tenant: TenantContext, id: string) {
@@ -889,9 +1246,9 @@ export class MembersService {
     // Search functionality
     if (search) {
       query.$or = [
-        { fullName: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } },
-        { phoneNumber: { $regex: search, $options: 'i' } },
+        { fullName: searchRegex(search) },
+        { email: searchRegex(search) },
+        { phoneNumber: searchRegex(search) },
       ];
     }
 
@@ -1183,94 +1540,65 @@ export class MembersService {
 
   async getMemberLimitStatus(authUser: Admin) {
     const churchId = authUser.churchId;
-
-    // Get current member count
-    const currentMembers = await this.memberModel.countDocuments({ churchId });
-
-    // Get subscription and plan limit
     const subscription =
-      await this.subscriptionService.getActiveSubscription(churchId);
+      await this.subscriptionService.getSubscription(churchId);
+    const snapshot = await this.guestRulesService.getLimitSnapshot(churchId);
+    const { counts, memberLimit, guestLimit } = snapshot;
 
-    if (!subscription) {
-      const defaultLimit = await this.subscriptionService.getPlanMemberLimit(
-        PlanType.STARTER,
-      );
-      const percentage =
-        defaultLimit > 0 ? (currentMembers / defaultLimit) * 100 : 0;
-
+    const usage = (current: number, limit: number) => {
+      const percentage = limit > 0 ? (current / limit) * 100 : 0;
+      const isOverLimit = limit > 0 && current > limit;
       return {
-        currentMembers,
-        limit: defaultLimit,
-        percentage: Math.min(percentage, 100),
-        isOverLimit: defaultLimit > 0 && currentMembers > defaultLimit,
-        isWithinGracePeriod: false,
-        gracePeriodEnds: null,
-        planName: PlanType.STARTER,
-        needsAction: false,
-        isNearLimit: percentage >= 80 && percentage < 100,
-        daysRemaining: null,
-      };
-    }
-
-    // Get plan limit
-    const planLimit = await this.subscriptionService.getPlanMemberLimit(
-      subscription.plan,
-    );
-    const percentage = planLimit > 0 ? (currentMembers / planLimit) * 100 : 0;
-    const isOverLimit = planLimit > 0 && currentMembers > planLimit;
-
-    // Check grace period
-    let isWithinGracePeriod = false;
-    let daysRemaining = null;
-
-    if (subscription.gracePeriodEndDate) {
-      const now = new Date();
-      isWithinGracePeriod = now < subscription.gracePeriodEndDate;
-
-      if (isWithinGracePeriod) {
-        const diff = subscription.gracePeriodEndDate.getTime() - now.getTime();
-        daysRemaining = Math.ceil(diff / (1000 * 3600 * 24));
-      }
-    }
-
-    // If over limit and no grace period set, start one
-    if (isOverLimit && !subscription.gracePeriodEndDate) {
-      const gracePeriodEndDate = new Date();
-      gracePeriodEndDate.setDate(gracePeriodEndDate.getDate() + 7); // 7 days grace period
-
-      await this.subscriptionService.updateGracePeriod(
-        churchId,
-        gracePeriodEndDate,
-      );
-
-      return {
-        currentMembers,
-        limit: planLimit,
+        current,
+        limit,
+        unlimited: limit === -1,
         percentage: Math.min(percentage, 100),
         isOverLimit,
-        isWithinGracePeriod: true,
-        gracePeriodEnds: gracePeriodEndDate,
-        planName: subscription.plan,
-        needsAction: true,
-        isNearLimit: false,
-        daysRemaining: 7,
+        isNearLimit: percentage >= 80 && !isOverLimit,
+        atLimit: limit > 0 && current >= limit,
       };
+    };
+
+    const members = usage(counts.effectiveMembers, memberLimit);
+    const guests = usage(counts.effectiveGuests, guestLimit);
+
+    // Grace period applies to the member limit (existing behaviour).
+    let gracePeriodEnds: Date | null = subscription.gracePeriodEndDate || null;
+    if (
+      members.isOverLimit &&
+      !gracePeriodEnds &&
+      subscription.status === SubscriptionStatus.ACTIVE
+    ) {
+      gracePeriodEnds = addDays(new Date(), 7);
+      await this.subscriptionService.updateGracePeriod(
+        churchId,
+        gracePeriodEnds,
+      );
     }
 
-    // Determine if action is needed
-    const needsAction = isOverLimit && isWithinGracePeriod;
+    const now = new Date();
+    const isWithinGracePeriod = !!gracePeriodEnds && now < gracePeriodEnds;
+    const daysRemaining = isWithinGracePeriod
+      ? Math.ceil((gracePeriodEnds!.getTime() - now.getTime()) / 86400000)
+      : null;
 
     return {
-      currentMembers,
-      limit: planLimit,
-      percentage: Math.min(percentage, 100),
-      isOverLimit,
+      // Legacy member-limit fields, kept for existing callers.
+      currentMembers: members.current,
+      limit: memberLimit,
+      percentage: members.percentage,
+      isOverLimit: members.isOverLimit,
+      isNearLimit: members.isNearLimit,
       isWithinGracePeriod,
-      gracePeriodEnds: subscription.gracePeriodEndDate || null,
+      gracePeriodEnds,
       planName: subscription.plan,
-      needsAction,
-      isNearLimit: percentage >= 80 && percentage < 100 && !isOverLimit,
+      needsAction: members.isOverLimit && isWithinGracePeriod,
       daysRemaining,
+      // Separate member / guest usage.
+      members,
+      guests,
+      frequentGuests: counts.frequentGuests,
+      room: snapshot.room,
     };
   }
 
