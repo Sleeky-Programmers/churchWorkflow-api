@@ -136,6 +136,13 @@ export enum ModuleSections {
   ADMIN = 'ADMIN',
   SMALL_TEAMS = 'SMALL_TEAMS',
   ASSETS = 'ASSETS',
+  SERVICE_TIMER = 'SERVICE_TIMER',
+}
+
+/** The Sleeky Programmers products a church has signed up for. */
+export enum ChurchProduct {
+  CHURCH_WORKFLOW = 'CHURCH_WORKFLOW',
+  SERVICE_TIMER = 'SERVICE_TIMER',
 }
 
 export enum AssetCondition {

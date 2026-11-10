@@ -2,6 +2,8 @@ import { Document, Types } from 'mongoose';
 
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 
+import { ChurchProduct } from '../common/utils/enums.utils';
+
 @Schema({ timestamps: true })
 export class Church extends Document {
   @Prop()
@@ -35,6 +37,15 @@ export class Church extends Document {
 
   @Prop({ default: null })
   logoPublicId: string;
+
+  // Products the church signed up through. Churches created before this
+  // Field existed have none recorded and are Church Workflow churches.
+  @Prop({
+    type: [String],
+    enum: ChurchProduct,
+    default: [ChurchProduct.CHURCH_WORKFLOW],
+  })
+  products: ChurchProduct[];
 
   @Prop({ default: false })
   isBlocked: boolean;
