@@ -121,6 +121,9 @@ export class TimerTeamService {
       lastName?: string;
       role: TimerRoleKey;
     },
+    // The inviter's active branch: accepting the invite grants access to it,
+    // So the new member lands straight in this branch's timer.
+    branchId: Types.ObjectId | null,
   ) {
     const role = await this.roleFor(dto.role);
     const invite = await this.adminInviteService.sendInvitation(
@@ -132,6 +135,7 @@ export class TimerTeamService {
       },
       String(role._id),
       ChurchProduct.SERVICE_TIMER,
+      branchId,
     );
     return { id: String(invite._id) };
   }

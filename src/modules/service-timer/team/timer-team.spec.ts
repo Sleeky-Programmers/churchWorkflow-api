@@ -156,17 +156,20 @@ describe('TimerTeamService', () => {
     expect(team.seats).toEqual({ used: 4, limit: 5 });
   });
 
-  it('invites with a Timer role, from the timer', async () => {
+  it("invites with a Timer role, for the inviter's branch", async () => {
     const { service, adminInviteService } = build();
-    await service.invite(authUser, {
-      email: ' New@Example.com ',
-      role: 'operator',
-    });
+    const branchId = new Types.ObjectId();
+    await service.invite(
+      authUser,
+      { email: ' New@Example.com ', role: 'operator' },
+      branchId,
+    );
     expect(adminInviteService.sendInvitation).toHaveBeenCalledWith(
       authUser,
       { email: 'new@example.com', firstName: undefined, lastName: undefined },
       String(roles['Timer Operator']._id),
       ChurchProduct.SERVICE_TIMER,
+      branchId,
     );
   });
 
