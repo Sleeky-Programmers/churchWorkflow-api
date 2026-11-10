@@ -5,7 +5,9 @@ import { ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { MongooseModule } from '@nestjs/mongoose';
 
+import { Admin, AdminSchema } from '../../schemas/admin.schema';
 import { Church, ChurchSchema } from '../../schemas/church.schema';
+import { Invite, InviteSchema } from '../../schemas/invite.schema';
 import {
   TimerImport,
   TimerImportSchema,
@@ -23,6 +25,10 @@ import {
   TimerTemplateSchema,
 } from '../../schemas/timer-template.schema';
 import { AdminModule } from '../admin/admin.module';
+import { AdminInviteModule } from '../admin-invite/admin-invite.module';
+import { RolesModule } from '../roles/roles.module';
+import { TimerTeamController } from './team/timer-team.controller';
+import { TimerTeamService } from './team/timer-team.service';
 import { BranchModule } from '../branch/branch.module';
 import { FileUploadModule } from '../file-upload/file-upload.module';
 import { TimerImportController } from './import/timer-import.controller';
@@ -44,24 +50,30 @@ import { ServiceTimerService } from './service-timer.service';
       { name: TimerSession.name, schema: TimerSessionSchema },
       { name: TimerImport.name, schema: TimerImportSchema },
       { name: Church.name, schema: ChurchSchema },
+      { name: Admin.name, schema: AdminSchema },
+      { name: Invite.name, schema: InviteSchema },
     ]),
     // Secrets are passed per call: admin tokens use JWT_SECRET, operator
     // Tokens a secret derived from it.
     JwtModule.register({}),
     AdminModule,
+    AdminInviteModule,
     BranchModule,
     FileUploadModule,
+    RolesModule,
   ],
   controllers: [
     ServiceTimerController,
     ServiceTimerPublicController,
     TimerImportController,
+    TimerTeamController,
   ],
   providers: [
     ServiceTimerService,
     ServiceTimerEvents,
     ServiceTimerGateway,
     TimerImportService,
+    TimerTeamService,
     {
       // Without ANTHROPIC_API_KEY the API still starts; smart import answers 503.
       provide: ANTHROPIC_CLIENT,

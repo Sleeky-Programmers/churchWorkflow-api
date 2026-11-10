@@ -103,6 +103,21 @@ Rules carried over from live use (handoff, section 6):
 - Model: `TIMER_IMPORT_MODEL` (default `claude-opus-5-5`), effort `TIMER_IMPORT_EFFORT` (`low` / `medium` / `high`, default `medium`). Server-side refusal fallbacks are on (`fallbacks: "default"`).
 - Without `ANTHROPIC_API_KEY` the API still starts and imports answer `503`.
 
+## Team (`/api/v1/service-timer/team`, timer admins only)
+
+| Method | Path | |
+|---|---|---|
+| GET | `/` | `{ members, invites, seats: { used, limit } }`. Each member has `timerRole` (`admin` / `operator` / `viewer`, or `null` for a Church Workflow role) and `manageable` |
+| POST | `/invites` | `{ email, firstName?, lastName?, role }` |
+| POST | `/invites/:id/resend` | |
+| DELETE | `/invites/:id` | cancel a pending invite |
+| PUT | `/members/:id/role` | `{ role }` |
+| DELETE | `/members/:id` | removes the person's account |
+
+- Reuses the Church Workflow invite system: same seat limits, and accepting goes through `GET /auth/preview` and `POST /auth/admin-register`.
+- Invites remember the product that sent them (`Invite.product`). Timer invites are emailed with a link to `TIMER_FRONTEND_URL/accept-invite?invite=…`; without `TIMER_FRONTEND_URL` they're refused with `503`.
+- Only Timer roles are ever assigned, and only members with a Timer role can be changed or removed here. The owner, yourself, and anyone with a Church Workflow role are listed but left alone.
+
 ## Deployment
 
 The API runs as one long-lived container on Dokploy, behind Traefik, which
