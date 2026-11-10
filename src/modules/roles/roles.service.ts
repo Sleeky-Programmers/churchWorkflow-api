@@ -21,6 +21,29 @@ import {
 export const SMALL_TEAMS_ROLE_NAME = 'Small Teams';
 export const DEPARTMENT_HEAD_ROLE_NAME = 'Department Head';
 
+/**
+ * Service Timer roles (Product Plan, section 5.2). Admin does everything,
+ * Operator runs the timer and edits programs, Viewer can only watch.
+ */
+export const TIMER_ROLES = [
+  {
+    roleName: 'Timer Admin',
+    description:
+      'Runs the service timer and manages its settings, PIN and display links.',
+    accessLevel: AccessLevel.FULL_ACCESS,
+  },
+  {
+    roleName: 'Timer Operator',
+    description: 'Runs the service timer and edits programs and templates.',
+    accessLevel: AccessLevel.MANAGE,
+  },
+  {
+    roleName: 'Timer Viewer',
+    description: 'Can view the service timer but not change it.',
+    accessLevel: AccessLevel.VIEW,
+  },
+];
+
 @Injectable()
 export class RolesService implements OnModuleInit {
   private readonly logger = new Logger(RolesService.name);
@@ -62,6 +85,15 @@ export class RolesService implements OnModuleInit {
           },
         ] as SectionPermission[],
       );
+
+      for (const role of TIMER_ROLES) {
+        await this.ensureSystemRole(role.roleName, role.description, [
+          {
+            moduleSection: ModuleSections.SERVICE_TIMER,
+            accessLevel: role.accessLevel,
+          },
+        ] as SectionPermission[]);
+      }
     } catch (err) {
       this.logger.error('Failed to seed Small Teams system role', err as any);
     }
