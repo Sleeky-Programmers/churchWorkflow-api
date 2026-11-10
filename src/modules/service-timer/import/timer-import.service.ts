@@ -17,8 +17,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 
-import { ChurchProduct } from '../../../common/utils/enums.utils';
-import { Church } from '../../../schemas/church.schema';
+import { TimerPlanService } from '../billing/timer-plan.service';
 import {
   TimerImport,
   TimerImportSource,
@@ -85,8 +84,7 @@ export class TimerImportService {
   constructor(
     @InjectModel(TimerImport.name)
     private importModel: Model<TimerImport>,
-    @InjectModel(Church.name)
-    private churchModel: Model<Church>,
+    private plans: TimerPlanService,
     private config: ConfigService,
     @Optional()
     @Inject(ANTHROPIC_CLIENT)
@@ -104,25 +102,17 @@ export class TimerImportService {
     );
   }
 
-  private limitFor(products: ChurchProduct[] | undefined) {
-    const num = (key: string, fallback: number) => {
-      const v = Number(this.config.get<string>(key));
-      return Number.isFinite(v) && v >= 0 ? v : fallback;
-    };
-    // Plans arrive in Phase 4. Until then: Church Workflow churches get fair
-    // Use, timer-only churches the free plan's one import a month.
-    const isChurchWorkflow =
-      !products?.length || products.includes(ChurchProduct.CHURCH_WORKFLOW);
-    return isChurchWorkflow
-      ? num('TIMER_IMPORT_FAIR_USE_LIMIT', 50)
-      : num('TIMER_IMPORT_FREE_LIMIT', 1);
-  }
-
-  /** Successful imports this month against the church's allowance. */
-  async usage(churchId: Types.ObjectId): Promise<ImportUsage> {
+  /**
+   * Successful imports this month against the church's plan: Free 1,
+   * Church 30, Church Workflow fair use (Product Plan, section 7).
+   * A limit of 0 means unlimited.
+   */
+  async usage(
+    churchId: Types.ObjectId,
+  ): Promise<ImportUsage & { plan: string }> {
     const { start, next } = monthBounds(new Date());
-    const [church, used] = await Promise.all([
-      this.churchModel.findById(churchId).select('products').lean(),
+    const [plan, used] = await Promise.all([
+      this.plans.planFor(churchId),
       this.importModel.countDocuments({
         churchId,
         status: TimerImportStatus.SUCCEEDED,
@@ -131,8 +121,9 @@ export class TimerImportService {
     ]);
     return {
       used,
-      limit: this.limitFor(church?.products),
+      limit: plan.importLimit,
       resetsOn: next.toISOString(),
+      plan: plan.key,
     };
   }
 
@@ -147,14 +138,14 @@ export class TimerImportService {
       );
     }
     const usage = await this.usage(churchId);
-    if (usage.used >= usage.limit) {
+    if (usage.limit > 0 && usage.used >= usage.limit) {
       throw new HttpException(
         {
           statusCode: HttpStatus.FORBIDDEN,
           code: 'IMPORT_LIMIT_REACHED',
           message:
-            usage.limit === 1
-              ? "You've used this month's free import. Upgrade for more, or add the program by hand."
+            usage.plan === 'FREE'
+              ? "You've used this month's free import. Upgrade to the Church plan for more, or add the program by hand."
               : `You've used all ${usage.limit} imports for this month. Add the program by hand, or wait until next month.`,
           usage,
         },

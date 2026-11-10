@@ -18,6 +18,7 @@ import { Invite } from '../../../schemas/invite.schema';
 import { Role } from '../../../schemas/role.schema';
 import { AdminInviteService } from '../../admin-invite/admin-invite.service';
 import { RolesService, TIMER_ROLES } from '../../roles/roles.service';
+import { TimerPlanService } from '../billing/timer-plan.service';
 
 /** The three Timer roles by their short names (Product Plan, section 5.2). */
 export const TIMER_ROLE_KEYS = ['admin', 'operator', 'viewer'] as const;
@@ -46,6 +47,7 @@ export class TimerTeamService {
     @InjectModel(Invite.name) private inviteModel: Model<Invite>,
     private rolesService: RolesService,
     private adminInviteService: AdminInviteService,
+    private plans: TimerPlanService,
   ) {}
 
   private async roleFor(key: TimerRoleKey) {
@@ -57,7 +59,7 @@ export class TimerTeamService {
   }
 
   async list(authUser: Admin) {
-    const [admins, invites, seats] = await Promise.all([
+    const [admins, invites, seats, plan] = await Promise.all([
       this.adminModel
         .find({ churchId: authUser.churchId })
         .populate('churchRole')
@@ -68,6 +70,7 @@ export class TimerTeamService {
         .populate('churchRole')
         .lean(),
       this.adminInviteService.getUserLimitStatus(authUser),
+      this.plans.planFor(authUser.churchId as Types.ObjectId),
     ]);
     const inviteByEmail = new Map(
       invites.map((i) => [i.email?.toLowerCase(), i]),
@@ -109,7 +112,13 @@ export class TimerTeamService {
     return {
       members,
       invites: pending,
-      seats: { used: seats.currentUsers, limit: seats.limit },
+      // Timer-only churches use their timer plan's seats; Church Workflow
+      // Churches keep their Church Workflow plan's.
+      seats: {
+        used: seats.currentUsers,
+        limit: plan.userLimit ?? seats.limit,
+      },
+      plan: plan.key,
     };
   }
 
@@ -125,7 +134,10 @@ export class TimerTeamService {
     // So the new member lands straight in this branch's timer.
     branchId: Types.ObjectId | null,
   ) {
-    const role = await this.roleFor(dto.role);
+    const [role, plan] = await Promise.all([
+      this.roleFor(dto.role),
+      this.plans.planFor(authUser.churchId as Types.ObjectId),
+    ]);
     const invite = await this.adminInviteService.sendInvitation(
       authUser,
       {
@@ -134,8 +146,20 @@ export class TimerTeamService {
         lastName: dto.lastName?.trim(),
       },
       String(role._id),
-      ChurchProduct.SERVICE_TIMER,
-      branchId,
+      {
+        product: ChurchProduct.SERVICE_TIMER,
+        branchId,
+        seatLimit:
+          plan.userLimit === null
+            ? undefined
+            : {
+                limit: plan.userLimit,
+                message:
+                  plan.key === 'FREE'
+                    ? `The Free plan has ${plan.userLimit} seats, and they're all in use. Upgrade to the Church plan for more, or remove someone first.`
+                    : `All ${plan.userLimit} seats are in use. Remove someone or cancel an invite first.`,
+              },
+      },
     );
     return { id: String(invite._id) };
   }

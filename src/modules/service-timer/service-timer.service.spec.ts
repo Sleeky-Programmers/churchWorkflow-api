@@ -47,6 +47,7 @@ function build(doc: Record<string, unknown> | null) {
     new JwtService({}),
     { get: () => 'test-secret' } as any,
     { disconnectGuests: jest.fn() } as any,
+    { planFor: jest.fn() } as any,
   );
   return { service, settingsModel, updates };
 }

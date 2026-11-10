@@ -23,6 +23,8 @@ import { TimerSession } from '../../schemas/timer-session.schema';
 import { TimerSettings } from '../../schemas/timer-settings.schema';
 import { TimerTemplate } from '../../schemas/timer-template.schema';
 import { FileUploadService } from '../file-upload/file-upload.service';
+import { TimerPlanService } from './billing/timer-plan.service';
+import { COLOUR_PRESETS, isPreset } from './billing/timer-plans';
 import { UpdateTimerSettingsDto } from './dto/timer-settings.dto';
 import { TimerSessionDto } from './dto/timer-session.dto';
 import { TimerTemplateDto } from './dto/timer-template.dto';
@@ -66,7 +68,27 @@ export class ServiceTimerService {
     private jwtService: JwtService,
     private configService: ConfigService,
     private events: ServiceTimerEvents,
+    private plans: TimerPlanService,
   ) {}
+
+  /** Own logo and colours need the Church plan (Product Plan, section 7). */
+  private planRequired(message: string) {
+    return new HttpException(
+      { statusCode: HttpStatus.FORBIDDEN, code: 'PLAN_REQUIRED', message },
+      HttpStatus.FORBIDDEN,
+    );
+  }
+
+  private colorsOf(doc: TimerSettings): Record<string, string> {
+    const c = doc.colors ?? ({} as TimerSettings['colors']);
+    return {
+      bg: c.bg,
+      text: c.text,
+      accent: c.accent,
+      warn: c.warn,
+      over: c.over,
+    };
+  }
 
   /** The timer for the admin's active branch. */
   scopeFor(tenant: TenantContext): TimerScope {
@@ -102,10 +124,16 @@ export class ServiceTimerService {
       .findById(doc.churchId)
       .select('name logoUrl')
       .lean();
-    const hasPin = await this.settingsModel.exists({
-      _id: doc._id,
-      operatorPinHash: { $ne: null },
-    });
+    const [hasPin, plan] = await Promise.all([
+      this.settingsModel.exists({
+        _id: doc._id,
+        operatorPinHash: { $ne: null },
+      }),
+      this.plans.planFor(doc.churchId),
+    ]);
+    // On the Free plan the display uses a preset and no logo. Branding saved
+    // On the Church plan is kept, and comes back if the church upgrades again.
+    const colors = this.colorsOf(doc);
     return {
       churchName: doc.churchName ?? church?.name ?? '',
       churchNameOverride: doc.churchName,
@@ -114,11 +142,20 @@ export class ServiceTimerService {
       keepRunning: doc.keepRunning,
       shortcuts: doc.shortcuts,
       font: doc.font,
-      colors: doc.colors,
+      colors:
+        plan.customBranding || isPreset(colors) ? colors : COLOUR_PRESETS[0],
       show: doc.show,
-      logoUrl: doc.logoUrl ?? church?.logoUrl ?? null,
-      hasOwnLogo: !!doc.logoUrl,
+      logoUrl: plan.customBranding
+        ? (doc.logoUrl ?? church?.logoUrl ?? null)
+        : null,
+      hasOwnLogo: plan.customBranding && !!doc.logoUrl,
       hasPin: !!hasPin,
+      plan: {
+        key: plan.key,
+        name: plan.name,
+        customBranding: plan.customBranding,
+        showMark: plan.showMark,
+      },
       ...(opts.withToken ? { displayToken: doc.displayToken } : {}),
     };
   }
@@ -128,7 +165,16 @@ export class ServiceTimerService {
   }
 
   async updateSettings(scope: TimerScope, dto: UpdateTimerSettingsDto) {
-    await this.getSettingsDoc(scope);
+    const current = await this.getSettingsDoc(scope);
+    if (dto.colors) {
+      const plan = await this.plans.planFor(scope.churchId);
+      const merged = { ...this.colorsOf(current), ...dto.colors };
+      if (!plan.customBranding && !isPreset(merged)) {
+        throw this.planRequired(
+          'Your own colours are part of the Church plan. Choose a colour preset, or upgrade.',
+        );
+      }
+    }
     const set: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(dto)) {
       if (value === undefined) {
@@ -158,6 +204,11 @@ export class ServiceTimerService {
   async uploadLogo(scope: TimerScope, file: Express.Multer.File) {
     if (!file) {
       throw new BadRequestException('Attach an image as "file".');
+    }
+    if (!(await this.plans.planFor(scope.churchId)).customBranding) {
+      throw this.planRequired(
+        'Your own logo is part of the Church plan. Upgrade to add it to the display.',
+      );
     }
     const current = await this.getSettingsDoc(scope);
     const { url, publicId } = await this.fileUploadService.uploadFile(file);

@@ -27,6 +27,21 @@ import {
 import { AdminModule } from '../admin/admin.module';
 import { AdminInviteModule } from '../admin-invite/admin-invite.module';
 import { RolesModule } from '../roles/roles.module';
+import {
+  TimerPayment,
+  TimerPaymentSchema,
+  TimerPlanConfig,
+  TimerPlanConfigSchema,
+  TimerSubscription,
+  TimerSubscriptionSchema,
+} from '../../schemas/timer-billing.schema';
+import { TimerPaystackClient } from './billing/paystack-client';
+import {
+  TimerBillingController,
+  TimerPlansAdminController,
+} from './billing/timer-billing.controller';
+import { TimerBillingService } from './billing/timer-billing.service';
+import { TimerPlanService } from './billing/timer-plan.service';
 import { TimerTeamController } from './team/timer-team.controller';
 import { TimerTeamService } from './team/timer-team.service';
 import { BranchModule } from '../branch/branch.module';
@@ -52,6 +67,9 @@ import { ServiceTimerService } from './service-timer.service';
       { name: Church.name, schema: ChurchSchema },
       { name: Admin.name, schema: AdminSchema },
       { name: Invite.name, schema: InviteSchema },
+      { name: TimerPlanConfig.name, schema: TimerPlanConfigSchema },
+      { name: TimerSubscription.name, schema: TimerSubscriptionSchema },
+      { name: TimerPayment.name, schema: TimerPaymentSchema },
     ]),
     // Secrets are passed per call: admin tokens use JWT_SECRET, operator
     // Tokens a secret derived from it.
@@ -67,6 +85,8 @@ import { ServiceTimerService } from './service-timer.service';
     ServiceTimerPublicController,
     TimerImportController,
     TimerTeamController,
+    TimerBillingController,
+    TimerPlansAdminController,
   ],
   providers: [
     ServiceTimerService,
@@ -74,6 +94,9 @@ import { ServiceTimerService } from './service-timer.service';
     ServiceTimerGateway,
     TimerImportService,
     TimerTeamService,
+    TimerPlanService,
+    TimerBillingService,
+    TimerPaystackClient,
     {
       // Without ANTHROPIC_API_KEY the API still starts; smart import answers 503.
       provide: ANTHROPIC_CLIENT,
