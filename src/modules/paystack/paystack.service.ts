@@ -274,6 +274,12 @@ export class PaystackService {
           break;
         }
 
+        // Service Timer plan payments are confirmed by the timer's billing
+        // (service-timer/billing), not as Church Workflow subscriptions.
+        if (metadata && metadata.type === 'service_timer_plan') {
+          break;
+        }
+
         if (metadata && metadata.churchId) {
           await this.paymentService.updatePaymentStatus(
             reference,

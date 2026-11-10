@@ -139,9 +139,17 @@ export class AdminInviteService {
     authUser: Admin,
     createAdminInviteDto: CreateAdminInviteDto,
     churchRole: string,
-    product: ChurchProduct = ChurchProduct.CHURCH_WORKFLOW,
-    branchId: Types.ObjectId | null = null,
+    options: {
+      /** Which app sent it; its emails link back there. */
+      product?: ChurchProduct;
+      /** Branch the invite gives access to when accepted. */
+      branchId?: Types.ObjectId | null;
+      /** A product's own seat limit (Service Timer plans) instead of Church Workflow's. */
+      seatLimit?: { limit: number; message: string };
+    } = {},
   ) {
+    const product = options.product ?? ChurchProduct.CHURCH_WORKFLOW;
+    const branchId = options.branchId ?? null;
     const { title, firstName, lastName, email } = createAdminInviteDto;
     const { churchId } = authUser;
     const churchRoleObjectId = new Types.ObjectId(churchRole);
@@ -172,10 +180,13 @@ export class AdminInviteService {
     // Here or every church gets blocked one seat early (e.g. owner + 1
     // Pending invite on a 3-seat plan would wrongly read as "3 of 3").
     const seatsUsed = currentUsers + pendingInvites;
-    const userLimitCheck = await this.subscriptionService.checkUserLimit(
-      churchId,
-      seatsUsed,
-    );
+    const userLimitCheck = options.seatLimit
+      ? {
+          allowed:
+            options.seatLimit.limit <= 0 || seatsUsed < options.seatLimit.limit,
+          message: options.seatLimit.message,
+        }
+      : await this.subscriptionService.checkUserLimit(churchId, seatsUsed);
 
     if (!userLimitCheck.allowed) {
       throw new BadRequestException(

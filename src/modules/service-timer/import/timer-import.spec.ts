@@ -72,14 +72,14 @@ function build(opts: {
       return doc;
     }),
   };
-  const churchModel = {
-    findById: () => ({
-      select: () => ({
-        lean: async () => ({
-          products: opts.products ?? [ChurchProduct.SERVICE_TIMER],
-        }),
-      }),
-    }),
+  // Church Workflow churches: fair use; timer-only churches: the Free plan.
+  const plans = {
+    planFor: async () =>
+      (opts.products ?? [ChurchProduct.SERVICE_TIMER]).includes(
+        ChurchProduct.CHURCH_WORKFLOW,
+      )
+        ? { key: 'CHURCH_WORKFLOW', importLimit: 50 }
+        : { key: 'FREE', importLimit: 1 },
   };
   const parse = opts.parse ?? jest.fn().mockResolvedValue(reply(program()));
   const client = opts.noClient
@@ -87,7 +87,7 @@ function build(opts: {
     : ({ beta: { messages: { parse } } } as any);
   const service = new TimerImportService(
     importModel as any,
-    churchModel as any,
+    plans as any,
     { get: (k: string) => opts.env?.[k] } as any,
     client,
   );

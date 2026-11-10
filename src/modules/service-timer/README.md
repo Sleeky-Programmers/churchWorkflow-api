@@ -105,18 +105,33 @@ Rules carried over from live use (handoff, section 6):
 
 ## Team (`/api/v1/service-timer/team`, timer admins only)
 
-| Method | Path | |
-|---|---|---|
-| GET | `/` | `{ members, invites, seats: { used, limit } }`. Each member has `timerRole` (`admin` / `operator` / `viewer`, or `null` for a Church Workflow role) and `manageable` |
-| POST | `/invites` | `{ email, firstName?, lastName?, role }` |
-| POST | `/invites/:id/resend` | |
-| DELETE | `/invites/:id` | cancel a pending invite |
-| PUT | `/members/:id/role` | `{ role }` |
-| DELETE | `/members/:id` | removes the person's account |
+| Method | Path                  |                                                                                                                                                                      |
+| ------ | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/`                   | `{ members, invites, seats: { used, limit } }`. Each member has `timerRole` (`admin` / `operator` / `viewer`, or `null` for a Church Workflow role) and `manageable` |
+| POST   | `/invites`            | `{ email, firstName?, lastName?, role }`                                                                                                                             |
+| POST   | `/invites/:id/resend` |                                                                                                                                                                      |
+| DELETE | `/invites/:id`        | cancel a pending invite                                                                                                                                              |
+| PUT    | `/members/:id/role`   | `{ role }`                                                                                                                                                           |
+| DELETE | `/members/:id`        | removes the person's account                                                                                                                                         |
 
 - Reuses the Church Workflow invite system: same seat limits, and accepting goes through `GET /auth/preview` and `POST /auth/admin-register`.
 - Invites remember the product that sent them (`Invite.product`). Timer invites are emailed with a link to `TIMER_FRONTEND_URL/accept-invite?invite=…`; without `TIMER_FRONTEND_URL` they're refused with `503`.
 - Only Timer roles are ever assigned, and only members with a Timer role can be changed or removed here. The owner, yourself, and anyone with a Church Workflow role are listed but left alone.
+
+## Plans and billing (Product Plan, section 7)
+
+| Plan     | Who                          | Users                         | Smart imports a month                                | Branding                                                                    |
+| -------- | ---------------------------- | ----------------------------- | ---------------------------------------------------- | --------------------------------------------------------------------------- |
+| Free     | timer-only churches          | 2                             | 1                                                    | colour presets only, no own logo, small "Service Timer" mark on the display |
+| Church   | timer-only churches that pay | 5                             | 30                                                   | own logo and colours                                                        |
+| Included | Church Workflow churches     | Church Workflow plan's limits | fair use (`TIMER_IMPORT_FAIR_USE_LIMIT`, default 50) | full                                                                        |
+
+- Prices and limits live in `timerplanconfigs`, created from `billing/timer-plans.ts`. The Church plan's **₦2,500 a month / ₦25,000 a year is a placeholder** until the team confirms the price; product admins change it with `GET` / `PUT /api/v1/service-timer/admin/plans/:plan` (product admin token). A limit of 0 means unlimited.
+- Paying: `POST /service-timer/billing/checkout { cycle: "monthly" | "yearly" }` (timer admins) returns a Paystack `authorizationUrl`. Paystack sends the payer back to `TIMER_FRONTEND_URL/billing?reference=…`, and the app calls `POST /service-timer/billing/confirm { reference }`.
+- A payment buys a month or a year from the later of today and the current end date; paying again extends it. There's no auto-renew in this version, so no Paystack plans or webhooks are needed. Pending payments are re-checked on `GET /service-timer/billing`, so a closed tab doesn't lose a payment, and each payment is applied exactly once.
+- Timer payments carry `metadata.type = "service_timer_plan"`; Church Workflow's Paystack webhook skips them.
+- On the Free plan the API refuses custom colours and logo uploads with `403 PLAN_REQUIRED`. Settings saved on the Church plan are kept and come back after upgrading again.
+- Seats for timer invites follow the timer plan for timer-only churches (Church Workflow churches keep their own limits).
 
 ## Deployment
 

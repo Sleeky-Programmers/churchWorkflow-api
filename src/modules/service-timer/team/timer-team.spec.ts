@@ -61,7 +61,7 @@ const operator = person('Ben', 'Timer Operator');
 const usher = person('Cy', 'Ushers');
 const me = person('Dee', 'Timer Admin');
 
-function build(opts: { invites?: any[] } = {}) {
+function build(opts: { invites?: any[]; plan?: any } = {}) {
   const invites = opts.invites ?? [];
   const admins = [owner, operator, usher, me];
   const chain = (v: any) => ({
@@ -107,11 +107,17 @@ function build(opts: { invites?: any[] } = {}) {
     removeUser: jest.fn(),
   };
   const rolesService = { findOne: async (name: string) => roles[name] };
+  const plans = {
+    planFor: jest
+      .fn()
+      .mockResolvedValue(opts.plan ?? { key: 'CHURCH', userLimit: 5 }),
+  };
   const service = new TimerTeamService(
     adminModel as any,
     inviteModel as any,
     rolesService as any,
     adminInviteService as any,
+    plans as any,
   );
   return { service, adminModel, adminInviteService };
 }
@@ -168,9 +174,32 @@ describe('TimerTeamService', () => {
       authUser,
       { email: 'new@example.com', firstName: undefined, lastName: undefined },
       String(roles['Timer Operator']._id),
-      ChurchProduct.SERVICE_TIMER,
-      branchId,
+      expect.objectContaining({
+        product: ChurchProduct.SERVICE_TIMER,
+        branchId,
+        seatLimit: expect.objectContaining({ limit: 5 }),
+      }),
     );
+  });
+
+  it("uses the Free plan's seats and says how to get more", async () => {
+    const { service, adminInviteService } = build({
+      plan: { key: 'FREE', userLimit: 2 },
+    });
+    await service.invite(authUser, { email: 'a@b.c', role: 'viewer' }, null);
+    const options = adminInviteService.sendInvitation.mock.calls[0][3];
+    expect(options.seatLimit.limit).toBe(2);
+    expect(options.seatLimit.message).toMatch(/Upgrade to the Church plan/);
+  });
+
+  it("leaves Church Workflow churches on Church Workflow's seat limits", async () => {
+    const { service, adminInviteService } = build({
+      plan: { key: 'CHURCH_WORKFLOW', userLimit: null },
+    });
+    await service.invite(authUser, { email: 'a@b.c', role: 'viewer' }, null);
+    expect(
+      adminInviteService.sendInvitation.mock.calls[0][3].seatLimit,
+    ).toBeUndefined();
   });
 
   it("won't change the owner, yourself, or someone managed in Church Workflow", async () => {
