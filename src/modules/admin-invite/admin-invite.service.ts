@@ -140,6 +140,7 @@ export class AdminInviteService {
     createAdminInviteDto: CreateAdminInviteDto,
     churchRole: string,
     product: ChurchProduct = ChurchProduct.CHURCH_WORKFLOW,
+    branchId: Types.ObjectId | null = null,
   ) {
     const { title, firstName, lastName, email } = createAdminInviteDto;
     const { churchId } = authUser;
@@ -203,6 +204,7 @@ export class AdminInviteService {
         churchId,
         churchRole: churchRoleObjectId,
         product,
+        branchId,
         ...createAdminInviteDto,
       }),
     ]);

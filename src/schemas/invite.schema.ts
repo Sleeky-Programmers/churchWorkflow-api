@@ -34,6 +34,11 @@ export class Invite extends Document {
     default: ChurchProduct.CHURCH_WORKFLOW,
   })
   product: ChurchProduct;
+
+  // The branch the invite gives access to when accepted (Service Timer
+  // Invites set the inviter's branch; Church Workflow grants access later).
+  @Prop({ type: SchemaTypes.ObjectId, ref: 'Branch', default: null })
+  branchId: Types.ObjectId | null;
 }
 
 export const InviteSchema = SchemaFactory.createForClass(Invite);

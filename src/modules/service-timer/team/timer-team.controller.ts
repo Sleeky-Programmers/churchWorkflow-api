@@ -19,6 +19,8 @@ import {
 } from '@nestjs/common';
 
 import { AuthUser } from '../../../common/decorators/auth-user.decorator';
+import { CurrentTenant } from '../../../common/decorators/current-tenant.decorator';
+import { TenantContext } from '../../../common/interfaces/tenant-context.interface';
 import { RequirePermissions } from '../../../common/decorators/permissions.decorator';
 import { PermissionsGuard } from '../../../common/guards/permissions.guard';
 import { AccessLevel, ModuleSections } from '../../../common/utils/enums.utils';
@@ -76,8 +78,12 @@ export class TimerTeamController {
   }
 
   @Post('invites')
-  invite(@AuthUser() admin: Admin, @Body() dto: TimerInviteDto) {
-    return this.team.invite(admin, dto);
+  invite(
+    @AuthUser() admin: Admin,
+    @CurrentTenant() tenant: TenantContext,
+    @Body() dto: TimerInviteDto,
+  ) {
+    return this.team.invite(admin, dto, tenant.branchId);
   }
 
   @Post('invites/:id/resend')

@@ -282,6 +282,32 @@ export class BranchService {
     return { message: 'Branch access granted' };
   }
 
+  /**
+   * Gives a newly joined admin access to the branch they were invited to, and
+   * makes it their default. Used by Service Timer invites: the timer has no
+   * branch-access screen, so without this an invited operator could sign in
+   * but never reach a timer.
+   */
+  async grantInvitedBranch(
+    adminId: Types.ObjectId,
+    churchId: Types.ObjectId,
+    branchId: Types.ObjectId,
+  ) {
+    const branch = await this.branchModel.exists({ _id: branchId, churchId });
+    if (!branch) {
+      return;
+    }
+    await this.adminBranchAccessModel.updateOne(
+      { adminId, branchId },
+      { $set: { adminId, branchId, churchId } },
+      { upsert: true },
+    );
+    await this.adminModel.updateOne(
+      { _id: adminId, defaultBranchId: null },
+      { $set: { defaultBranchId: branchId } },
+    );
+  }
+
   async revokeAccess(authUser: Admin, branchId: string, adminId: string) {
     this.assertOrgWide(authUser);
 
