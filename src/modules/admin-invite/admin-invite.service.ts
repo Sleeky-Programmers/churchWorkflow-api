@@ -3,6 +3,7 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -18,6 +19,7 @@ import { InvitePayload } from '../../common/utils/types.utils';
 import {
   AdminInviteStatus,
   AdminOptions,
+  ChurchProduct,
   InviteEmailType,
   PlanType,
 } from '../../common/utils/enums.utils';
@@ -46,10 +48,12 @@ export class AdminInviteService {
     type = InviteEmailType.INVITE,
     invitePending = true,
     previousRole,
+    product = ChurchProduct.CHURCH_WORKFLOW,
   }: InvitePayload & {
     type?: InviteEmailType;
     invitePending?: boolean;
     previousRole?: string;
+    product?: ChurchProduct;
   }) {
     const church = await this.churchService.findById(churchId);
 
@@ -57,7 +61,17 @@ export class AdminInviteService {
       throw new NotFoundException('Church not found');
     }
 
-    const FRONTEND_URL = process.env.FRONTEND_URL;
+    // Service Timer invites open the timer app; everything else Church Workflow.
+    const isTimer = product === ChurchProduct.SERVICE_TIMER;
+    const FRONTEND_URL = isTimer
+      ? process.env.TIMER_FRONTEND_URL
+      : process.env.FRONTEND_URL;
+    if (isTimer && !FRONTEND_URL) {
+      throw new ServiceUnavailableException(
+        'Invites from the Service Timer are not set up yet (TIMER_FRONTEND_URL).',
+      );
+    }
+    const productName = isTimer ? 'Service Timer' : 'Church Workflow';
     const baseUrl = FRONTEND_URL?.replace(/\/$/, '');
 
     const hasName = Boolean(title || firstName || lastName);
@@ -73,8 +87,10 @@ export class AdminInviteService {
       ...(title && { title }),
     });
 
-    const inviteUrl = `${baseUrl}/auth/signup?invite=${token}`;
-    const accountUrl = baseUrl;
+    const inviteUrl = isTimer
+      ? `${baseUrl}/accept-invite?invite=${token}`
+      : `${baseUrl}/auth/signup?invite=${token}`;
+    const accountUrl = isTimer ? `${baseUrl}/control` : baseUrl;
 
     const isRoleChange = type === InviteEmailType.ROLE_CHANGE;
 
@@ -83,8 +99,10 @@ export class AdminInviteService {
       : "You've been invited 🎉";
 
     const intro = isRoleChange
-      ? `${churchName} has updated your role on <strong>Church Workflow</strong>.`
-      : `${churchName} has invited you to join their church management system on <strong>Church Workflow</strong>.`;
+      ? `${churchName} has updated your role on <strong>${productName}</strong>.`
+      : isTimer
+        ? `${churchName} has invited you to help run their services with the <strong>Service Timer</strong>.`
+        : `${churchName} has invited you to join their church management system on <strong>Church Workflow</strong>.`;
 
     const buttonText = invitePending ? 'Accept Invitation' : 'Go to Workspace';
     const buttonLink = invitePending ? inviteUrl : accountUrl;
@@ -110,7 +128,7 @@ export class AdminInviteService {
       ]
         .filter(Boolean)
         .join('<br />'),
-      footerNote: `This notification was sent by ${churchName} via Church Workflow.`,
+      footerNote: `This notification was sent by ${churchName} via ${productName}.`,
     });
 
     const subject = isRoleChange ? 'Role Updated' : 'Admin Invitation';
@@ -121,6 +139,7 @@ export class AdminInviteService {
     authUser: Admin,
     createAdminInviteDto: CreateAdminInviteDto,
     churchRole: string,
+    product: ChurchProduct = ChurchProduct.CHURCH_WORKFLOW,
   ) {
     const { title, firstName, lastName, email } = createAdminInviteDto;
     const { churchId } = authUser;
@@ -178,10 +197,12 @@ export class AdminInviteService {
         email,
         churchRole: role.roleName,
         churchRoleId: churchRoleObjectId,
+        product,
       }),
       await this.inviteModel.create({
         churchId,
         churchRole: churchRoleObjectId,
+        product,
         ...createAdminInviteDto,
       }),
     ]);
@@ -249,6 +270,7 @@ export class AdminInviteService {
       email,
       churchRole: role.roleName,
       churchRoleId: churchRoleObjectId,
+      product: invite.product,
     });
 
     return invite;
@@ -362,6 +384,7 @@ export class AdminInviteService {
       type: InviteEmailType.ROLE_CHANGE,
       invitePending: invite.status === AdminInviteStatus.PENDING,
       previousRole: oldRoleName,
+      product: invite.product,
     });
 
     return updatedInvite;
