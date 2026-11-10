@@ -219,6 +219,7 @@ export class ServiceTimerService {
     await this.events.disconnectGuests(
       String(scope.churchId),
       String(scope.branchId),
+      ['operator'],
     );
     return { hasPin: true };
   }
@@ -236,6 +237,7 @@ export class ServiceTimerService {
     await this.events.disconnectGuests(
       String(scope.churchId),
       String(scope.branchId),
+      ['operator'],
     );
     return { hasPin: false };
   }
@@ -251,6 +253,7 @@ export class ServiceTimerService {
     await this.events.disconnectGuests(
       String(scope.churchId),
       String(scope.branchId),
+      ['operator', 'display'],
     );
     return { displayToken };
   }

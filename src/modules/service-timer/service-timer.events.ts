@@ -31,10 +31,15 @@ export class ServiceTimerEvents {
   }
 
   /**
-   * Drops PIN operators and displays for a branch, e.g. after the PIN or the
-   * display link changes. Signed-in admins stay connected.
+   * Drops guests of the given kinds for a branch: PIN operators when the PIN
+   * changes, and displays too when the links change. Signed-in admins always
+   * stay connected, and a PIN change never blanks a display mid-service.
    */
-  async disconnectGuests(churchId: string, branchId: string) {
+  async disconnectGuests(
+    churchId: string,
+    branchId: string,
+    kinds: Array<'operator' | 'display'>,
+  ) {
     if (!this.server) {
       return;
     }
@@ -42,7 +47,7 @@ export class ServiceTimerEvents {
       .in(branchRoom(churchId, branchId))
       .fetchSockets();
     for (const s of sockets) {
-      if (s.data?.principal?.kind !== 'admin') {
+      if (kinds.includes(s.data?.principal?.kind)) {
         s.disconnect(true);
       }
     }

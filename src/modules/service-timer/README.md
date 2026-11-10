@@ -29,7 +29,8 @@ Without an account:
 - **Display link**: anyone with the settings' `displayToken` can watch.
 - **Operator PIN**: `displayToken` + PIN gives a 12-hour token that can run the
   timer but not manage it. Five wrong PINs lock it for five minutes. Changing
-  the PIN or the display link ends every PIN session and display connection.
+  the PIN ends every PIN session; changing the links also disconnects every
+  display. Displays are never dropped by a PIN change.
 
 Churches record which product they signed up through in `Church.products`
 (`POST /church` takes `product: "SERVICE_TIMER"`).
