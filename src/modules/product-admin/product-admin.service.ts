@@ -69,7 +69,15 @@ export class ProductAdminService implements OnModuleInit {
     return { accessToken, refreshToken };
   }
 
-  async onModuleInit() {
+  // One-off seeding that is already done in any existing database, so it runs
+  // In the background rather than delaying every cold start.
+  onModuleInit() {
+    this.seedProductAdmin().catch((err: unknown) => {
+      this.logger.error('Failed to seed product admin', String(err));
+    });
+  }
+
+  private async seedProductAdmin() {
     await this.rolesService.seedDefaultRoles();
 
     const count = await this.productAdminModel.countDocuments();
