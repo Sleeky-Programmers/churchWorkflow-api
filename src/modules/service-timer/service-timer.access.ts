@@ -102,6 +102,7 @@ export function tidySession(dto: TimerSessionDto): TimerSessionDto {
       startedAt: dto.timer.running ? (dto.timer.startedAt ?? null) : null,
       elapsedBefore: dto.timer.elapsedBefore,
       extraMs: dto.timer.extraMs,
+      firstStartedAt: dto.timer.firstStartedAt ?? null,
     },
     message: { text: dto.message.text, shown: dto.message.shown },
   };

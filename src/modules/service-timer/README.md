@@ -133,6 +133,13 @@ Rules carried over from live use (handoff, section 6):
 - On the Free plan the API refuses custom colours and logo uploads with `403 PLAN_REQUIRED`. Settings saved on the Church plan are kept and come back after upgrading again.
 - Seats for timer invites follow the timer plan for timer-only churches (Church Workflow churches keep their own limits).
 
+## Service reports (`/api/v1/service-timer/reports`)
+
+- The device that moves the timer on (laptop or PIN phone) sends how long each item actually ran over the socket: `runs:push { runs: [{ id, name, person, plannedMinutes, extraMs, actualMs, startedAt, endedAt }] }` (ack `{ ok }`). A pause sends a snapshot and moving on sends the final one; `id` is the item id plus when it first started, so snapshots update one record (`timeritemruns`), keeping the longest.
+- Runs are recorded on every plan. Reading them needs the Church plan (or Church Workflow): Free gets `403 PLAN_REQUIRED`, and upgrading shows past services too.
+- `GET /reports?days=90`: services for the active branch, newest first (`date`, `startedAt`, `endedAt`, `plannedMs`, `actualMs`, `overMs`).
+- `GET /reports/:date` (`YYYY-MM-DD`): the service item by item against the program. Dates are in the branch's time zone, else the church's, else Africa/Lagos.
+
 ## Deployment
 
 The API runs as one long-lived container on Dokploy, behind Traefik, which

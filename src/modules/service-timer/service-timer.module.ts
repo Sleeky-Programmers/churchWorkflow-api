@@ -42,6 +42,13 @@ import {
 } from './billing/timer-billing.controller';
 import { TimerBillingService } from './billing/timer-billing.service';
 import { TimerPlanService } from './billing/timer-plan.service';
+import { Branch, BranchSchema } from '../../schemas/branch.schema';
+import {
+  TimerItemRun,
+  TimerItemRunSchema,
+} from '../../schemas/timer-item-run.schema';
+import { TimerReportsController } from './reports/timer-reports.controller';
+import { TimerReportsService } from './reports/timer-reports.service';
 import { TimerTeamController } from './team/timer-team.controller';
 import { TimerTeamService } from './team/timer-team.service';
 import { BranchModule } from '../branch/branch.module';
@@ -70,6 +77,8 @@ import { ServiceTimerService } from './service-timer.service';
       { name: TimerPlanConfig.name, schema: TimerPlanConfigSchema },
       { name: TimerSubscription.name, schema: TimerSubscriptionSchema },
       { name: TimerPayment.name, schema: TimerPaymentSchema },
+      { name: TimerItemRun.name, schema: TimerItemRunSchema },
+      { name: Branch.name, schema: BranchSchema },
     ]),
     // Secrets are passed per call: admin tokens use JWT_SECRET, operator
     // Tokens a secret derived from it.
@@ -87,6 +96,7 @@ import { ServiceTimerService } from './service-timer.service';
     TimerTeamController,
     TimerBillingController,
     TimerPlansAdminController,
+    TimerReportsController,
   ],
   providers: [
     ServiceTimerService,
@@ -94,6 +104,7 @@ import { ServiceTimerService } from './service-timer.service';
     ServiceTimerGateway,
     TimerImportService,
     TimerTeamService,
+    TimerReportsService,
     TimerPlanService,
     TimerBillingService,
     TimerPaystackClient,
