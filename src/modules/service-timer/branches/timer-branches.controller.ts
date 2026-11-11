@@ -53,7 +53,7 @@ export class TimerBranchesController {
       })),
       activeBranchId: mine.activeBranchId,
       accessScope: mine.accessScope,
-      // null: Church Workflow's own limits apply (managed there).
+      // Null: Church Workflow's own limits apply (managed there).
       limit: plan.branchLimit,
       count,
     };

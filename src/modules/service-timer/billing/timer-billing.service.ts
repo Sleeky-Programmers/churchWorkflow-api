@@ -75,22 +75,22 @@ export class TimerBillingService {
     const { start } = monthBounds(new Date());
     const [plan, free, church, seats, imports, payments, branches] =
       await Promise.all([
-      this.plans.planFor(churchId),
-      this.plans.getConfig(TimerPlan.FREE),
-      this.plans.getConfig(TimerPlan.CHURCH),
-      this.seatsUsed(churchId),
-      this.importModel.countDocuments({
-        churchId,
-        status: TimerImportStatus.SUCCEEDED,
-        createdAt: { $gte: start },
-      }),
-      this.paymentModel
-        .find({ churchId, status: TimerPaymentStatus.SUCCESS })
-        .sort({ paidAt: -1 })
-        .limit(12)
-        .lean(),
-      this.branchService.countActive(churchId),
-    ]);
+        this.plans.planFor(churchId),
+        this.plans.getConfig(TimerPlan.FREE),
+        this.plans.getConfig(TimerPlan.CHURCH),
+        this.seatsUsed(churchId),
+        this.importModel.countDocuments({
+          churchId,
+          status: TimerImportStatus.SUCCEEDED,
+          createdAt: { $gte: start },
+        }),
+        this.paymentModel
+          .find({ churchId, status: TimerPaymentStatus.SUCCESS })
+          .sort({ paidAt: -1 })
+          .limit(12)
+          .lean(),
+        this.branchService.countActive(churchId),
+      ]);
     const limits = (c: typeof free) => ({
       users: c.userLimit,
       imports: c.importLimit,
