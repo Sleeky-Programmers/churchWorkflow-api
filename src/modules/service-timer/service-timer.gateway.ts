@@ -19,6 +19,10 @@ import { AdminService } from '../admin/admin.service';
 import { TenantContextService } from '../branch/tenant-context.service';
 import { TimerSessionDto } from './dto/timer-session.dto';
 import {
+  ItemRunsDto,
+  TimerReportsService,
+} from './reports/timer-reports.service';
+import {
   adminPrincipal,
   branchRoom,
   churchRoom,
@@ -68,6 +72,7 @@ export class ServiceTimerGateway implements OnGatewayInit, OnGatewayConnection {
     private readonly tenantContextService: TenantContextService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly reports: TimerReportsService,
   ) {}
 
   afterInit(server: Namespace) {
@@ -190,6 +195,37 @@ export class ServiceTimerGateway implements OnGatewayInit, OnGatewayConnection {
         ok: false,
         error: 'Could not save the change. It will be sent again.',
       };
+    }
+  }
+
+  /**
+   * How long items actually ran, from the device that moved the timer on
+   * (laptop or PIN phone), for service reports. Acks so queued runs are
+   * only dropped once saved.
+   */
+  @UsePipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+      exceptionFactory: () => new WsException('Invalid runs'),
+    }),
+  )
+  @SubscribeMessage('runs:push')
+  async pushRuns(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() dto: ItemRunsDto,
+  ) {
+    const p = client.data.principal as TimerPrincipal | undefined;
+    if (!p?.canControl) {
+      return { ok: false, error: 'Not allowed' };
+    }
+    try {
+      await this.reports.recordRuns(this.timer.scopeOf(p), dto.runs);
+      return { ok: true };
+    } catch (err) {
+      this.logger.error('Failed to save item runs', err as Error);
+      return { ok: false, error: 'Could not save. It will be sent again.' };
     }
   }
 

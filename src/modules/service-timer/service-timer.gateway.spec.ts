@@ -20,6 +20,7 @@ import { TimerPrincipal } from './service-timer.access';
 import { ServiceTimerEvents } from './service-timer.events';
 import { ServiceTimerGateway } from './service-timer.gateway';
 import { ServiceTimerService } from './service-timer.service';
+import { TimerReportsService } from './reports/timer-reports.service';
 
 /**
  * Runs the real gateway over real Socket.IO connections, with the database
@@ -61,9 +62,11 @@ describe('ServiceTimerGateway', () => {
   let url: string;
   const sockets: Socket[] = [];
   let version = 0;
+  let reportsMock: { recordRuns: jest.Mock };
 
   beforeAll(async () => {
     const events = new ServiceTimerEvents();
+    reportsMock = { recordRuns: jest.fn().mockResolvedValue({ saved: 1 }) };
     const timerMock = {
       snapshotFor: async (p: TimerPrincipal) => ({
         access: {
@@ -123,6 +126,7 @@ describe('ServiceTimerGateway', () => {
         },
         { provide: JwtService, useValue: new JwtService({}) },
         { provide: ConfigService, useValue: { get: () => SECRET } },
+        { provide: TimerReportsService, useValue: reportsMock },
       ],
     }).compile();
 
@@ -251,6 +255,35 @@ describe('ServiceTimerGateway', () => {
       extra: 'x',
     });
     expect(await exception).toMatchObject({ status: 'error' });
+  });
+
+  it('saves item runs from a controller, but not from a display', async () => {
+    const run = {
+      id: 'item-a:1762412400000',
+      name: 'The Word',
+      person: 'Pst. O',
+      plannedMinutes: 40,
+      extraMs: 60000,
+      actualMs: 2_700_000,
+      startedAt: Date.now() - 2_700_000,
+      endedAt: Date.now(),
+    };
+    const controller = await connect({ token: addAdmin(AccessLevel.MANAGE) });
+    const ack = await controller.socket.emitWithAck('runs:push', {
+      runs: [run],
+    });
+    expect(ack).toEqual({ ok: true });
+    expect(reportsMock.recordRuns).toHaveBeenCalledWith(
+      expect.objectContaining({ branchId: String(branchA) }),
+      [run],
+    );
+
+    reportsMock.recordRuns.mockClear();
+    const display = await connect({ displayToken: 'display-a' });
+    expect(
+      await display.socket.emitWithAck('runs:push', { runs: [run] }),
+    ).toMatchObject({ ok: false });
+    expect(reportsMock.recordRuns).not.toHaveBeenCalled();
   });
 
   it('tells a device the server time', async () => {

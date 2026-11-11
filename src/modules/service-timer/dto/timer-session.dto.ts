@@ -51,6 +51,11 @@ export class TimerRunDto {
 
   @IsNumber()
   extraMs: number;
+
+  // When this item was first started (kept through pauses), for reports.
+  @IsOptional()
+  @IsNumber()
+  firstStartedAt?: number | null;
 }
 
 export class TimerMessageDto {

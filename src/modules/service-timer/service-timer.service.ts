@@ -536,6 +536,7 @@ export class ServiceTimerService {
         startedAt: s.timer?.startedAt ?? null,
         elapsedBefore: s.timer?.elapsedBefore ?? 0,
         extraMs: s.timer?.extraMs ?? 0,
+        firstStartedAt: s.timer?.firstStartedAt ?? null,
       },
       message: {
         text: s.message?.text ?? '',

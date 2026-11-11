@@ -29,6 +29,8 @@ export class TimerRun {
   @Prop({ default: 0 }) elapsedBefore: number;
   // +1 / −1 adjustments for this run only.
   @Prop({ default: 0 }) extraMs: number;
+  // When this item was first started (kept through pauses), for reports.
+  @Prop({ type: Number, default: null }) firstStartedAt: number | null;
 }
 export const TimerRunSchema = SchemaFactory.createForClass(TimerRun);
 
