@@ -36,7 +36,8 @@ function setup(opts: { inUse?: string[]; failCodes?: string[] } = {}) {
   };
   const plans = {
     getConfig: async (p: TimerPlan) => structuredClone(configs[p]),
-    listConfigs: async () => Object.values(configs).map((c) => structuredClone(c)),
+    listConfigs: async () =>
+      Object.values(configs).map((c) => structuredClone(c)),
     updateConfig: jest.fn(async (p: TimerPlan, patch: any) => {
       Object.assign(configs[p], patch);
       return configs[p];

@@ -364,8 +364,11 @@ export class TimerBillingService implements OnModuleInit {
     const before = await this.plans.getConfig(plan);
     await this.plans.updateConfig(plan, patch, updatedBy);
 
-    let paystack: { cycle: TimerBillingCycle; updated: number; failed: number }[] =
-      [];
+    let paystack: {
+      cycle: TimerBillingCycle;
+      updated: number;
+      failed: number;
+    }[] = [];
     if (plan === TimerPlan.CHURCH) {
       const changed: [TimerBillingCycle, number][] = [];
       if (
