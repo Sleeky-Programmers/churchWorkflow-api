@@ -119,11 +119,13 @@ export class ProductAdminRolesService {
       },
     ];
 
-    for (const defaultRole of defaults) {
-      const exists = await this.roleModel.findOne({ name: defaultRole.name });
-      if (!exists) {
-        await this.roleModel.create(defaultRole);
-      }
-    }
+    await Promise.all(
+      defaults.map(async (defaultRole) => {
+        const exists = await this.roleModel.findOne({ name: defaultRole.name });
+        if (!exists) {
+          await this.roleModel.create(defaultRole);
+        }
+      }),
+    );
   }
 }

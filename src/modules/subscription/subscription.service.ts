@@ -69,17 +69,21 @@ export class SubscriptionService implements OnModuleInit {
     await this.loadPlanConfigCache();
   }
 
+  // Runs on every cold start, so plans load in parallel rather than one
+  // Round trip after another.
   private async loadPlanConfigCache() {
-    for (const plan of Object.values(PlanType)) {
-      let doc = await this.planPricingModel.findOne({ plan });
-      if (!doc) {
-        doc = await this.planPricingModel.create({
-          plan,
-          ...this.defaultPlanConfig[plan],
-        });
-      }
-      this.planConfigCache.set(plan, doc);
-    }
+    await Promise.all(
+      Object.values(PlanType).map(async (plan) => {
+        let doc = await this.planPricingModel.findOne({ plan });
+        if (!doc) {
+          doc = await this.planPricingModel.create({
+            plan,
+            ...this.defaultPlanConfig[plan],
+          });
+        }
+        this.planConfigCache.set(plan, doc);
+      }),
+    );
   }
 
   private getPlanConfig(plan: PlanType): PlanPricing {

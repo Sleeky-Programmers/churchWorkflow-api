@@ -201,19 +201,33 @@ export class ExpenseService {
   async monthlyTrend(tenant: TenantContext) {
     const targetYear = new Date().getFullYear();
 
-    const expenses = await this.expenseModel
-      .find({ ...buildTenantFilter(tenant) })
-      .select('date amount')
-      .lean();
+    // Sum per month in Mongo, bounded to this year, instead of loading every
+    // Expense the church has ever recorded and bucketing in Node. This was
+    // Unbounded work on a dashboard request and could outlive the function.
+    const rows = await this.expenseModel
+      .aggregate<{ _id: number; total: number }>([
+        {
+          $match: {
+            ...buildTenantFilter(tenant),
+            date: {
+              $gte: new Date(targetYear, 0, 1),
+              $lt: new Date(targetYear + 1, 0, 1),
+            },
+          },
+        },
+        {
+          $group: {
+            _id: { $month: '$date' },
+            total: { $sum: { $ifNull: ['$amount', 0] } },
+          },
+        },
+      ])
+      .option({ maxTimeMS: 15_000 });
 
     const totalsByMonth = new Array(12).fill(0);
 
-    for (const expense of expenses) {
-      const date = new Date(expense.date);
-      if (isNaN(date.getTime()) || date.getFullYear() !== targetYear) {
-        continue;
-      }
-      totalsByMonth[date.getMonth()] += expense.amount || 0;
+    for (const row of rows) {
+      totalsByMonth[row._id - 1] = row.total;
     }
 
     return totalsByMonth.map((totalAmount, index) => {

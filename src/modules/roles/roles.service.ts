@@ -54,9 +54,19 @@ export class RolesService implements OnModuleInit {
   // Ensuring this one document exists here covers both "auto-created for
   // New churches" and "backfilled for existing churches" in one step - there
   // Is nothing per-church to migrate.
-  async onModuleInit() {
-    try {
-      await this.ensureSystemRole(
+  //
+  // These documents almost always exist already, so the check runs in the
+  // Background instead of holding up every cold start (on Vercel a slow
+  // Bootstrap fails the request outright).
+  onModuleInit() {
+    this.seedSystemRoles().catch((err: unknown) => {
+      this.logger.error('Failed to seed system roles', String(err));
+    });
+  }
+
+  private async seedSystemRoles() {
+    await Promise.all([
+      this.ensureSystemRole(
         SMALL_TEAMS_ROLE_NAME,
         'Can mark attendance and manage only the small team(s) they lead.',
         [
@@ -69,9 +79,8 @@ export class RolesService implements OnModuleInit {
             accessLevel: AccessLevel.MANAGE,
           },
         ] as SectionPermission[],
-      );
-
-      await this.ensureSystemRole(
+      ),
+      this.ensureSystemRole(
         DEPARTMENT_HEAD_ROLE_NAME,
         'Can manage only the department(s) they head or assist.',
         [
@@ -84,19 +93,16 @@ export class RolesService implements OnModuleInit {
             accessLevel: AccessLevel.MANAGE,
           },
         ] as SectionPermission[],
-      );
-
-      for (const role of TIMER_ROLES) {
-        await this.ensureSystemRole(role.roleName, role.description, [
+      ),
+      ...TIMER_ROLES.map((role) => {
+        return this.ensureSystemRole(role.roleName, role.description, [
           {
             moduleSection: ModuleSections.SERVICE_TIMER,
             accessLevel: role.accessLevel,
           },
         ] as SectionPermission[]);
-      }
-    } catch (err) {
-      this.logger.error('Failed to seed Small Teams system role', err as any);
-    }
+      }),
+    ]);
   }
 
   async findOne(roleName: string) {
