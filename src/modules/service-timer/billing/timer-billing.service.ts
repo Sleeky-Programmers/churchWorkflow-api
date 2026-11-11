@@ -2,9 +2,11 @@ import { Model, Types } from 'mongoose';
 
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   Logger,
   NotFoundException,
+  OnModuleInit,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
@@ -24,9 +26,10 @@ import {
   TimerImportStatus,
 } from '../../../schemas/timer-import.schema';
 import { monthBounds } from '../import/program-extraction';
-import { TimerPaystackClient } from './paystack-client';
+import { PaystackTransaction, TimerPaystackClient } from './paystack-client';
 import { TimerPlanService } from './timer-plan.service';
 import { BranchService } from '../../branch/branch.service';
+import { PaystackWebhookRegistry } from '../../paystack/paystack-webhook.registry';
 import { DEFAULT_PLANS, extendPeriod } from './timer-plans';
 
 /** Marks timer payments so Church Workflow's Paystack webhook leaves them alone. */
@@ -37,14 +40,21 @@ const ABANDON_AFTER_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Paying for the Church plan with Paystack. A payment buys a month or a
- * year; paying again extends it. There is no auto-renew in this version, so
- * no Paystack plans or webhooks are involved: payments are confirmed when
- * the payer comes back, and any left pending are re-checked whenever the
- * billing page is opened.
+ * year; paying again extends it. Payments are confirmed when the payer
+ * comes back, by Paystack's webhook, or when the billing page is opened,
+ * whichever is first, and are applied once.
+ *
+ * Auto-renew: when the payer asks for it, the first payment's card is put
+ * on a Paystack subscription that first charges when the paid period ends.
+ * Each renewal arrives as a webhook and extends the plan.
  */
 @Injectable()
-export class TimerBillingService {
+export class TimerBillingService implements OnModuleInit {
   private readonly logger = new Logger(TimerBillingService.name);
+
+  onModuleInit() {
+    this.webhooks.register((payload) => this.handleWebhook(payload));
+  }
 
   constructor(
     @InjectModel(TimerPayment.name) private paymentModel: Model<TimerPayment>,
@@ -56,6 +66,7 @@ export class TimerBillingService {
     private plans: TimerPlanService,
     private paystack: TimerPaystackClient,
     private branchService: BranchService,
+    private webhooks: PaystackWebhookRegistry,
   ) {}
 
   /** Seats used: accounts plus pending invites, as Church Workflow counts them. */
@@ -73,7 +84,7 @@ export class TimerBillingService {
   async overview(churchId: Types.ObjectId) {
     await this.reconcile(churchId);
     const { start } = monthBounds(new Date());
-    const [plan, free, church, seats, imports, payments, branches] =
+    const [plan, free, church, seats, imports, payments, branches, sub] =
       await Promise.all([
         this.plans.planFor(churchId),
         this.plans.getConfig(TimerPlan.FREE),
@@ -90,7 +101,9 @@ export class TimerBillingService {
           .limit(12)
           .lean(),
         this.branchService.countActive(churchId),
+        this.plans.subscriptionOf(churchId),
       ]);
+    const renewing = plan.key === TimerPlan.CHURCH && !!sub?.autoRenew;
     const limits = (c: typeof free) => ({
       users: c.userLimit,
       imports: c.importLimit,
@@ -109,22 +122,39 @@ export class TimerBillingService {
         },
       },
       usage: { seats, imports, branches },
-      canPay: plan.key !== 'CHURCH_WORKFLOW',
+      // While auto-renew is on, Paystack charges at period end, so paying
+      // By hand is off until it's turned off.
+      canPay: plan.key !== 'CHURCH_WORKFLOW' && !renewing,
+      autoRenew: renewing
+        ? { cycle: sub!.cycle, nextChargeAt: sub!.currentPeriodEnd }
+        : null,
       payments: payments.map((p) => ({
         reference: p.reference,
         amount: p.amount,
         cycle: p.cycle,
         paidAt: p.paidAt,
+        renewal: !!p.renewal,
       })),
     };
   }
 
-  async checkout(admin: Admin, cycle: TimerBillingCycle, callbackUrl: string) {
+  async checkout(
+    admin: Admin,
+    cycle: TimerBillingCycle,
+    callbackUrl: string,
+    autoRenew = false,
+  ) {
     const churchId = admin.churchId as Types.ObjectId;
     const plan = await this.plans.planFor(churchId);
     if (plan.key === 'CHURCH_WORKFLOW') {
       throw new BadRequestException(
         'The Service Timer is included in your Church Workflow plan.',
+      );
+    }
+    const sub = await this.plans.subscriptionOf(churchId);
+    if (plan.key === TimerPlan.CHURCH && sub?.autoRenew) {
+      throw new ConflictException(
+        'Auto-renew is on, so your plan renews by itself. Turn it off first to pay another way.',
       );
     }
     const cfg = await this.plans.getConfig(TimerPlan.CHURCH);
@@ -144,6 +174,7 @@ export class TimerBillingService {
         churchId: String(churchId),
         plan: TimerPlan.CHURCH,
         cycle,
+        autoRenew,
       },
     });
     await this.paymentModel.create({
@@ -152,6 +183,7 @@ export class TimerBillingService {
       reference,
       amount,
       cycle,
+      autoRenew,
     });
     return { reference, authorizationUrl };
   }
@@ -217,6 +249,18 @@ export class TimerBillingService {
           },
           { upsert: true },
         );
+        if (payment.autoRenew) {
+          await this.startAutoRenew(payment, tx, end).catch((err) =>
+            this.logger.error(
+              `Couldn't set up auto-renew for ${payment.reference}: ${err}`,
+            ),
+          );
+        } else if (sub?.autoRenew) {
+          // Paid by hand after a lapsed auto-renew: stop the old one.
+          await this.cancelAutoRenew(payment.churchId).catch((err) =>
+            this.logger.warn(`Couldn't stop old auto-renew: ${err}`),
+          );
+        }
       }
       return TimerPaymentStatus.SUCCESS;
     }
@@ -232,5 +276,260 @@ export class TimerBillingService {
       return TimerPaymentStatus.FAILED;
     }
     return TimerPaymentStatus.PENDING;
+  }
+
+  /** The Paystack plan to renew a cycle on at this price, made if needed. */
+  private async planCodeFor(cycle: TimerBillingCycle, amount: number) {
+    const cfg = await this.plans.getConfig(TimerPlan.CHURCH);
+    const saved = cfg.paystackPlans?.[cycle];
+    if (saved?.code && saved.amount === amount) {
+      return saved.code;
+    }
+    const code = await this.paystack.createPlan({
+      name: `Service Timer ${cfg.name} (${cycle})`,
+      interval: cycle === TimerBillingCycle.YEARLY ? 'annually' : 'monthly',
+      amountNaira: amount,
+    });
+    await this.plans.setPaystackPlan(cycle, { code, amount });
+    return code;
+  }
+
+  /**
+   * Puts the card from the first payment on a Paystack subscription that
+   * first charges when the period just paid for ends.
+   */
+  private async startAutoRenew(
+    payment: TimerPayment,
+    tx: PaystackTransaction,
+    periodEnd: Date,
+  ) {
+    const customer = tx.customer?.customer_code;
+    const authorization = tx.authorization?.authorization_code;
+    if (!customer || !authorization || tx.authorization?.reusable === false) {
+      this.logger.warn(
+        `Payment ${payment.reference} can't be renewed automatically (card not reusable).`,
+      );
+      return;
+    }
+    const previous = await this.subscriptionModel
+      .findOne({ churchId: payment.churchId })
+      .lean();
+    // Don't leave an older subscription charging alongside the new one.
+    if (previous?.paystackSubscriptionCode && previous.paystackEmailToken) {
+      await this.paystack
+        .disableSubscription(
+          previous.paystackSubscriptionCode,
+          previous.paystackEmailToken,
+        )
+        .catch(() => undefined);
+    }
+    const planCode = await this.planCodeFor(payment.cycle, payment.amount);
+    // Saved before Paystack answers, so its subscription.create webhook,
+    // Which can arrive first, finds this church.
+    await this.subscriptionModel.updateOne(
+      { churchId: payment.churchId },
+      {
+        $set: {
+          autoRenew: true,
+          paystackCustomerCode: customer,
+          paystackPlanCode: planCode,
+          paystackSubscriptionCode: null,
+          paystackEmailToken: null,
+        },
+      },
+    );
+    const created = await this.paystack.createSubscription({
+      customer,
+      authorization,
+      plan: planCode,
+      startDate: periodEnd,
+    });
+    if (created.subscriptionCode) {
+      const saved = await this.subscriptionModel.updateOne(
+        { churchId: payment.churchId, autoRenew: true },
+        {
+          $set: {
+            paystackSubscriptionCode: created.subscriptionCode,
+            paystackEmailToken: created.emailToken ?? null,
+          },
+        },
+      );
+      // Turned off while Paystack was answering: cancel what it made.
+      if (saved.matchedCount === 0 && created.emailToken) {
+        await this.paystack
+          .disableSubscription(created.subscriptionCode, created.emailToken)
+          .catch(() => undefined);
+      }
+    }
+  }
+
+  /** Stops future renewals; the time already paid for is kept. */
+  async cancelAutoRenew(churchId: Types.ObjectId) {
+    const sub = await this.subscriptionModel.findOne({ churchId }).lean();
+    if (!sub?.autoRenew) {
+      return { autoRenew: false };
+    }
+    if (sub.paystackSubscriptionCode && sub.paystackEmailToken) {
+      await this.paystack.disableSubscription(
+        sub.paystackSubscriptionCode,
+        sub.paystackEmailToken,
+      );
+    } else {
+      // Paystack hasn't confirmed the subscription yet, so there's nothing
+      // To cancel there. Remember the wish; the webhook below honours it.
+      this.logger.warn(
+        `Auto-renew turned off for ${churchId} before Paystack confirmed it.`,
+      );
+    }
+    await this.subscriptionModel.updateOne(
+      { churchId },
+      { $set: { autoRenew: false } },
+    );
+    return { autoRenew: false };
+  }
+
+  /**
+   * Timer events from the shared Paystack webhook (signature already
+   * checked). Returns true for the timer's own events.
+   */
+  async handleWebhook(payload: { event: string; data: any }) {
+    const { event, data } = payload ?? ({} as any);
+    if (!data) {
+      return false;
+    }
+    const planCode: string | null =
+      data.plan?.plan_code ??
+      (typeof data.plan === 'string' ? data.plan : null);
+    const customerCode: string | null =
+      data.customer?.customer_code ??
+      (typeof data.customer === 'string' ? data.customer : null);
+
+    switch (event) {
+      case 'charge.success': {
+        if (data.metadata?.type === TIMER_PAYMENT_TYPE) {
+          // A checkout: apply it now in case the payer never comes back.
+          const payment = await this.paymentModel.findOne({
+            reference: data.reference,
+          });
+          if (payment) {
+            await this.settle(payment);
+          }
+          return true;
+        }
+        if (!planCode || !(await this.isTimerPlan(planCode))) {
+          return false;
+        }
+        const sub = await this.subscriptionFor(planCode, customerCode);
+        if (!sub) {
+          this.logger.warn(
+            `Renewal ${data.reference} on a timer plan matched no church.`,
+          );
+          return true;
+        }
+        await this.applyRenewal(sub, data);
+        return true;
+      }
+
+      case 'subscription.create': {
+        if (!planCode || !(await this.isTimerPlan(planCode))) {
+          return false;
+        }
+        const sub = await this.subscriptionFor(planCode, customerCode);
+        if (!sub) {
+          return true;
+        }
+        if (!sub.autoRenew) {
+          // Turned off before Paystack confirmed it: cancel it now.
+          if (data.subscription_code && data.email_token) {
+            await this.paystack
+              .disableSubscription(data.subscription_code, data.email_token)
+              .catch(() => undefined);
+          }
+          return true;
+        }
+        await this.subscriptionModel.updateOne(
+          { _id: sub._id },
+          {
+            $set: {
+              paystackSubscriptionCode: data.subscription_code ?? null,
+              paystackEmailToken: data.email_token ?? null,
+            },
+          },
+        );
+        return true;
+      }
+
+      case 'subscription.disable':
+      case 'subscription.not_renew': {
+        const code = data.subscription_code;
+        if (!code) {
+          return false;
+        }
+        const res = await this.subscriptionModel.updateOne(
+          { paystackSubscriptionCode: code },
+          { $set: { autoRenew: false } },
+        );
+        return (
+          res.matchedCount > 0 ||
+          (!!planCode && (await this.isTimerPlan(planCode)))
+        );
+      }
+
+      default:
+        return false;
+    }
+  }
+
+  /**
+   * The church a renewal belongs to. One person (one Paystack customer) can
+   * run several timer churches, so the one renewing wins over any whose
+   * auto-renew is off, then the most recently changed.
+   */
+  private async subscriptionFor(planCode: string, customerCode: string | null) {
+    const q = {
+      paystackPlanCode: planCode,
+      paystackCustomerCode: customerCode,
+    };
+    return (
+      (await this.subscriptionModel.findOne({ ...q, autoRenew: true })) ??
+      (await this.subscriptionModel.findOne(q).sort({ updatedAt: -1 }))
+    );
+  }
+
+  private async isTimerPlan(planCode: string) {
+    const [cfg, inUse] = await Promise.all([
+      this.plans.getConfig(TimerPlan.CHURCH),
+      this.subscriptionModel.exists({ paystackPlanCode: planCode }),
+    ]);
+    return (
+      !!inUse ||
+      Object.values(cfg.paystackPlans ?? {}).some((p) => p?.code === planCode)
+    );
+  }
+
+  /** A renewal charge: recorded once (by reference), then the plan extended. */
+  private async applyRenewal(sub: TimerSubscription, data: any) {
+    try {
+      await this.paymentModel.create({
+        churchId: sub.churchId,
+        adminId: null,
+        reference: data.reference,
+        amount: Number(data.amount ?? 0) / 100,
+        cycle: sub.cycle,
+        status: TimerPaymentStatus.SUCCESS,
+        paidAt: data.paid_at ? new Date(data.paid_at) : new Date(),
+        renewal: true,
+      });
+    } catch (err: any) {
+      if (err?.code === 11000) {
+        return; // Already applied (Paystack retries webhooks).
+      }
+      throw err;
+    }
+    const end = extendPeriod(sub.currentPeriodEnd, sub.cycle, new Date());
+    await this.subscriptionModel.updateOne(
+      { _id: sub._id },
+      { $set: { plan: TimerPlan.CHURCH, currentPeriodEnd: end } },
+    );
   }
 }

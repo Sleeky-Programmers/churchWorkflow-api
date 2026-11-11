@@ -135,6 +135,7 @@ function billing(
       monthlyPrice: opts.price ?? 2500,
       yearlyPrice: 25000,
     }),
+    subscriptionOf: jest.fn(async () => subs[0] ?? null),
   };
   const paystack = {
     initialize: jest.fn().mockResolvedValue({
@@ -152,6 +153,7 @@ function billing(
     plans as any,
     paystack as any,
     { countActive: async () => 1 } as any,
+    { register: () => undefined } as any,
   );
   return { service, payments, subs, paystack };
 }

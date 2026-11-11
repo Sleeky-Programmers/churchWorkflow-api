@@ -58,6 +58,14 @@ export class TimerPlanConfig extends Document {
   @Prop({ default: false })
   customBranding: boolean;
 
+  // Paystack plans that auto-renewing subscriptions charge on, per cycle.
+  // `amount` is the naira price the plan was made with; a price change makes
+  // A new plan for new subscribers (existing ones keep theirs).
+  @Prop({ type: SchemaTypes.Mixed, default: {} })
+  paystackPlans: Partial<
+    Record<TimerBillingCycle, { code: string; amount: number }>
+  >;
+
   @Prop({ type: SchemaTypes.ObjectId, default: null })
   updatedBy: Types.ObjectId | null;
 }
@@ -84,6 +92,24 @@ export class TimerSubscription extends Document {
   // Paid up to here; paying again extends it.
   @Prop({ type: Date, required: true })
   currentPeriodEnd: Date;
+
+  // Auto-renew through a Paystack subscription. Paystack charges the saved
+  // Card at each period end and tells us by webhook.
+  @Prop({ type: Boolean, default: false })
+  autoRenew: boolean;
+
+  @Prop({ type: String, default: null })
+  paystackCustomerCode: string | null;
+
+  @Prop({ type: String, default: null })
+  paystackSubscriptionCode: string | null;
+
+  // Needed to cancel the Paystack subscription.
+  @Prop({ type: String, default: null })
+  paystackEmailToken: string | null;
+
+  @Prop({ type: String, default: null })
+  paystackPlanCode: string | null;
 }
 export const TimerSubscriptionSchema =
   SchemaFactory.createForClass(TimerSubscription);
@@ -94,8 +120,17 @@ export class TimerPayment extends Document {
   @Prop({ type: SchemaTypes.ObjectId, ref: Church.name, required: true })
   churchId: Types.ObjectId;
 
-  @Prop({ type: SchemaTypes.ObjectId, ref: Admin.name, required: true })
-  adminId: Types.ObjectId;
+  // Who paid; null for automatic renewals.
+  @Prop({ type: SchemaTypes.ObjectId, ref: Admin.name, default: null })
+  adminId: Types.ObjectId | null;
+
+  // Set up auto-renew once this payment succeeds.
+  @Prop({ type: Boolean, default: false })
+  autoRenew: boolean;
+
+  // Charged by a Paystack subscription rather than at checkout.
+  @Prop({ type: Boolean, default: false })
+  renewal: boolean;
 
   @Prop({ required: true, unique: true })
   reference: string;
@@ -120,3 +155,8 @@ export class TimerPayment extends Document {
 export const TimerPaymentSchema = SchemaFactory.createForClass(TimerPayment);
 
 TimerPaymentSchema.index({ churchId: 1, status: 1 });
+TimerSubscriptionSchema.index(
+  { paystackSubscriptionCode: 1 },
+  { sparse: true },
+);
+TimerSubscriptionSchema.index({ paystackCustomerCode: 1 }, { sparse: true });

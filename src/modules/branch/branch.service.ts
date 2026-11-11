@@ -44,7 +44,7 @@ export class BranchService {
     excludeBranchId?: Types.ObjectId | string,
   ) {
     // `_id` is only added when excluding a branch: `_id: undefined` would
-    // match no document, so the check would never find a duplicate.
+    // Match no document, so the check would never find a duplicate.
     const duplicate = await this.branchModel.findOne({
       churchId,
       ...(excludeBranchId ? { _id: { $ne: excludeBranchId } } : {}),

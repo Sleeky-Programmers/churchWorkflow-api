@@ -9,11 +9,13 @@ export interface PaystackTransaction {
   amount: number;
   paid_at?: string;
   metadata?: Record<string, unknown>;
+  customer?: { customer_code?: string; email?: string };
+  authorization?: { authorization_code?: string; reusable?: boolean };
 }
 
 /**
- * The two Paystack calls the timer needs. Kept separate from Church
- * Workflow's PaystackService, which applies Church Workflow plans on verify.
+ * The Paystack calls the timer needs. Kept separate from Church Workflow's
+ * PaystackService, which applies Church Workflow plans on verify.
  */
 @Injectable()
 export class TimerPaystackClient {
@@ -67,5 +69,59 @@ export class TimerPaystackClient {
       { headers, timeout: 20_000 },
     );
     return res.data?.data;
+  }
+
+  /** A Paystack plan to renew on; amount in naira. Returns its code. */
+  async createPlan(body: {
+    name: string;
+    interval: 'monthly' | 'annually';
+    amountNaira: number;
+  }): Promise<string> {
+    const { baseUrl, headers } = this.settings;
+    const res = await axios.post(
+      `${baseUrl}/plan`,
+      {
+        name: body.name,
+        interval: body.interval,
+        amount: Math.round(body.amountNaira * 100),
+        currency: 'NGN',
+      },
+      { headers, timeout: 20_000 },
+    );
+    return res.data?.data?.plan_code;
+  }
+
+  /** Charges the saved card on the plan's interval, first on `startDate`. */
+  async createSubscription(body: {
+    customer: string;
+    authorization: string;
+    plan: string;
+    startDate: Date;
+  }): Promise<{ subscriptionCode: string; emailToken: string }> {
+    const { baseUrl, headers } = this.settings;
+    const res = await axios.post(
+      `${baseUrl}/subscription`,
+      {
+        customer: body.customer,
+        authorization: body.authorization,
+        plan: body.plan,
+        start_date: body.startDate.toISOString(),
+      },
+      { headers, timeout: 20_000 },
+    );
+    const data = res.data?.data ?? {};
+    return {
+      subscriptionCode: data.subscription_code,
+      emailToken: data.email_token,
+    };
+  }
+
+  async disableSubscription(code: string, token: string) {
+    const { baseUrl, headers } = this.settings;
+    await axios.post(
+      `${baseUrl}/subscription/disable`,
+      { code, token },
+      { headers, timeout: 20_000 },
+    );
   }
 }

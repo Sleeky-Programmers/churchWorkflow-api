@@ -54,6 +54,7 @@ import { TimerTeamController } from './team/timer-team.controller';
 import { TimerTeamService } from './team/timer-team.service';
 import { BranchModule } from '../branch/branch.module';
 import { FileUploadModule } from '../file-upload/file-upload.module';
+import { PaystackModule } from '../paystack/paystack.module';
 import { TimerImportController } from './import/timer-import.controller';
 import {
   ANTHROPIC_CLIENT,
@@ -88,6 +89,7 @@ import { ServiceTimerService } from './service-timer.service';
     AdminInviteModule,
     BranchModule,
     FileUploadModule,
+    PaystackModule,
     RolesModule,
   ],
   controllers: [
