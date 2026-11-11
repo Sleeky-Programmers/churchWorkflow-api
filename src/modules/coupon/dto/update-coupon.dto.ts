@@ -22,13 +22,17 @@ import {
 export class UpdateCouponDto {
   @IsString()
   @IsOptional()
-  @ValidateIf((o) => o.code !== undefined)
+  @ValidateIf((o) => {
+    return o.code !== undefined;
+  })
   @IsNotEmpty()
   code?: string;
 
   @IsString()
   @IsOptional()
-  @ValidateIf((o) => o.description !== undefined)
+  @ValidateIf((o) => {
+    return o.description !== undefined;
+  })
   @IsNotEmpty()
   description?: string;
 

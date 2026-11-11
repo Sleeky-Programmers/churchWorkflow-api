@@ -52,7 +52,9 @@ import { ConfigModule } from '@nestjs/config';
     ActivityLogModule,
     NotificationModule,
     ChurchServicesModule,
-    forwardRef(() => AttendanceModule),
+    forwardRef(() => {
+      return AttendanceModule;
+    }),
     SubscriptionModule,
   ],
   controllers: [MembersController, PastoralController, InternalCronController],

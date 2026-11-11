@@ -37,7 +37,11 @@ export class PaystackService {
     private readonly couponService: CouponService,
     private readonly subscriptionPlanCodesService: SubscriptionPlanCodesService,
     private adminActivityLogService: AdminActivityLogService,
-    @Inject(forwardRef(() => OnlineGivingService))
+    @Inject(
+      forwardRef(() => {
+        return OnlineGivingService;
+      }),
+    )
     private readonly onlineGivingService: OnlineGivingService,
   ) {
     this.secretKey = this.configService.get<string>('paystack.secretKey');

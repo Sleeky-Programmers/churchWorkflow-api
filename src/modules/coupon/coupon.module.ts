@@ -9,7 +9,9 @@ import { CouponService } from './coupon.service';
 @Module({
   imports: [
     MongooseModule.forFeature([{ name: Coupon.name, schema: CouponSchema }]),
-    forwardRef(() => AdminActivityLogModule),
+    forwardRef(() => {
+      return AdminActivityLogModule;
+    }),
   ],
   controllers: [CouponController],
   providers: [CouponService],

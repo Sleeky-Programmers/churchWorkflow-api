@@ -13,7 +13,9 @@ export class MemberAttendanceFilterDto extends PaginationBaseDto {
 }
 
 export class MemberAttendanceStatsFilterDto {
-  @Type(() => Number)
+  @Type(() => {
+    return Number;
+  })
   @IsOptional()
   @IsInt()
   @Min(1)

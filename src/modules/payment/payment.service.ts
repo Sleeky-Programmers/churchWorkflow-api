@@ -125,6 +125,20 @@ export class PaymentService {
     return res;
   }
 
+  // Used by the renewal job to avoid charging a church twice for one cycle:
+  // A recurring charge that is pending or successful in the recent window
+  // Means the renewal is already in flight or done.
+  async hasRecentRecurringCharge(churchId: Types.ObjectId, since: Date) {
+    const found = await this.paymentModel.exists({
+      churchId,
+      autoRenew: true,
+      'metadata.recurring': true,
+      status: { $in: [PaymentStatus.SUCCESS, PaymentStatus.PENDING] },
+      createdAt: { $gte: since },
+    });
+    return !!found;
+  }
+
   async findLatestByChurch(churchId: any) {
     return await this.paymentModel
       .findOne({ churchId })
@@ -270,7 +284,11 @@ export class PaymentService {
 
     const match: any = { status: PaymentStatus.SUCCESS };
     if (churchIds && churchIds.length) {
-      match.churchId = { $in: churchIds.map((id) => new Types.ObjectId(id)) };
+      match.churchId = {
+        $in: churchIds.map((id) => {
+          return new Types.ObjectId(id);
+        }),
+      };
     }
 
     const pipeline: any[] = [

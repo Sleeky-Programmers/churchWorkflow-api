@@ -26,12 +26,14 @@ import { EmailModule } from '../email/email.module';
     EmailModule,
     JwtModule.registerAsync({
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        secret: config.get('productAdmin.jwtSecret'),
-        signOptions: {
-          expiresIn: config.get('productAdmin.jwtExpiresIn'),
-        },
-      }),
+      useFactory: (config: ConfigService) => {
+        return {
+          secret: config.get('productAdmin.jwtSecret'),
+          signOptions: {
+            expiresIn: config.get('productAdmin.jwtExpiresIn'),
+          },
+        };
+      },
     }),
   ],
   controllers: [ProductAdminController],

@@ -84,9 +84,17 @@ export class MembersService {
   constructor(
     @InjectModel(Member.name)
     private memberModel: Model<Member>,
-    @Inject(forwardRef(() => AttendanceService))
+    @Inject(
+      forwardRef(() => {
+        return AttendanceService;
+      }),
+    )
     private readonly attendanceService: AttendanceService,
-    @Inject(forwardRef(() => ChurchServicesService))
+    @Inject(
+      forwardRef(() => {
+        return ChurchServicesService;
+      }),
+    )
     private readonly churchServicesService: ChurchServicesService,
     private readonly activityLogService: ActivityLogService,
     private readonly notificationService: NotificationService,
@@ -112,7 +120,9 @@ export class MembersService {
     if (!churchIds || churchIds.length === 0) {
       return 0;
     }
-    const ids = churchIds.map((id) => new Types.ObjectId(id));
+    const ids = churchIds.map((id) => {
+      return new Types.ObjectId(id);
+    });
     return await this.memberModel.countDocuments({ churchId: { $in: ids } });
   }
 
@@ -168,15 +178,17 @@ export class MembersService {
         serviceIds,
       );
 
-    const formattedData = attendances.map((record: any) => ({
-      _id: record._id,
-      date: record.date,
-      status: record.status,
-      title: record.churchServiceId?.title,
-      serviceType: record.churchServiceId?.type,
-      recordedBy: `${record.recordedBy.firstName} ${record.recordedBy.lastName}`,
-      timestamp: record.createdAt,
-    }));
+    const formattedData = attendances.map((record: any) => {
+      return {
+        _id: record._id,
+        date: record.date,
+        status: record.status,
+        title: record.churchServiceId?.title,
+        serviceType: record.churchServiceId?.type,
+        recordedBy: `${record.recordedBy.firstName} ${record.recordedBy.lastName}`,
+        timestamp: record.createdAt,
+      };
+    });
 
     return {
       data: formattedData,
@@ -343,12 +355,12 @@ export class MembersService {
           }
 
           if (rowErrors.length) {
-            rowErrors.forEach((err) =>
-              errors.push({
+            rowErrors.forEach((err) => {
+              return errors.push({
                 row: rowIndex,
                 ...err,
-              }),
-            );
+              });
+            });
             continue;
           }
 
@@ -412,12 +424,12 @@ export class MembersService {
           }
 
           if (rowErrors.length) {
-            rowErrors.forEach((err) =>
-              errors.push({
+            rowErrors.forEach((err) => {
+              return errors.push({
                 row: rowIndex,
                 ...err,
-              }),
-            );
+              });
+            });
             continue;
           }
 
@@ -465,9 +477,9 @@ export class MembersService {
       throw new BadRequestException('Failed to parse CSV file');
     }
 
-    const addGuests = members.filter((m) =>
-      isGuestStatus(m.membershipStatus),
-    ).length;
+    const addGuests = members.filter((m) => {
+      return isGuestStatus(m.membershipStatus);
+    }).length;
 
     return {
       members,
@@ -484,8 +496,9 @@ export class MembersService {
     parsed: CsvParseResult,
   ) {
     const snapshot = await this.guestRulesService.getLimitSnapshot(churchId);
-    const over = (room: number | null, adding: number) =>
-      room === null ? 0 : Math.max(adding - room, 0);
+    const over = (room: number | null, adding: number) => {
+      return room === null ? 0 : Math.max(adding - room, 0);
+    };
     const overBy = {
       members: over(snapshot.room.members, parsed.addMembers),
       guests: over(snapshot.room.guests, parsed.addGuests),
@@ -563,7 +576,26 @@ export class MembersService {
       });
     }
 
-    const insertedDocs = await this.memberModel.insertMany(members);
+    // Insert in chunks so a very large file never builds one giant write and
+    // Exceeds time/memory limits. If a chunk fails, roll back what was
+    // Inserted so the import stays all-or-nothing.
+    const insertedIds: unknown[] = [];
+    try {
+      for (let i = 0; i < members.length; i += 1000) {
+        const chunk = await this.memberModel.insertMany(
+          members.slice(i, i + 1000),
+        );
+        for (const doc of chunk) {
+          insertedIds.push(doc._id);
+        }
+      }
+    } catch (error) {
+      if (insertedIds.length) {
+        await this.memberModel.deleteMany({ _id: { $in: insertedIds } });
+      }
+      throw error;
+    }
+    const insertedDocs = insertedIds;
 
     await this.activityLogService.create(authUser, {
       action: 'Bulk Member Import',
@@ -795,8 +827,26 @@ export class MembersService {
     return this.memberModel.find(buildTenantFilter(tenant));
   }
 
+  /**
+   * Lightweight projection for birthday widgets: just name + birthday for
+   * members that have one set. Replaces paging through full member records
+   * (capped at 300) on the client just to read two fields.
+   */
+  async getMemberBirthdays(tenant: TenantContext) {
+    return await this.memberModel
+      .find({ ...buildTenantFilter(tenant), birthday: { $ne: null } })
+      .select('_id fullName birthday')
+      .lean();
+  }
+
+  // Only used to build attendance rosters/stats, which need the id and gender.
+  // Lean + projection keeps this cheap for very large congregations (tens of
+  // Thousands of members) instead of hydrating full Mongoose documents.
   async findAll(tenant: TenantContext) {
-    return await this.memberModel.find(buildTenantFilter(tenant));
+    return await this.memberModel
+      .find(buildTenantFilter(tenant))
+      .select('_id gender')
+      .lean();
   }
 
   async findByIdInChurch(memberId: string, tenant: TenantContext) {
@@ -811,7 +861,11 @@ export class MembersService {
 
   async countMembersInChurch(memberIds: string[], tenant: TenantContext) {
     return await this.memberModel.countDocuments({
-      _id: { $in: memberIds.map((id) => new Types.ObjectId(id)) },
+      _id: {
+        $in: memberIds.map((id) => {
+          return new Types.ObjectId(id);
+        }),
+      },
       ...buildTenantFilter(tenant),
     });
   }
@@ -826,14 +880,22 @@ export class MembersService {
     }
     const guests = await this.memberModel
       .find({
-        _id: { $in: memberIds.map((id) => new Types.ObjectId(id)) },
+        _id: {
+          $in: memberIds.map((id) => {
+            return new Types.ObjectId(id);
+          }),
+        },
         ...buildTenantFilter(tenant),
         membershipStatus: MembershipStatus.VISITOR,
       })
       .select('fullName')
       .lean();
     if (guests.length) {
-      const names = guests.map((g) => g.fullName).join(', ');
+      const names = guests
+        .map((g) => {
+          return g.fullName;
+        })
+        .join(', ');
       throw new BadRequestException(`${GUEST_GROUP_ERROR} Guests: ${names}.`);
     }
   }
@@ -1022,7 +1084,9 @@ export class MembersService {
             .select('name')
             .lean(),
         ]);
-        const groups = [...departments, ...teams].map((g: any) => g.name);
+        const groups = [...departments, ...teams].map((g: any) => {
+          return g.name;
+        });
         if (groups.length) {
           throw new BadRequestException(
             `Remove ${member.fullName} from ${groups.join(', ')} before changing them to a guest. Guests can't be in departments or small teams.`,
@@ -1060,7 +1124,13 @@ export class MembersService {
       return { data: [], total: 0 };
     }
     const data = await this.memberModel
-      .find({ _id: { $in: ids.map((i) => new Types.ObjectId(i)) } })
+      .find({
+        _id: {
+          $in: ids.map((i) => {
+            return new Types.ObjectId(i);
+          }),
+        },
+      })
       .select('fullName phoneNumber email membershipStatus branchId')
       .lean();
     return { data, total: data.length };
@@ -1093,12 +1163,14 @@ export class MembersService {
       this.memberModel.countDocuments(query),
     ]);
 
-    const data = rows.map((m: Record<string, any>) => ({
-      ...m,
-      deletesOn: m.archivedAt
-        ? addDays(m.archivedAt, ARCHIVE_RETENTION_DAYS)
-        : null,
-    }));
+    const data = rows.map((m: Record<string, any>) => {
+      return {
+        ...m,
+        deletesOn: m.archivedAt
+          ? addDays(m.archivedAt, ARCHIVE_RETENTION_DAYS)
+          : null,
+      };
+    });
 
     return {
       data,
@@ -1128,8 +1200,9 @@ export class MembersService {
       const text = value === null || value === undefined ? '' : String(value);
       return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
     };
-    const day = (d?: Date | null) =>
-      d ? new Date(d).toISOString().slice(0, 10) : '';
+    const day = (d?: Date | null) => {
+      return d ? new Date(d).toISOString().slice(0, 10) : '';
+    };
 
     const lines = [headers.join(',')];
     for (const m of rows) {
@@ -1390,18 +1463,24 @@ export class MembersService {
       activeMembers,
       inactiveMembers,
       newMembersLast30Days,
-      membersByChurch: membersByChurch.map((c) => ({
-        churchName: c.churchName,
-        count: c.count,
-      })),
-      membersByStatus: membersByStatus.map((s) => ({
-        status: s._id || 'UNKNOWN',
-        count: s.count,
-      })),
-      genderDistribution: genderDistribution.map((g) => ({
-        gender: g._id,
-        count: g.count,
-      })),
+      membersByChurch: membersByChurch.map((c) => {
+        return {
+          churchName: c.churchName,
+          count: c.count,
+        };
+      }),
+      membersByStatus: membersByStatus.map((s) => {
+        return {
+          status: s._id || 'UNKNOWN',
+          count: s.count,
+        };
+      }),
+      genderDistribution: genderDistribution.map((g) => {
+        return {
+          gender: g._id,
+          count: g.count,
+        };
+      }),
     };
   }
 
@@ -1526,15 +1605,17 @@ export class MembersService {
         totalEvaluated: attendanceStats?.totalEvaluated || 0,
       },
       recentAttendance:
-        recentAttendance.attendances?.map((att: any) => ({
-          date: att.date,
-          status: att.status,
-          serviceTitle: att.churchServiceId?.title,
-          serviceType: att.churchServiceId?.type,
-          recordedBy: att.recordedBy
-            ? `${att.recordedBy.firstName} ${att.recordedBy.lastName}`
-            : 'System',
-        })) || [],
+        recentAttendance.attendances?.map((att: any) => {
+          return {
+            date: att.date,
+            status: att.status,
+            serviceTitle: att.churchServiceId?.title,
+            serviceType: att.churchServiceId?.type,
+            recordedBy: att.recordedBy
+              ? `${att.recordedBy.firstName} ${att.recordedBy.lastName}`
+              : 'System',
+          };
+        }) || [],
     };
   }
 
@@ -1620,7 +1701,9 @@ export class MembersService {
     }
     return name
       .split(' ')
-      .map((word) => word[0])
+      .map((word) => {
+        return word[0];
+      })
       .join('')
       .toUpperCase()
       .slice(0, 2);

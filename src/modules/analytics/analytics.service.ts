@@ -228,7 +228,9 @@ export class AnalyticsService {
     const countsByPlan = await this.subscriptionService.getCountsByPlan();
 
     const totalSubscriptions = Object.values(countsByPlan).reduce(
-      (a: number, b: number) => a + (b || 0),
+      (a: number, b: number) => {
+        return a + (b || 0);
+      },
       0,
     );
 
@@ -305,11 +307,9 @@ export class AnalyticsService {
 
     const newStarterPrev = newByPlanPrev[PlanType.STARTER] || 0;
 
-    const newNonStarterPrev = Object.keys(newByPlanPrev).reduce(
-      (acc, k) =>
-        k === PlanType.STARTER ? acc : acc + (newByPlanPrev[k] || 0),
-      0,
-    );
+    const newNonStarterPrev = Object.keys(newByPlanPrev).reduce((acc, k) => {
+      return k === PlanType.STARTER ? acc : acc + (newByPlanPrev[k] || 0);
+    }, 0);
 
     const conversionRatePrev =
       prevFrom && prevFrom
@@ -334,7 +334,9 @@ export class AnalyticsService {
           month.end,
         );
       const subsTotal = Object.values(newSubsMap).reduce(
-        (a: number, b: number) => a + (b || 0),
+        (a: number, b: number) => {
+          return a + (b || 0);
+        },
         0,
       );
       revenueSubscriptionData.push({
@@ -349,10 +351,9 @@ export class AnalyticsService {
           month.end,
         );
       const trialCount = statusMap['TRIAL'] || 0;
-      const conversionCount = Object.keys(statusMap).reduce(
-        (acc, k) => (k === 'TRIAL' ? acc : acc + (statusMap[k] || 0)),
-        0,
-      );
+      const conversionCount = Object.keys(statusMap).reduce((acc, k) => {
+        return k === 'TRIAL' ? acc : acc + (statusMap[k] || 0);
+      }, 0);
       trialToPaidData.push({
         month: month.label,
         trial: trialCount,

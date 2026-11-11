@@ -180,8 +180,8 @@ export class ChurchServicesService {
           const newStart = this.parseTimeToMinutes(dayStartTime);
           const newEnd = this.parseTimeToMinutes(dayEndTime);
 
-          const existingSpecialDay = candidates.some((service: any) =>
-            (service.specialDays || []).some((sd: any) => {
+          const existingSpecialDay = candidates.some((service: any) => {
+            return (service.specialDays || []).some((sd: any) => {
               const sdDate = new Date(sd.date);
               sdDate.setHours(0, 0, 0, 0);
               if (sdDate.getTime() !== dayStart.getTime()) {
@@ -198,8 +198,8 @@ export class ChurchServicesService {
                 existingStart,
                 existingEnd,
               );
-            }),
-          );
+            });
+          });
 
           if (existingSpecialDay) {
             throw new BadRequestException(
@@ -232,7 +232,9 @@ export class ChurchServicesService {
           this.generateInstancesForService(
             created._id.toString(),
             DEFAULT_GENERATION_WINDOW,
-          ).catch((err) => this.logger.error('Generation error', err as any));
+          ).catch((err) => {
+            return this.logger.error('Generation error', err as any);
+          });
         }
       }
     } catch (e) {
@@ -272,7 +274,9 @@ export class ChurchServicesService {
     if (!ids || ids.length === 0) {
       return [];
     }
-    const objectIds = ids.map((id) => new Types.ObjectId(id));
+    const objectIds = ids.map((id) => {
+      return new Types.ObjectId(id);
+    });
     return await this.churchServiceModel
       .find({ _id: { $in: objectIds } })
       .lean();
@@ -299,7 +303,9 @@ export class ChurchServicesService {
       .find(buildTenantFilter(tenant))
       .select('_id')
       .lean();
-    return services.map((service) => service._id);
+    return services.map((service) => {
+      return service._id;
+    });
   }
 
   async update(id: string, updateChurchServiceDto: UpdateChurchServiceDto) {
@@ -467,7 +473,9 @@ export class ChurchServicesService {
       .find({ type })
       .select('_id')
       .lean();
-    return services.map((s) => s._id);
+    return services.map((s) => {
+      return s._id;
+    });
   }
 
   async getServicesByDate(date: Date, tenant: TenantContext) {
@@ -481,9 +489,9 @@ export class ChurchServicesService {
       .find(buildTenantFilter(tenant))
       .lean();
 
-    const result = services.filter((service: any) =>
-      this.isServiceOnDate(service, date),
-    );
+    const result = services.filter((service: any) => {
+      return this.isServiceOnDate(service, date);
+    });
 
     return result;
   }

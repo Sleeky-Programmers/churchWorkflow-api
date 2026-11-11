@@ -10,14 +10,18 @@ import {
 } from 'class-validator';
 
 export class GlobalSearchDto {
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @Transform(({ value }) => {
+    return typeof value === 'string' ? value.trim() : value;
+  })
   @IsString()
   @MinLength(2)
   @MaxLength(60)
   q: string;
 
   @IsOptional()
-  @Type(() => Number)
+  @Type(() => {
+    return Number;
+  })
   @IsInt()
   @Min(1)
   @Max(10)

@@ -56,9 +56,9 @@ export class DepartmentService {
     if (role.type === RoleType.SYSTEM && role.roleName === 'Super Admin') {
       return true;
     }
-    const perm = role.permissions?.find(
-      (p) => p.moduleSection === ModuleSections.DEPARTMENTS,
-    );
+    const perm = role.permissions?.find((p) => {
+      return p.moduleSection === ModuleSections.DEPARTMENTS;
+    });
     return perm?.accessLevel === AccessLevel.FULL_ACCESS;
   }
 
@@ -138,7 +138,9 @@ export class DepartmentService {
       pendingAssistantHodEmail: dto.assistantHod
         ? null
         : dto.pendingAssistantHodEmail?.toLowerCase().trim() || null,
-      members: memberIds.map((id) => new Types.ObjectId(id)),
+      members: memberIds.map((id) => {
+        return new Types.ObjectId(id);
+      }),
       status: DepartmentStatus.ACTIVE,
     });
 
@@ -248,7 +250,9 @@ export class DepartmentService {
     ]);
 
     return {
-      data: departments.map((dept) => this.toDepartmentResponse(dept)),
+      data: departments.map((dept) => {
+        return this.toDepartmentResponse(dept);
+      }),
       pagination: paginationMeta({ page, limit, itemCount }),
     };
   }
@@ -439,9 +443,9 @@ export class DepartmentService {
     );
 
     let updateQuery = {};
-    const memberObjectIds = memberIds.map(
-      (memberId) => new Types.ObjectId(memberId),
-    );
+    const memberObjectIds = memberIds.map((memberId) => {
+      return new Types.ObjectId(memberId);
+    });
 
     if (dto.action === DepartmentMemberAction.ADD) {
       updateQuery = { $addToSet: { members: { $each: memberObjectIds } } };
@@ -479,9 +483,9 @@ export class DepartmentService {
 
     const uniqueIds = this.toUniqueIds(memberIds);
 
-    const memberObjectIds = uniqueIds.map(
-      (memberId) => new Types.ObjectId(memberId),
-    );
+    const memberObjectIds = uniqueIds.map((memberId) => {
+      return new Types.ObjectId(memberId);
+    });
 
     await this.departmentModel.updateOne(
       { _id: id },
@@ -759,14 +763,18 @@ export class DepartmentService {
   private toDepartmentResponse(department: any) {
     const members = Array.isArray(department.members) ? department.members : [];
     const memberList = members
-      .filter((member: any) => member?._id)
-      .map((member: any) => ({
-        id: member._id.toString(),
-        fullName: member.fullName,
-        email: member.email || '',
-        dateJoined: member.dateJoined,
-        phoneNumber: member.phoneNumber,
-      }));
+      .filter((member: any) => {
+        return member?._id;
+      })
+      .map((member: any) => {
+        return {
+          id: member._id.toString(),
+          fullName: member.fullName,
+          email: member.email || '',
+          dateJoined: member.dateJoined,
+          phoneNumber: member.phoneNumber,
+        };
+      });
 
     return {
       id: department._id.toString(),

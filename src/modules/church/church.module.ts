@@ -17,13 +17,19 @@ import { ChurchService } from './church.service';
   imports: [
     MongooseModule.forFeature([{ name: Church.name, schema: ChurchSchema }]),
     FileUploadModule,
-    forwardRef(() => AdminModule),
+    forwardRef(() => {
+      return AdminModule;
+    }),
     SubscriptionModule,
     AdminActivityLogModule,
     MembersModule,
     BranchModule,
-    forwardRef(() => ActivityLogModule),
-    forwardRef(() => EmailModule),
+    forwardRef(() => {
+      return ActivityLogModule;
+    }),
+    forwardRef(() => {
+      return EmailModule;
+    }),
   ],
 
   controllers: [ChurchController],

@@ -14,12 +14,18 @@ import { OnlineGivingModule } from '../online-giving/online-giving.module';
   imports: [
     ConfigModule,
     HttpModule,
-    forwardRef(() => PaymentModule),
-    forwardRef(() => SubscriptionModule),
+    forwardRef(() => {
+      return PaymentModule;
+    }),
+    forwardRef(() => {
+      return SubscriptionModule;
+    }),
     CouponModule,
     SubscriptionPlanCodesModule,
     AdminActivityLogModule,
-    forwardRef(() => OnlineGivingModule),
+    forwardRef(() => {
+      return OnlineGivingModule;
+    }),
   ],
   controllers: [PaystackController],
   providers: [PaystackService],

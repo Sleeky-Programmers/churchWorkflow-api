@@ -90,7 +90,11 @@ export function renderEmailLayout(options: EmailLayoutOptions): string {
           <h1>${heading}</h1>
 
           ${greeting ? `<p>${greeting}</p>` : ''}
-          ${paragraphs.map((p) => `<p>${p}</p>`).join('\n')}
+          ${paragraphs
+            .map((p) => {
+              return `<p>${p}</p>`;
+            })
+            .join('\n')}
 
           ${highlight ? `<div class="badge">${highlight}</div>` : ''}
 
@@ -98,12 +102,12 @@ export function renderEmailLayout(options: EmailLayoutOptions): string {
             infoRows.length
               ? `<div class="info-list">
                   ${infoRows
-                    .map(
-                      (row) => `<div class="info-row">
+                    .map((row) => {
+                      return `<div class="info-row">
                         <span class="info-label">${row.label}</span>
                         <span class="info-value">${row.value}</span>
-                      </div>`,
-                    )
+                      </div>`;
+                    })
                     .join('\n')}
                 </div>`
               : ''

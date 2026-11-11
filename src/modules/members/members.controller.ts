@@ -182,6 +182,16 @@ export class MembersController {
   }
 
   @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Get('birthdays')
+  @RequirePermissions({
+    section: ModuleSections.MEMBERS,
+    level: AccessLevel.VIEW,
+  })
+  getMemberBirthdays(@CurrentTenant() tenant: TenantContext) {
+    return this.membersService.getMemberBirthdays(tenant);
+  }
+
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Get()
   @RequirePermissions({
     section: ModuleSections.MEMBERS,

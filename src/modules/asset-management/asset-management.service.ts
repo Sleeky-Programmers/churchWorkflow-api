@@ -170,7 +170,9 @@ export class AssetManagementService {
     ]);
 
     return {
-      data: assets.map((asset) => this.toAssetListResponse(asset)),
+      data: assets.map((asset) => {
+        return this.toAssetListResponse(asset);
+      }),
       pagination: paginationMeta({ page, limit, itemCount }),
     };
   }
@@ -368,12 +370,16 @@ export class AssetManagementService {
 
     await Promise.all(
       (deleted.images || [])
-        .filter((image) => image.publicId)
-        .map((image) =>
-          this.fileUploadService
+        .filter((image) => {
+          return image.publicId;
+        })
+        .map((image) => {
+          return this.fileUploadService
             .deleteFile(image.publicId as string)
-            .catch(() => null),
-        ),
+            .catch(() => {
+              return null;
+            });
+        }),
     );
 
     await this.activityLogService.create(authUser, {
@@ -521,20 +527,22 @@ export class AssetManagementService {
       throw new NotFoundException('Asset not found');
     }
 
-    const image = asset.images.find(
-      (img: any) => img._id.toString() === imageId,
-    );
+    const image = asset.images.find((img: any) => {
+      return img._id.toString() === imageId;
+    });
     if (!image) {
       throw new NotFoundException('Image not found');
     }
 
     if (image.publicId) {
-      await this.fileUploadService.deleteFile(image.publicId).catch(() => null);
+      await this.fileUploadService.deleteFile(image.publicId).catch(() => {
+        return null;
+      });
     }
 
-    asset.images = asset.images.filter(
-      (img: any) => img._id.toString() !== imageId,
-    ) as any;
+    asset.images = asset.images.filter((img: any) => {
+      return img._id.toString() !== imageId;
+    }) as any;
 
     await asset.save();
 
@@ -589,7 +597,11 @@ export class AssetManagementService {
   }
 
   private buildUnits(dtoUnits: AssetUnitDto[], existing: any[]) {
-    const known = new Map(existing.map((u) => [u.unitId, u]));
+    const known = new Map(
+      existing.map((u) => {
+        return [u.unitId, u];
+      }),
+    );
     return dtoUnits.map((unit) => {
       const before = unit.id ? known.get(unit.id) : undefined;
       return {
@@ -626,8 +638,16 @@ export class AssetManagementService {
 
   private describeUnitChanges(before: any[], after: any[]) {
     const changes: Record<string, { from: string; to: string }> = {};
-    const beforeById = new Map(before.map((u) => [u.unitId, u]));
-    const afterIds = new Set(after.map((u) => u.unitId));
+    const beforeById = new Map(
+      before.map((u) => {
+        return [u.unitId, u];
+      }),
+    );
+    const afterIds = new Set(
+      after.map((u) => {
+        return u.unitId;
+      }),
+    );
     let count = 0;
 
     after.forEach((unit, index) => {
@@ -772,7 +792,9 @@ export class AssetManagementService {
     return name
       .split(' ')
       .filter(Boolean)
-      .map((part) => part.charAt(0))
+      .map((part) => {
+        return part.charAt(0);
+      })
       .join('')
       .slice(0, 2)
       .toUpperCase();
@@ -856,17 +878,19 @@ export class AssetManagementService {
       remarks: asset.remarks || '',
       responsible,
       conditions: asset.conditions,
-      units: this.effectiveUnits(asset).map((unit: any) => ({
-        id: unit.unitId,
-        serial: unit.serial || '',
-        condition: unit.condition,
-        conditionNote: unit.conditionNote || '',
-        purchaseDate: unit.purchaseDate
-          ? new Date(unit.purchaseDate).toISOString().slice(0, 10)
-          : '',
-        value: unit.value ?? null,
-        addedAt: this.formatDate(unit.addedAt),
-      })),
+      units: this.effectiveUnits(asset).map((unit: any) => {
+        return {
+          id: unit.unitId,
+          serial: unit.serial || '',
+          condition: unit.condition,
+          conditionNote: unit.conditionNote || '',
+          purchaseDate: unit.purchaseDate
+            ? new Date(unit.purchaseDate).toISOString().slice(0, 10)
+            : '',
+          value: unit.value ?? null,
+          addedAt: this.formatDate(unit.addedAt),
+        };
+      }),
       schedule: {
         frequency: asset.schedule?.frequency || null,
         lastService: this.formatDate(asset.schedule?.lastService),
@@ -882,53 +906,63 @@ export class AssetManagementService {
       },
       services: (asset.services || [])
         .slice()
-        .sort((a: any, b: any) => +new Date(b.date) - +new Date(a.date))
-        .map((service: any) => ({
-          id: service._id.toString(),
-          recordId: service.recordId,
-          date: this.formatDate(service.date),
-          timeLogged: this.formatTime(service.createdAt),
-          performedBy: service.performedBy
-            ? `${service.performedBy.firstName || ''} ${service.performedBy.lastName || ''}`.trim()
-            : 'Unknown',
-          performedByEmail: service.performedBy?.email || '',
-          maintenanceType: service.maintenanceType,
-          notes: service.notes || '',
-          nextServiceDate: service.nextServiceDate
-            ? this.formatDate(service.nextServiceDate)
-            : 'Not scheduled',
-          nextReviewDate: service.nextReviewDate
-            ? this.formatDate(service.nextReviewDate)
-            : 'Not scheduled',
-          conditionAtService: service.conditionAtService,
-          attachments: (service.attachments || []).map((a: any) => ({
-            id: a._id?.toString?.() || a.name,
-            name: a.name,
-          })),
-        })),
-      history: history.map((event: any) => ({
-        id: event._id.toString(),
-        timestamp: new Date(event.createdAt).toLocaleString('en-US', {
-          day: '2-digit',
-          month: 'short',
-          year: 'numeric',
-          hour: 'numeric',
-          minute: '2-digit',
+        .sort((a: any, b: any) => {
+          return +new Date(b.date) - +new Date(a.date);
+        })
+        .map((service: any) => {
+          return {
+            id: service._id.toString(),
+            recordId: service.recordId,
+            date: this.formatDate(service.date),
+            timeLogged: this.formatTime(service.createdAt),
+            performedBy: service.performedBy
+              ? `${service.performedBy.firstName || ''} ${service.performedBy.lastName || ''}`.trim()
+              : 'Unknown',
+            performedByEmail: service.performedBy?.email || '',
+            maintenanceType: service.maintenanceType,
+            notes: service.notes || '',
+            nextServiceDate: service.nextServiceDate
+              ? this.formatDate(service.nextServiceDate)
+              : 'Not scheduled',
+            nextReviewDate: service.nextReviewDate
+              ? this.formatDate(service.nextReviewDate)
+              : 'Not scheduled',
+            conditionAtService: service.conditionAtService,
+            attachments: (service.attachments || []).map((a: any) => {
+              return {
+                id: a._id?.toString?.() || a.name,
+                name: a.name,
+              };
+            }),
+          };
         }),
-        tone: event.tone,
-        actor: event.actorName,
-        action: event.action,
-      })),
-      images: (asset.images || []).map((image: any) => ({
-        id: image._id.toString(),
-        name: image.name,
-        url: image.url,
-        size: image.size,
-        uploadedBy: image.uploadedBy
-          ? `${image.uploadedBy.firstName || ''} ${image.uploadedBy.lastName || ''}`.trim()
-          : 'Unknown',
-        uploadedDate: this.formatDate(image.uploadedAt),
-      })),
+      history: history.map((event: any) => {
+        return {
+          id: event._id.toString(),
+          timestamp: new Date(event.createdAt).toLocaleString('en-US', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+          }),
+          tone: event.tone,
+          actor: event.actorName,
+          action: event.action,
+        };
+      }),
+      images: (asset.images || []).map((image: any) => {
+        return {
+          id: image._id.toString(),
+          name: image.name,
+          url: image.url,
+          size: image.size,
+          uploadedBy: image.uploadedBy
+            ? `${image.uploadedBy.firstName || ''} ${image.uploadedBy.lastName || ''}`.trim()
+            : 'Unknown',
+          uploadedDate: this.formatDate(image.uploadedAt),
+        };
+      }),
     };
   }
 }

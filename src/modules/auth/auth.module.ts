@@ -26,12 +26,14 @@ import { LocalStrategy } from './strategy/local.strategy';
     SmallTeamsModule,
     JwtModule.registerAsync({
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        secret: config.get('jwt.secret'),
-        signOptions: {
-          expiresIn: config.get('jwt.expiresIn'),
-        },
-      }),
+      useFactory: (config: ConfigService) => {
+        return {
+          secret: config.get('jwt.secret'),
+          signOptions: {
+            expiresIn: config.get('jwt.expiresIn'),
+          },
+        };
+      },
     }),
   ],
   controllers: [AuthController],

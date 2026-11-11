@@ -25,14 +25,22 @@ function fakeModel(rows: any[] | Error) {
     find: jest.fn((filter: any) => {
       calls.push(filter);
       const chain: any = {
-        select: () => chain,
-        sort: () => chain,
+        select: () => {
+          return chain;
+        },
+        sort: () => {
+          return chain;
+        },
         limit: (n: number) => {
           chain.limitN = n;
           return chain;
         },
-        maxTimeMS: () => chain,
-        lean: () => chain,
+        maxTimeMS: () => {
+          return chain;
+        },
+        lean: () => {
+          return chain;
+        },
         exec: async () => {
           if (rows instanceof Error) {
             throw rows;
@@ -51,10 +59,12 @@ function role(perms: Partial<Record<ModuleSections, AccessLevel>>, extra = {}) {
     type: RoleType.CUSTOM,
     roleName: 'Usher',
     status: RoleStatus.ACTIVE,
-    permissions: Object.entries(perms).map(([moduleSection, accessLevel]) => ({
-      moduleSection,
-      accessLevel,
-    })),
+    permissions: Object.entries(perms).map(([moduleSection, accessLevel]) => {
+      return {
+        moduleSection,
+        accessLevel,
+      };
+    }),
     ...extra,
   };
 }
@@ -142,7 +152,9 @@ describe('SearchService', () => {
 
   it('scopes to the tenant, escapes the query and limits results', async () => {
     const member = fakeModel(
-      Array.from({ length: 9 }, (_, i) => ({ fullName: `P${i}` })),
+      Array.from({ length: 9 }, (_, i) => {
+        return { fullName: `P${i}` };
+      }),
     );
     const { service } = build({ member });
     const user: any = {

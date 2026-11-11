@@ -51,17 +51,19 @@ async function run() {
         [AssetCondition.DAMAGED, c.damaged || 0],
       ];
 
-      const units = order.flatMap(([condition, count]) =>
-        Array.from({ length: count }, () => ({
-          unitId: newUnitId(),
-          serial: '',
-          condition,
-          conditionNote: '',
-          purchaseDate: null,
-          value: null,
-          addedAt: asset.createdAt ?? new Date(),
-        })),
-      );
+      const units = order.flatMap(([condition, count]) => {
+        return Array.from({ length: count }, () => {
+          return {
+            unitId: newUnitId(),
+            serial: '',
+            condition,
+            conditionNote: '',
+            purchaseDate: null,
+            value: null,
+            addedAt: asset.createdAt ?? new Date(),
+          };
+        });
+      });
 
       if (!units.length) {
         console.warn(

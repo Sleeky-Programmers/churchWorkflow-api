@@ -49,6 +49,8 @@ import { PaymentMethodModule } from './modules/payment-methods/payment-method.mo
 import { GivingConfigModule } from './modules/giving-config/giving-config.module';
 import { SearchModule } from './modules/search/search.module';
 import { AssetManagementModule } from './modules/asset-management/asset-management.module';
+import { SuggestionsModule } from './modules/suggestions/suggestions.module';
+import { ReportsModule } from './modules/reports/reports.module';
 
 @Module({
   imports: [
@@ -59,9 +61,25 @@ import { AssetManagementModule } from './modules/asset-management/asset-manageme
     }),
     MongooseModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
-        uri: configService.get<string>('db.uri'),
-      }),
+      useFactory: async (configService: ConfigService) => {
+        return {
+          uri: configService.get<string>('db.uri'),
+          // Fail fast with a real (CORS-wrapped) 500 instead of hanging until
+          // The platform kills the function - a killed function returns no
+          // CORS headers, which the browser reports as "Failed to fetch".
+          serverSelectionTimeoutMS: 10_000,
+          // Serverless-friendly pool: each function instance keeps a small
+          // Pool and releases idle sockets, so many concurrent instances
+          // Don't exhaust the cluster's connection limit.
+          maxPoolSize: 10,
+          minPoolSize: 0,
+          maxIdleTimeMS: 30_000,
+          connectTimeoutMS: 10_000,
+          // Bound a hung query so it fails with a real error instead of
+          // Running until the platform kills the function.
+          socketTimeoutMS: 45_000,
+        };
+      },
       inject: [ConfigService],
     }),
     MongooseModule.forFeature([
@@ -73,16 +91,18 @@ import { AssetManagementModule } from './modules/asset-management/asset-manageme
     OtpModule,
     MailerModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
-        transport: {
-          host: configService.get<string>('email.host'),
-          port: configService.get<number>('email.port'),
-          auth: {
-            user: configService.get<string>('email.username'),
-            pass: configService.get<string>('email.password'),
+      useFactory: async (configService: ConfigService) => {
+        return {
+          transport: {
+            host: configService.get<string>('email.host'),
+            port: configService.get<number>('email.port'),
+            auth: {
+              user: configService.get<string>('email.username'),
+              pass: configService.get<string>('email.password'),
+            },
           },
-        },
-      }),
+        };
+      },
       inject: [ConfigService],
     }),
     EmailModule,
@@ -122,6 +142,8 @@ import { AssetManagementModule } from './modules/asset-management/asset-manageme
     GivingConfigModule,
     SearchModule,
     AssetManagementModule,
+    SuggestionsModule,
+    ReportsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

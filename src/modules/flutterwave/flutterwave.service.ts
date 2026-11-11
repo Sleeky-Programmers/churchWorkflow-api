@@ -29,6 +29,7 @@ import { SubscriptionService } from '../subscription/subscription.service';
 @Injectable()
 export class FlutterwaveService {
   private readonly logger = new Logger(FlutterwaveService.name);
+  private isRenewalRunning = false;
 
   private readonly secretKey: string;
   private readonly secretHash: string;
@@ -42,7 +43,11 @@ export class FlutterwaveService {
     private readonly subscriptionService: SubscriptionService,
     private readonly couponService: CouponService,
     private readonly adminActivityLogService: AdminActivityLogService,
-    @Inject(forwardRef(() => OnlineGivingService))
+    @Inject(
+      forwardRef(() => {
+        return OnlineGivingService;
+      }),
+    )
     private readonly onlineGivingService: OnlineGivingService,
   ) {
     this.secretKey = this.configService.get<string>('flutterwave.secretKey');
@@ -372,25 +377,48 @@ export class FlutterwaveService {
 
   @Cron(CronExpression.EVERY_MINUTE)
   async processRecurringSubscriptions() {
-    this.logger.log('Processing recurring subscriptions...');
+    // Re-entrancy guard: a slow run must not overlap the next minute's tick.
+    if (this.isRenewalRunning) {
+      return;
+    }
+    this.isRenewalRunning = true;
 
-    const dueSubscriptions =
-      await this.subscriptionService.getDueSubscriptions();
+    try {
+      this.logger.log('Processing recurring subscriptions...');
 
-    for (const subscription of dueSubscriptions) {
-      try {
-        if (!subscription.isAutoRenew) {
-          continue;
+      const dueSubscriptions =
+        await this.subscriptionService.getDueSubscriptions();
+      // Anything charged in this window is already renewing or renewed.
+      const since = new Date(Date.now() - 6 * 60 * 60 * 1000);
+
+      for (const subscription of dueSubscriptions) {
+        try {
+          if (!subscription.isAutoRenew) {
+            continue;
+          }
+
+          if (!subscription.provider?.subscriptionId) {
+            continue;
+          }
+
+          // Without this, a pending charge left the subscription "due" and it
+          // Was charged again on every minute tick.
+          const alreadyCharged =
+            await this.paymentService.hasRecentRecurringCharge(
+              subscription.churchId,
+              since,
+            );
+          if (alreadyCharged) {
+            continue;
+          }
+
+          await this.chargeTokenizedCard(subscription);
+        } catch (error) {
+          this.logger.error(`Failed recurring charge for ${subscription._id}`);
         }
-
-        if (!subscription.provider?.subscriptionId) {
-          continue;
-        }
-
-        await this.chargeTokenizedCard(subscription);
-      } catch (error) {
-        this.logger.error(`Failed recurring charge for ${subscription._id}`);
       }
+    } finally {
+      this.isRenewalRunning = false;
     }
   }
 

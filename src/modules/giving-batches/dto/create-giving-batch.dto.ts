@@ -31,6 +31,8 @@ export class CreateGivingBatchDto {
   @IsArray()
   @ArrayMinSize(1)
   @ValidateNested({ each: true })
-  @Type(() => GivingEntryDto)
+  @Type(() => {
+    return GivingEntryDto;
+  })
   entries: GivingEntryDto[];
 }

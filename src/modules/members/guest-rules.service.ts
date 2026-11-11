@@ -165,8 +165,12 @@ export class GuestRulesService {
     );
 
     return [...sessions.entries()]
-      .filter(([, count]) => count >= FREQUENT_GUEST_MIN_SERVICES)
-      .map(([id]) => id);
+      .filter(([, count]) => {
+        return count >= FREQUENT_GUEST_MIN_SERVICES;
+      })
+      .map(([id]) => {
+        return id;
+      });
   }
 
   async isFrequentGuest(memberId: Types.ObjectId): Promise<boolean> {
@@ -208,8 +212,9 @@ export class GuestRulesService {
       this.subscriptionService.getEffectiveLimit(churchId, 'guest'),
     ]);
 
-    const room = (limit: number, used: number) =>
-      limit === -1 ? null : Math.max(limit - used, 0);
+    const room = (limit: number, used: number) => {
+      return limit === -1 ? null : Math.max(limit - used, 0);
+    };
 
     return {
       counts,

@@ -21,25 +21,39 @@ function build(opts: {
   guestLimit: number;
 }) {
   const memberModel: any = {
-    countDocuments: jest.fn(async (filter: any) =>
-      filter.membershipStatus ? opts.guests : opts.members + opts.guests,
-    ),
-    distinct: jest.fn(async () => [guestA, guestB]),
+    countDocuments: jest.fn(async (filter: any) => {
+      return filter.membershipStatus ? opts.guests : opts.members + opts.guests;
+    }),
+    distinct: jest.fn(async () => {
+      return [guestA, guestB];
+    }),
   };
   const attendanceModel: any = {
-    aggregate: jest.fn(async () => opts.sessions ?? []),
+    aggregate: jest.fn(async () => {
+      return opts.sessions ?? [];
+    }),
   };
-  const check = (limit: number) => async (_: any, projected: number) =>
-    limit !== -1 && projected > limit
-      ? { allowed: false, type: MemberLimitType.BLOCK, limit, message: 'over' }
-      : { allowed: true, type: MemberLimitType.NONE, limit };
+  const check = (limit: number) => {
+    return async (_: any, projected: number) => {
+      return limit !== -1 && projected > limit
+        ? {
+            allowed: false,
+            type: MemberLimitType.BLOCK,
+            limit,
+            message: 'over',
+          }
+        : { allowed: true, type: MemberLimitType.NONE, limit };
+    };
+  };
   const subscriptionService: any = {
     checkMemberLimit: jest.fn(check(opts.memberLimit)),
     checkGuestLimit: jest.fn(check(opts.guestLimit)),
-    getEffectiveLimit: jest.fn(async (_: any, r: string) => ({
-      limit: r === 'member' ? opts.memberLimit : opts.guestLimit,
-      plan: 'STARTER',
-    })),
+    getEffectiveLimit: jest.fn(async (_: any, r: string) => {
+      return {
+        limit: r === 'member' ? opts.memberLimit : opts.guestLimit,
+        plan: 'STARTER',
+      };
+    }),
   };
   const service = new GuestRulesService(
     memberModel,
@@ -82,10 +96,14 @@ describe('GuestRulesService', () => {
     await service.getFrequentGuestIds(churchId);
 
     const pipeline = attendanceModel.aggregate.mock.calls[0][0];
-    const windowStage = pipeline.find((s: any) => s.$match?.day);
+    const windowStage = pipeline.find((s: any) => {
+      return s.$match?.day;
+    });
     expect(windowStage.$match.day.$gte).toBe(dayKeyDaysAgo(60));
     // Distinct sessions are service + day, so two marks for the same service/day count once.
-    const group = pipeline.find((s: any) => s.$group?._id?.service);
+    const group = pipeline.find((s: any) => {
+      return s.$group?._id?.service;
+    });
     expect(group.$group._id).toEqual({
       memberId: '$memberId',
       service: '$churchServiceId',

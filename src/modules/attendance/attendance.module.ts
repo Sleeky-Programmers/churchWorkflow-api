@@ -13,8 +13,12 @@ import { AdminModule } from '../admin/admin.module';
       { name: Attendance.name, schema: AttendanceSchema },
     ]),
     ChurchServicesModule,
-    forwardRef(() => AdminModule),
-    forwardRef(() => MembersModule),
+    forwardRef(() => {
+      return AdminModule;
+    }),
+    forwardRef(() => {
+      return MembersModule;
+    }),
   ],
   controllers: [AttendanceController],
   providers: [AttendanceService],

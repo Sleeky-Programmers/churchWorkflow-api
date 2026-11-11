@@ -285,7 +285,9 @@ export class PastoralService {
       }
     });
 
-    return tracked.map((service: any) => service._id as Types.ObjectId);
+    return tracked.map((service: any) => {
+      return service._id as Types.ObjectId;
+    });
   }
 
   /**
@@ -341,8 +343,12 @@ export class PastoralService {
     }
 
     const sessions = Array.from(sessionMap.entries())
-      .map(([key, date]) => ({ key, date }))
-      .sort((a, b) => b.date.getTime() - a.date.getTime());
+      .map(([key, date]) => {
+        return { key, date };
+      })
+      .sort((a, b) => {
+        return b.date.getTime() - a.date.getTime();
+      });
 
     return { sessions, presentByMember };
   }
@@ -357,11 +363,13 @@ export class PastoralService {
     const joinedAt = member.createdAt ? new Date(member.createdAt) : null;
 
     // Sessions this member could have attended (on/after they joined)
-    const memberSessions = sessions.filter(
-      (s) => !joinedAt || s.date >= joinedAt,
-    );
+    const memberSessions = sessions.filter((s) => {
+      return !joinedAt || s.date >= joinedAt;
+    });
 
-    const presents = memberSessions.filter((s) => presentKeys?.has(s.key));
+    const presents = memberSessions.filter((s) => {
+      return presentKeys?.has(s.key);
+    });
     const attendanceRate = memberSessions.length
       ? Math.round((presents.length / memberSessions.length) * 100)
       : 0;
@@ -461,12 +469,14 @@ export class PastoralService {
       const olderHalf = memberSessions.slice(midpoint);
       const recentHalf = memberSessions.slice(0, midpoint);
       const olderRate = olderHalf.length
-        ? olderHalf.filter((s) => presentKeys?.has(s.key)).length /
-          olderHalf.length
+        ? olderHalf.filter((s) => {
+            return presentKeys?.has(s.key);
+          }).length / olderHalf.length
         : 0;
       const recentRate = recentHalf.length
-        ? recentHalf.filter((s) => presentKeys?.has(s.key)).length /
-          recentHalf.length
+        ? recentHalf.filter((s) => {
+            return presentKeys?.has(s.key);
+          }).length / recentHalf.length
         : 0;
 
       if (recentRate - olderRate >= 0.2) {
@@ -524,7 +534,9 @@ export class PastoralService {
     }[],
   ) {
     const computedKey = new Set(
-      computed.map((c) => `${c.memberId}|${c.category}`),
+      computed.map((c) => {
+        return `${c.memberId}|${c.category}`;
+      }),
     );
 
     const existing = await this.alertModel
@@ -534,12 +546,15 @@ export class PastoralService {
 
     // Remove unresolved alerts that no longer apply
     const staleIds = existing
-      .filter(
-        (a) =>
+      .filter((a) => {
+        return (
           !a.resolved &&
-          !computedKey.has(`${(a.memberId as any).toString()}|${a.category}`),
-      )
-      .map((a) => a._id);
+          !computedKey.has(`${(a.memberId as any).toString()}|${a.category}`)
+        );
+      })
+      .map((a) => {
+        return a._id;
+      });
 
     if (staleIds.length) {
       await this.alertModel.deleteMany({ _id: { $in: staleIds } });
@@ -547,24 +562,26 @@ export class PastoralService {
 
     // Upsert computed alerts (keep resolved state + notes on existing docs)
     if (computed.length) {
-      const bulk = computed.map((c) => ({
-        updateOne: {
-          filter: {
-            churchId,
-            memberId: new Types.ObjectId(c.memberId),
-            category: c.category,
-          },
-          update: {
-            $set: { severity: c.severity },
-            $setOnInsert: {
-              resolved: false,
-              read: false,
-              notes: [],
+      const bulk = computed.map((c) => {
+        return {
+          updateOne: {
+            filter: {
+              churchId,
+              memberId: new Types.ObjectId(c.memberId),
+              category: c.category,
             },
+            update: {
+              $set: { severity: c.severity },
+              $setOnInsert: {
+                resolved: false,
+                read: false,
+                notes: [],
+              },
+            },
+            upsert: true,
           },
-          upsert: true,
-        },
-      }));
+        };
+      });
       await this.alertModel.bulkWrite(bulk, { ordered: false });
     }
   }
@@ -586,14 +603,19 @@ export class PastoralService {
       .select('fullName email phoneNumber createdAt')
       .lean();
 
-    const initials = (name: string) =>
-      (name || 'M')
-        .split(' ')
-        .filter(Boolean)
-        .slice(0, 2)
-        .map((w) => w[0])
-        .join('')
-        .toUpperCase() || 'M';
+    const initials = (name: string) => {
+      return (
+        (name || 'M')
+          .split(' ')
+          .filter(Boolean)
+          .slice(0, 2)
+          .map((w) => {
+            return w[0];
+          })
+          .join('')
+          .toUpperCase() || 'M'
+      );
+    };
 
     const attention: DashboardPayload['attention'] = [];
     const computedAlerts: {
@@ -729,7 +751,9 @@ export class PastoralService {
     };
 
     const memberMap = new Map(
-      members.map((m) => [(m._id as any).toString(), m]),
+      members.map((m) => {
+        return [(m._id as any).toString(), m];
+      }),
     );
     const recentAlerts: DashboardAlert[] = alertDocs
       .map((doc: any) => {
@@ -744,24 +768,31 @@ export class PastoralService {
           categoryLabel: CATEGORY_LABELS[doc.category] ?? doc.category,
           severity: doc.severity,
           message:
-            computedAlerts.find(
-              (c) =>
+            computedAlerts.find((c) => {
+              return (
                 c.memberId === doc.memberId?.toString?.() &&
-                c.category === doc.category,
-            )?.message ?? '',
+                c.category === doc.category
+              );
+            })?.message ?? '',
           resolved: doc.resolved,
           read: doc.read,
-          notes: (doc.notes ?? []).map((n: any, i: number) => ({
-            id: `${doc._id}-${i}`,
-            body: n.body,
-            authorName: n.authorName,
-            createdAt: n.createdAt,
-          })),
+          notes: (doc.notes ?? []).map((n: any, i: number) => {
+            return {
+              id: `${doc._id}-${i}`,
+              body: n.body,
+              authorName: n.authorName,
+              createdAt: n.createdAt,
+            };
+          }),
         };
       })
-      .sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
+      .sort((a, b) => {
+        return severityOrder[a.severity] - severityOrder[b.severity];
+      });
 
-    attention.sort((a, b) => b.absences - a.absences);
+    attention.sort((a, b) => {
+      return b.absences - a.absences;
+    });
 
     return {
       stats: {
@@ -807,7 +838,9 @@ export class PastoralService {
       .lean();
 
     const memberMap = new Map(
-      members.map((m) => [(m._id as any).toString(), m]),
+      members.map((m) => {
+        return [(m._id as any).toString(), m];
+      }),
     );
 
     // Recompute message per alert so the copy stays current
@@ -862,19 +895,22 @@ export class PastoralService {
           message: computedMap.get(`${memberId}|${doc.category}`) ?? '',
           resolved: doc.resolved,
           read: doc.read,
-          notes: (doc.notes ?? []).map((n: any, i: number) => ({
-            id: `${doc._id}-${i}`,
-            body: n.body,
-            authorName: n.authorName,
-            createdAt: n.createdAt,
-          })),
+          notes: (doc.notes ?? []).map((n: any, i: number) => {
+            return {
+              id: `${doc._id}-${i}`,
+              body: n.body,
+              authorName: n.authorName,
+              createdAt: n.createdAt,
+            };
+          }),
         };
       })
-      .sort(
-        (a, b) =>
+      .sort((a, b) => {
+        return (
           severityOrder[a.severity] - severityOrder[b.severity] ||
-          a.memberName.localeCompare(b.memberName),
-      );
+          a.memberName.localeCompare(b.memberName)
+        );
+      });
   }
 
   private async getAlertInChurch(alertId: string, churchId: Types.ObjectId) {

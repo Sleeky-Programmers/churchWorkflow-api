@@ -51,9 +51,9 @@ export class PermissionsGuard implements CanActivate {
     }
 
     const hasPermission = requiredPermissions.every((requiredPerm) => {
-      const userPerm = role.permissions?.find(
-        (p) => p.moduleSection === requiredPerm.section,
-      );
+      const userPerm = role.permissions?.find((p) => {
+        return p.moduleSection === requiredPerm.section;
+      });
 
       // Fail closed: no explicit permission entry means no access.
       if (!userPerm) {

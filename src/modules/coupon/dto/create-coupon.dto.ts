@@ -43,7 +43,9 @@ export class CreateCouponDto {
 
   @IsDateString()
   @IsNotEmpty()
-  @ValidateIf((o) => o.validFrom !== undefined)
+  @ValidateIf((o) => {
+    return o.validFrom !== undefined;
+  })
   validFrom?: string;
 
   @IsDateString()

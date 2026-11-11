@@ -21,6 +21,8 @@ export class CreateAttendanceDto {
   @IsArray()
   @ArrayMinSize(1, { message: 'At least one member must be selected' })
   @IsMongoId({ each: true })
-  @ValidateIf((o) => !o.isAllPresent)
+  @ValidateIf((o) => {
+    return !o.isAllPresent;
+  })
   memberIds: string[];
 }

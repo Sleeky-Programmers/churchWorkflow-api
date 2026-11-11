@@ -55,8 +55,13 @@ const PLAN_FIELDS = [
   'features',
 ] as const;
 
-const fmt = (v: unknown) =>
-  v === undefined ? '—' : Array.isArray(v) ? `[${v.length} items]` : String(v);
+const fmt = (v: unknown) => {
+  return v === undefined
+    ? '—'
+    : Array.isArray(v)
+      ? `[${v.length} items]`
+      : String(v);
+};
 
 async function run() {
   // Keep the app's own schedulers from firing while the script runs.
@@ -103,9 +108,9 @@ async function run() {
     for (const plan of Object.values(PlanType)) {
       const target = DEFAULT_PLAN_CONFIG[plan];
       const current = (await planModel.findOne({ plan }).lean()) as any;
-      const changes = PLAN_FIELDS.filter(
-        (k) => JSON.stringify(current?.[k]) !== JSON.stringify(target[k]),
-      );
+      const changes = PLAN_FIELDS.filter((k) => {
+        return JSON.stringify(current?.[k]) !== JSON.stringify(target[k]);
+      });
       if (!changes.length) {
         console.log(`  ${plan}: already up to date`);
         continue;
@@ -132,14 +137,20 @@ async function run() {
         console.warn(`  ${sub.churchId}: unknown plan "${sub.plan}", skipped`);
         continue;
       }
-      const diff = LIMIT_FIELDS.filter((k) => sub[k] !== target[k]);
+      const diff = LIMIT_FIELDS.filter((k) => {
+        return sub[k] !== target[k];
+      });
       if (!diff.length) {
         continue;
       }
       subsChanged += 1;
       console.log(
         `  church ${sub.churchId} (${sub.plan}, ${sub.status}): ` +
-          diff.map((k) => `${k} ${fmt(sub[k])}→${fmt(target[k])}`).join(', '),
+          diff
+            .map((k) => {
+              return `${k} ${fmt(sub[k])}→${fmt(target[k])}`;
+            })
+            .join(', '),
       );
       if (!DRY_RUN) {
         await subscriptionModel.updateOne(
@@ -178,21 +189,24 @@ async function run() {
         );
       }
     }
-    const activeAutoRenew = (subs as any[]).filter(
-      (s) => s.isAutoRenew && s.provider?.subscriptionCode,
-    );
+    const activeAutoRenew = (subs as any[]).filter((s) => {
+      return s.isAutoRenew && s.provider?.subscriptionCode;
+    });
     console.log(
       `  ${activeAutoRenew.length} subscription(s) auto-renew on Paystack; checking their live plans:`,
     );
     const live = await planCodes.syncPlansForSubscriptions(
-      activeAutoRenew.map((s) => ({
-        subscriptionCode: s.provider.subscriptionCode,
-        plan: s.plan as PlanType,
-      })),
-      (plan, cycle) =>
-        cycle === BillingCycle.YEARLY
+      activeAutoRenew.map((s) => {
+        return {
+          subscriptionCode: s.provider.subscriptionCode,
+          plan: s.plan as PlanType,
+        };
+      }),
+      (plan, cycle) => {
+        return cycle === BillingCycle.YEARLY
           ? DEFAULT_PLAN_CONFIG[plan].yearlyPrice
-          : DEFAULT_PLAN_CONFIG[plan].monthlyPrice,
+          : DEFAULT_PLAN_CONFIG[plan].monthlyPrice;
+      },
       { dryRun: DRY_RUN },
     );
     for (const r of live) {

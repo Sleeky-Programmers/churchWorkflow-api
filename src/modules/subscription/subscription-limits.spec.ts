@@ -15,7 +15,11 @@ function build(sub: Record<string, any>) {
     {} as any,
     {} as any,
     {} as any,
-    { get: () => undefined } as any,
+    {
+      get: () => {
+        return undefined;
+      },
+    } as any,
   );
   const cache: Map<PlanType, any> = (service as any).planConfigCache;
   for (const plan of Object.values(PlanType)) {
