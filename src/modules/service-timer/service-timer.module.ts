@@ -48,6 +48,16 @@ import {
   TimerItemRunSchema,
 } from '../../schemas/timer-item-run.schema';
 import { TimerBranchesController } from './branches/timer-branches.controller';
+import { TimerChurchWorkflowController } from './church-workflow/timer-cw-link.controller';
+import { TimerChurchWorkflowService } from './church-workflow/timer-cw-link.service';
+import {
+  ServiceInstance,
+  ServiceInstanceSchema,
+} from '../../schemas/service-instance.schema';
+import {
+  Subscription,
+  SubscriptionSchema,
+} from '../../schemas/subscription.schema';
 import { TimerReportsController } from './reports/timer-reports.controller';
 import { TimerReportsService } from './reports/timer-reports.service';
 import { TimerTeamController } from './team/timer-team.controller';
@@ -81,6 +91,9 @@ import { ServiceTimerService } from './service-timer.service';
       { name: TimerPayment.name, schema: TimerPaymentSchema },
       { name: TimerItemRun.name, schema: TimerItemRunSchema },
       { name: Branch.name, schema: BranchSchema },
+      // Church Workflow's own records, read by the Church Workflow link.
+      { name: Subscription.name, schema: SubscriptionSchema },
+      { name: ServiceInstance.name, schema: ServiceInstanceSchema },
     ]),
     // Secrets are passed per call: admin tokens use JWT_SECRET, operator
     // Tokens a secret derived from it.
@@ -101,6 +114,7 @@ import { ServiceTimerService } from './service-timer.service';
     TimerPlansAdminController,
     TimerReportsController,
     TimerBranchesController,
+    TimerChurchWorkflowController,
   ],
   providers: [
     ServiceTimerService,
@@ -112,6 +126,7 @@ import { ServiceTimerService } from './service-timer.service';
     TimerPlanService,
     TimerBillingService,
     TimerPaystackClient,
+    TimerChurchWorkflowService,
     {
       // Without ANTHROPIC_API_KEY the API still starts; smart import answers 503.
       provide: ANTHROPIC_CLIENT,

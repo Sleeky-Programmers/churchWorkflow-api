@@ -52,6 +52,7 @@ import { AssetManagementModule } from './modules/asset-management/asset-manageme
 import { SuggestionsModule } from './modules/suggestions/suggestions.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { ServiceTimerModule } from './modules/service-timer/service-timer.module';
+import { AuthHandoffModule } from './modules/auth-handoff/auth-handoff.module';
 
 @Module({
   imports: [
@@ -128,6 +129,7 @@ import { ServiceTimerModule } from './modules/service-timer/service-timer.module
     SuggestionsModule,
     ReportsModule,
     ServiceTimerModule,
+    AuthHandoffModule,
   ],
   controllers: [AppController],
   providers: [AppService],

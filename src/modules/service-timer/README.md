@@ -151,6 +151,14 @@ Rules carried over from live use (handoff, section 6):
 - Switching uses the existing `POST /auth/switch-branch { branchId }`, which returns new tokens for that branch.
 - `GET /billing` also reports `usage.branches` and each plan's `branches` limit.
 
+## Church Workflow link (Product Plan, section 8)
+
+- **One login.** Both apps use the same accounts. To open Church Workflow already signed in, the timer asks for a one-time code (`POST /api/v1/auth/handoff`, any signed-in user; `{ code, expiresIn: 60 }`) and opens `FRONTEND_URL/auth/handoff#code=…`. Church Workflow trades it at `POST /api/v1/auth/handoff/redeem { code }` for the same response as `/auth/login`. Codes are random, stored hashed (`authhandoffs`), work once, expire after 60 seconds and are then deleted by MongoDB. The code is in the URL fragment, so it never reaches a server log.
+- **Trial on first use.** Every church gets a 7-day Church Workflow trial at sign-up, which a timer church usually never sees. `POST /service-timer/church-workflow/start` (timer admins) starts a fresh 7-day trial the first time and records `CHURCH_WORKFLOW` in the church's `products`; after that it changes nothing, and never touches a paid Church Workflow plan.
+- **Which plan applies.** Churches that came through Church Workflow always have the timer included, as before. A timer church has it included while Church Workflow is running for it (the trial it started, or a paid plan, including Church Workflow's 7-day grace). Otherwise its own timer plan (Free or Church) applies. If it still has timer auto-renew on, the Plan page keeps showing it so it can be turned off.
+- `GET /service-timer/church-workflow` (viewers): `{ state: "member" | "available" | "trial" | "active" | "ended", trialDays, trialEndsAt, url }`.
+- `GET /service-timer/church-workflow/services` (viewers): Church Workflow services in the next 14 days for the active branch and church-wide (`{ id, title, date, startTime, endTime, location }`), for loading into the timer.
+
 ## Deployment
 
 The API runs as one long-lived container on Dokploy, behind Traefik, which
