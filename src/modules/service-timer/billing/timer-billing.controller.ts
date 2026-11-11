@@ -42,6 +42,11 @@ import { TimerPlanService } from './timer-plan.service';
 export class CheckoutDto {
   @IsEnum(TimerBillingCycle)
   cycle: TimerBillingCycle;
+
+  // Keep the card on file and renew at each period end.
+  @IsOptional()
+  @IsBoolean()
+  autoRenew?: boolean;
 }
 
 export class ConfirmDto {
@@ -83,7 +88,15 @@ export class TimerBillingController {
       admin,
       dto.cycle,
       `${base.replace(/\/$/, '')}/billing`,
+      !!dto.autoRenew,
     );
+  }
+
+  /** Stops renewals; the time already paid for is kept. */
+  @Post('auto-renew/cancel')
+  @HttpCode(200)
+  cancelAutoRenew(@CurrentTenant() tenant: TenantContext) {
+    return this.billing.cancelAutoRenew(tenant.churchId);
   }
 
   /** Called when the payer returns from Paystack with `?reference=`. */

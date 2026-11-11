@@ -6,6 +6,7 @@ import { InjectModel } from '@nestjs/mongoose';
 
 import { Church } from '../../../schemas/church.schema';
 import {
+  TimerBillingCycle,
   TimerPlan,
   TimerPlanConfig,
   TimerSubscription,
@@ -71,6 +72,17 @@ export class TimerPlanService {
         { new: true },
       )
       .lean();
+  }
+
+  async setPaystackPlan(
+    cycle: TimerBillingCycle,
+    plan: { code: string; amount: number },
+  ) {
+    await this.getConfig(TimerPlan.CHURCH);
+    await this.configModel.updateOne(
+      { plan: TimerPlan.CHURCH },
+      { $set: { [`paystackPlans.${cycle}`]: plan } },
+    );
   }
 
   async subscriptionOf(churchId: Types.ObjectId) {
