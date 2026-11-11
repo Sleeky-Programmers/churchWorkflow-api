@@ -48,6 +48,12 @@ export class TimerPlanConfig extends Document {
   @Prop({ default: 0 })
   importLimit: number;
 
+  // Branches (each with its own timer). No default on purpose: configs
+  // saved before branch limits existed fall back to the plan's default
+  // instead of reading as 0 (unlimited).
+  @Prop({ type: Number })
+  branchLimit?: number;
+
   // Own logo and colours; otherwise colour presets and a "Service Timer" mark.
   @Prop({ default: false })
   customBranding: boolean;

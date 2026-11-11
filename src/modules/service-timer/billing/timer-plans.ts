@@ -17,6 +17,7 @@ export const DEFAULT_PLANS: Record<
     yearlyPrice: number;
     userLimit: number;
     importLimit: number;
+    branchLimit: number;
     customBranding: boolean;
   }
 > = {
@@ -25,6 +26,7 @@ export const DEFAULT_PLANS: Record<
     monthlyPrice: 0,
     yearlyPrice: 0,
     userLimit: 2,
+    branchLimit: 1,
     importLimit: 1,
     customBranding: false,
   },
@@ -34,6 +36,7 @@ export const DEFAULT_PLANS: Record<
     monthlyPrice: 2500,
     yearlyPrice: 25000,
     userLimit: 5,
+    branchLimit: 5,
     importLimit: 30,
     customBranding: true,
   },
