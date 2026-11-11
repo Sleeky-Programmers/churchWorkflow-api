@@ -100,6 +100,7 @@ export class UpdatePlanDto {
   @IsOptional() @IsInt() @Min(0) yearlyPrice?: number;
   @IsOptional() @IsInt() @Min(0) userLimit?: number;
   @IsOptional() @IsInt() @Min(0) importLimit?: number;
+  @IsOptional() @IsInt() @Min(0) branchLimit?: number;
   @IsOptional() @IsBoolean() customBranding?: boolean;
 }
 

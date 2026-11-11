@@ -140,6 +140,15 @@ Rules carried over from live use (handoff, section 6):
 - `GET /reports?days=90`: services for the active branch, newest first (`date`, `startedAt`, `endedAt`, `plannedMs`, `actualMs`, `overMs`).
 - `GET /reports/:date` (`YYYY-MM-DD`): the service item by item against the program. Dates are in the branch's time zone, else the church's, else Africa/Lagos.
 
+## Branches (`/api/v1/service-timer/branches`)
+
+- Each branch has its own timer (settings, program, links, PIN, reports). Branches are Church Workflow's own `branches`, so a church using both products sees one list.
+- Limits: Free 1, Church 5 (`branchLimit` in `timerplanconfigs`, 0 = unlimited). Church Workflow churches keep their Church Workflow plan's limit.
+- `GET /branches` (timer viewers): `{ branches: [{ id, name, isHQ }], activeBranchId, accessScope, limit, count }`; `limit` is null for Church Workflow churches.
+- `POST /branches { name }` (timer admins with org-wide access): adds a branch, or `403` at the limit.
+- Switching uses the existing `POST /auth/switch-branch { branchId }`, which returns new tokens for that branch.
+- `GET /billing` also reports `usage.branches` and each plan's `branches` limit.
+
 ## Deployment
 
 The API runs as one long-lived container on Dokploy, behind Traefik, which

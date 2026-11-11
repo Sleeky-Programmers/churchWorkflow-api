@@ -151,6 +151,7 @@ function billing(
     {} as any,
     plans as any,
     paystack as any,
+    { countActive: async () => 1 } as any,
   );
   return { service, payments, subs, paystack };
 }

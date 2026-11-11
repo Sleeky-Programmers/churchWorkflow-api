@@ -47,6 +47,7 @@ import {
   TimerItemRun,
   TimerItemRunSchema,
 } from '../../schemas/timer-item-run.schema';
+import { TimerBranchesController } from './branches/timer-branches.controller';
 import { TimerReportsController } from './reports/timer-reports.controller';
 import { TimerReportsService } from './reports/timer-reports.service';
 import { TimerTeamController } from './team/timer-team.controller';
@@ -97,6 +98,7 @@ import { ServiceTimerService } from './service-timer.service';
     TimerBillingController,
     TimerPlansAdminController,
     TimerReportsController,
+    TimerBranchesController,
   ],
   providers: [
     ServiceTimerService,

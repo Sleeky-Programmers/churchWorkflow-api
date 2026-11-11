@@ -26,7 +26,8 @@ import {
 import { monthBounds } from '../import/program-extraction';
 import { TimerPaystackClient } from './paystack-client';
 import { TimerPlanService } from './timer-plan.service';
-import { extendPeriod } from './timer-plans';
+import { BranchService } from '../../branch/branch.service';
+import { DEFAULT_PLANS, extendPeriod } from './timer-plans';
 
 /** Marks timer payments so Church Workflow's Paystack webhook leaves them alone. */
 export const TIMER_PAYMENT_TYPE = 'service_timer_plan';
@@ -54,6 +55,7 @@ export class TimerBillingService {
     @InjectModel(Invite.name) private inviteModel: Model<Invite>,
     private plans: TimerPlanService,
     private paystack: TimerPaystackClient,
+    private branchService: BranchService,
   ) {}
 
   /** Seats used: accounts plus pending invites, as Church Workflow counts them. */
@@ -71,25 +73,28 @@ export class TimerBillingService {
   async overview(churchId: Types.ObjectId) {
     await this.reconcile(churchId);
     const { start } = monthBounds(new Date());
-    const [plan, free, church, seats, imports, payments] = await Promise.all([
-      this.plans.planFor(churchId),
-      this.plans.getConfig(TimerPlan.FREE),
-      this.plans.getConfig(TimerPlan.CHURCH),
-      this.seatsUsed(churchId),
-      this.importModel.countDocuments({
-        churchId,
-        status: TimerImportStatus.SUCCEEDED,
-        createdAt: { $gte: start },
-      }),
-      this.paymentModel
-        .find({ churchId, status: TimerPaymentStatus.SUCCESS })
-        .sort({ paidAt: -1 })
-        .limit(12)
-        .lean(),
-    ]);
+    const [plan, free, church, seats, imports, payments, branches] =
+      await Promise.all([
+        this.plans.planFor(churchId),
+        this.plans.getConfig(TimerPlan.FREE),
+        this.plans.getConfig(TimerPlan.CHURCH),
+        this.seatsUsed(churchId),
+        this.importModel.countDocuments({
+          churchId,
+          status: TimerImportStatus.SUCCEEDED,
+          createdAt: { $gte: start },
+        }),
+        this.paymentModel
+          .find({ churchId, status: TimerPaymentStatus.SUCCESS })
+          .sort({ paidAt: -1 })
+          .limit(12)
+          .lean(),
+        this.branchService.countActive(churchId),
+      ]);
     const limits = (c: typeof free) => ({
       users: c.userLimit,
       imports: c.importLimit,
+      branches: c.branchLimit ?? DEFAULT_PLANS[c.plan].branchLimit,
       customBranding: c.customBranding,
     });
     return {
@@ -103,7 +108,7 @@ export class TimerBillingService {
           ...limits(church),
         },
       },
-      usage: { seats, imports },
+      usage: { seats, imports, branches },
       canPay: plan.key !== 'CHURCH_WORKFLOW',
       payments: payments.map((p) => ({
         reference: p.reference,

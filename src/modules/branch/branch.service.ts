@@ -104,19 +104,33 @@ export class BranchService {
     };
   }
 
-  async create(authUser: Admin, dto: CreateBranchDto) {
+  /**
+   * `limit` lets another product (the Service Timer) apply its own branch
+   * limit instead of the Church Workflow plan's; 0 means unlimited.
+   */
+  async create(
+    authUser: Admin,
+    dto: CreateBranchDto,
+    limit?: { max: number; message: string },
+  ) {
     this.assertOrgWide(authUser);
 
     const name = dto.name.trim();
     await this.assertNameAvailable(authUser.churchId, name);
 
     const currentBranchCount = await this.countActive(authUser.churchId);
-    const limitCheck = await this.subscriptionService.checkBranchLimit(
-      authUser.churchId,
-      currentBranchCount,
-    );
-    if (!limitCheck.allowed) {
-      throw new ForbiddenException(limitCheck.message);
+    if (limit) {
+      if (limit.max > 0 && currentBranchCount >= limit.max) {
+        throw new ForbiddenException(limit.message);
+      }
+    } else {
+      const limitCheck = await this.subscriptionService.checkBranchLimit(
+        authUser.churchId,
+        currentBranchCount,
+      );
+      if (!limitCheck.allowed) {
+        throw new ForbiddenException(limitCheck.message);
+      }
     }
 
     return this.branchModel.create({

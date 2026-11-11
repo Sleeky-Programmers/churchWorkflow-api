@@ -23,6 +23,8 @@ export interface ChurchPlan {
   userLimit: number | null;
   /** Successful smart imports a month (0 = unlimited). */
   importLimit: number;
+  /** Branches, each with its own timer; null means Church Workflow's limits. */
+  branchLimit: number | null;
   /** Own logo and colours; without it, presets and a "Service Timer" mark. */
   customBranding: boolean;
   showMark: boolean;
@@ -91,6 +93,7 @@ export class TimerPlanService {
         name: 'Included in Church Workflow',
         userLimit: null,
         importLimit: Number.isFinite(fairUse) && fairUse >= 0 ? fairUse : 50,
+        branchLimit: null,
         customBranding: true,
         showMark: false,
         periodEnd: null,
@@ -103,6 +106,7 @@ export class TimerPlanService {
       name: cfg.name,
       userLimit: cfg.userLimit,
       importLimit: cfg.importLimit,
+      branchLimit: cfg.branchLimit ?? DEFAULT_PLANS[key].branchLimit,
       customBranding: cfg.customBranding,
       showMark: !cfg.customBranding,
       periodEnd:
