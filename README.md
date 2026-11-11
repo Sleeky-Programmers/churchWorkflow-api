@@ -1,4 +1,4 @@
-# Nest.js App README template 
+# NestJS App README template 
 
 This is a NestJS application designed to provide [a brief description of your app]. It is built using the powerful NestJS framework to ensure scalability, maintainability, and performance.
 
