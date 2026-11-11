@@ -91,6 +91,22 @@ export class TimerPaystackClient {
     return res.data?.data?.plan_code;
   }
 
+  /**
+   * Sets a plan's price; subscriptions already on it renew at the new price
+   * (as Church Workflow's own plans do). Amount in naira.
+   */
+  async updatePlanAmount(code: string, amountNaira: number) {
+    const { baseUrl, headers } = this.settings;
+    await axios.put(
+      `${baseUrl}/plan/${encodeURIComponent(code)}`,
+      {
+        amount: Math.round(amountNaira * 100),
+        update_existing_subscriptions: true,
+      },
+      { headers, timeout: 20_000 },
+    );
+  }
+
   /** Charges the saved card on the plan's interval, first on `startDate`. */
   async createSubscription(body: {
     customer: string;

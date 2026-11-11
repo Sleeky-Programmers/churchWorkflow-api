@@ -26,7 +26,9 @@ import { ConfigService } from '@nestjs/config';
 import { AuthUser } from '../../../common/decorators/auth-user.decorator';
 import { CurrentTenant } from '../../../common/decorators/current-tenant.decorator';
 import { RequirePermissions } from '../../../common/decorators/permissions.decorator';
+import { Roles } from '../../../common/decorators/roles.decorator';
 import { PermissionsGuard } from '../../../common/guards/permissions.guard';
+import { RolesGuard } from '../../../common/guards/roles.guard';
 import { TenantContext } from '../../../common/interfaces/tenant-context.interface';
 import { AccessLevel, ModuleSections } from '../../../common/utils/enums.utils';
 import { Admin } from '../../../schemas/admin.schema';
@@ -37,7 +39,6 @@ import {
 import { JwtAuthGuard } from '../../auth/guard/jwt-auth.guard';
 import { ProductAdminJwtAuthGuard } from '../../product-admin/guard/product-jwt-auth.guard';
 import { TimerBillingService } from './timer-billing.service';
-import { TimerPlanService } from './timer-plan.service';
 
 export class CheckoutDto {
   @IsEnum(TimerBillingCycle)
@@ -117,17 +118,21 @@ export class UpdatePlanDto {
   @IsOptional() @IsBoolean() customBranding?: boolean;
 }
 
-/** Sleeky Programmers' product admins set the timer's prices and limits. */
-@UseGuards(ProductAdminJwtAuthGuard)
+/**
+ * Sleeky Programmers' product admins see the timer's prices and limits;
+ * super admins change them (as with Church Workflow's own plans).
+ */
+@UseGuards(ProductAdminJwtAuthGuard, RolesGuard)
 @Controller('service-timer/admin/plans')
 export class TimerPlansAdminController {
-  constructor(private readonly plans: TimerPlanService) {}
+  constructor(private readonly billing: TimerBillingService) {}
 
   @Get()
   list() {
-    return this.plans.listConfigs();
+    return this.billing.adminPlans();
   }
 
+  @Roles('SUPER_ADMIN')
   @Put(':plan')
   update(
     @Param('plan') plan: string,
@@ -140,6 +145,6 @@ export class TimerPlansAdminController {
     if (!key) {
       throw new NotFoundException('Unknown plan');
     }
-    return this.plans.updateConfig(key, dto, productAdmin?._id ?? null);
+    return this.billing.updateAdminPlan(key, dto, productAdmin?._id ?? null);
   }
 }
