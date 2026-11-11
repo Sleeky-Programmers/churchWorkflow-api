@@ -49,29 +49,57 @@ describe('plan rules', () => {
 
   it('a timer church gets it included while Church Workflow runs for it', () => {
     const timer = [ChurchProduct.SERVICE_TIMER];
-    const started = [ChurchProduct.SERVICE_TIMER, ChurchProduct.CHURCH_WORKFLOW];
-    const trial = { status: 'TRIAL', endDate: new Date(+now + 3 * day), gracePeriodEndDate: new Date(+now + 3 * day) };
+    const started = [
+      ChurchProduct.SERVICE_TIMER,
+      ChurchProduct.CHURCH_WORKFLOW,
+    ];
+    const trial = {
+      status: 'TRIAL',
+      endDate: new Date(+now + 3 * day),
+      gracePeriodEndDate: new Date(+now + 3 * day),
+    };
     // The trial made at sign-up doesn't count until they start it.
     expect(effectivePlanKey(timer, null, now, trial)).toBe(TimerPlan.FREE);
     expect(effectivePlanKey(started, null, now, trial)).toBe('CHURCH_WORKFLOW');
     // Trial over: back to the timer's own plan.
-    const ended = { status: 'TRIAL', endDate: new Date(+now - day), gracePeriodEndDate: new Date(+now - day) };
+    const ended = {
+      status: 'TRIAL',
+      endDate: new Date(+now - day),
+      gracePeriodEndDate: new Date(+now - day),
+    };
     expect(effectivePlanKey(started, null, now, ended)).toBe(TimerPlan.FREE);
     expect(
-      effectivePlanKey(started, { currentPeriodEnd: new Date(+now + day) }, now, ended),
+      effectivePlanKey(
+        started,
+        { currentPeriodEnd: new Date(+now + day) },
+        now,
+        ended,
+      ),
     ).toBe(TimerPlan.CHURCH);
     // Paid for Church Workflow (even without starting from the timer),
-    // including its 7-day grace after the end date.
-    const paid = { status: 'ACTIVE', endDate: new Date(+now - 2 * day), gracePeriodEndDate: null };
+    // Including its 7-day grace after the end date.
+    const paid = {
+      status: 'ACTIVE',
+      endDate: new Date(+now - 2 * day),
+      gracePeriodEndDate: null,
+    };
     expect(effectivePlanKey(timer, null, now, paid)).toBe('CHURCH_WORKFLOW');
-    const lapsed = { status: 'ACTIVE', endDate: new Date(+now - 8 * day), gracePeriodEndDate: null };
+    const lapsed = {
+      status: 'ACTIVE',
+      endDate: new Date(+now - 8 * day),
+      gracePeriodEndDate: null,
+    };
     expect(effectivePlanKey(timer, null, now, lapsed)).toBe(TimerPlan.FREE);
   });
 
-  it("leaves churches that came through Church Workflow as they were", () => {
+  it('leaves churches that came through Church Workflow as they were', () => {
     const expired = { status: 'EXPIRED', endDate: new Date(+now - 30 * day) };
-    expect(effectivePlanKey([ChurchProduct.CHURCH_WORKFLOW], null, now, expired)).toBe('CHURCH_WORKFLOW');
-    expect(effectivePlanKey(undefined, null, now, null)).toBe('CHURCH_WORKFLOW');
+    expect(
+      effectivePlanKey([ChurchProduct.CHURCH_WORKFLOW], null, now, expired),
+    ).toBe('CHURCH_WORKFLOW');
+    expect(effectivePlanKey(undefined, null, now, null)).toBe(
+      'CHURCH_WORKFLOW',
+    );
   });
 
   it('paying again extends from the current end, or from now if lapsed', () => {

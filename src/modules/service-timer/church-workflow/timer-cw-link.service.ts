@@ -68,9 +68,13 @@ export class TimerChurchWorkflowService {
       const started =
         products.includes(ChurchProduct.CHURCH_WORKFLOW) ||
         cw?.status === 'ACTIVE';
-      if (!started) state = 'available';
-      else if (!churchWorkflowLive(cw, now)) state = 'ended';
-      else state = cw?.status === 'ACTIVE' ? 'active' : 'trial';
+      if (!started) {
+        state = 'available';
+      } else if (!churchWorkflowLive(cw, now)) {
+        state = 'ended';
+      } else {
+        state = cw?.status === 'ACTIVE' ? 'active' : 'trial';
+      }
     }
     return {
       state,

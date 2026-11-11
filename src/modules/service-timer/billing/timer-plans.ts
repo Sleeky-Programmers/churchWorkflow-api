@@ -86,8 +86,8 @@ export function effectivePlanKey(
     return 'CHURCH_WORKFLOW';
   }
   // Timer churches get it included while Church Workflow is running for
-  // them: the trial they start from the timer, or a paid plan. The trial
-  // every church gets at sign-up doesn't count until they start it.
+  // Them: the trial they start from the timer, or a paid plan. The trial
+  // Every church gets at sign-up doesn't count until they start it.
   const started =
     products.includes(ChurchProduct.CHURCH_WORKFLOW) ||
     churchWorkflow?.status === 'ACTIVE';
