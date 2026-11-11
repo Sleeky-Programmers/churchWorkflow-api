@@ -123,9 +123,19 @@ export class RolesService implements OnModuleInit {
     });
   }
 
+  /** A built-in role by name (a church's own role of the same name doesn't count). */
+  async findSystemRole(roleName: string) {
+    return await this.roleModel.findOne({ roleName, type: RoleType.SYSTEM });
+  }
+
+  // Church Workflow's role list. The Service Timer's roles are left out:
+  // They're given from the timer's own Team page, not Church Workflow.
   async fetchRoles(authUser: Admin) {
     const [systemRoles, customRoles] = await Promise.all([
-      this.roleModel.find({ type: RoleType.SYSTEM }),
+      this.roleModel.find({
+        type: RoleType.SYSTEM,
+        roleName: { $nin: TIMER_ROLES.map((r) => r.roleName) },
+      }),
       this.roleModel.find({ churchId: authUser.churchId }),
     ]);
 

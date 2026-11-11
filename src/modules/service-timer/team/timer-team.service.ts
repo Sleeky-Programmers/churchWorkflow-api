@@ -51,7 +51,7 @@ export class TimerTeamService {
   ) {}
 
   private async roleFor(key: TimerRoleKey) {
-    const role = await this.rolesService.findOne(ROLE_NAME[key]);
+    const role = await this.rolesService.findSystemRole(ROLE_NAME[key]);
     if (!role) {
       throw new NotFoundException('Timer roles are not set up yet.');
     }
