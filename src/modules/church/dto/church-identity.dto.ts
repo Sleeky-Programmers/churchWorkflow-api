@@ -1,4 +1,6 @@
-import { IsNotEmpty, IsOptional } from 'class-validator';
+import { IsEnum, IsNotEmpty, IsOptional } from 'class-validator';
+
+import { ChurchProduct } from '../../../common/utils/enums.utils';
 
 export class ChurchIdentityDto {
   @IsNotEmpty()
@@ -21,4 +23,10 @@ export class ChurchIdentityDto {
 
   @IsNotEmpty()
   timeZone: string;
+
+  // The product the church is signing up through. Defaults to Church
+  // Workflow; the Service Timer app sends SERVICE_TIMER.
+  @IsOptional()
+  @IsEnum(ChurchProduct)
+  product?: ChurchProduct;
 }

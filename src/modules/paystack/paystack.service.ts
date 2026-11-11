@@ -20,6 +20,7 @@ import {
 import { AdminActivityLogService } from '../admin-activity-log/admin-activity-log.service';
 import { CouponService } from '../coupon/coupon.service';
 import { OnlineGivingService } from '../online-giving/online-giving.service';
+import { PaystackWebhookRegistry } from './paystack-webhook.registry';
 import { PaymentService } from '../payment/payment.service';
 import { SubscriptionPlanCodesService } from '../subscription-plan-codes/subscription-plan-codes.service';
 import { SubscriptionService } from '../subscription/subscription.service';
@@ -39,6 +40,7 @@ export class PaystackService {
     private adminActivityLogService: AdminActivityLogService,
     @Inject(forwardRef(() => OnlineGivingService))
     private readonly onlineGivingService: OnlineGivingService,
+    private readonly webhookRegistry: PaystackWebhookRegistry,
   ) {
     this.secretKey = this.configService.get<string>('paystack.secretKey');
     this.baseUrl = this.configService.get<string>('paystack.baseUrl');
@@ -262,6 +264,11 @@ export class PaystackService {
     const event = payload.event;
     const data = payload.data;
 
+    // Other products' events (e.g. Service Timer renewals) are theirs.
+    if (await this.webhookRegistry.dispatch(payload)) {
+      return { status: 'success' };
+    }
+
     switch (event) {
       case 'charge.success': {
         const { reference, metadata, paid_at } = data;
@@ -271,6 +278,12 @@ export class PaystackService {
             metadata,
             reference,
           );
+          break;
+        }
+
+        // Service Timer plan payments are confirmed by the timer's billing
+        // (service-timer/billing), not as Church Workflow subscriptions.
+        if (metadata && metadata.type === 'service_timer_plan') {
           break;
         }
 

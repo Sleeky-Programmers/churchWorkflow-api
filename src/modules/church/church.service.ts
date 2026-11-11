@@ -16,6 +16,7 @@ import {
 import {
   AdminAccessScope,
   BillingCycle,
+  ChurchProduct,
   ChurchSubscriptionStatus,
   ModuleSections,
   PlanType,
@@ -313,9 +314,11 @@ export class ChurchService {
     }
 
     const slug = await this.generateUniqueSlug(churchIdentityDto.name);
+    const { product, ...identity } = churchIdentityDto;
 
     const church = await this.churchModel.create({
-      ...churchIdentityDto,
+      ...identity,
+      products: [product ?? ChurchProduct.CHURCH_WORKFLOW],
       logoUrl: url,
       logoPublicId: publicId,
       slug,
