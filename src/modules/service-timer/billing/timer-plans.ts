@@ -45,13 +45,53 @@ export const DEFAULT_PLANS: Record<
 /** What a church gets right now. */
 export type EffectivePlanKey = TimerPlan | 'CHURCH_WORKFLOW';
 
+/** The parts of a Church Workflow subscription that say whether it's live. */
+export interface ChurchWorkflowSubscription {
+  status?: string | null;
+  endDate?: Date | null;
+  gracePeriodEndDate?: Date | null;
+}
+
+const CW_GRACE_DAYS = 7;
+
+/**
+ * Whether a Church Workflow trial or paid plan is running. Mirrors Church
+ * Workflow's own rule: usable until the end date, then a 7-day grace.
+ */
+export function churchWorkflowLive(
+  sub: ChurchWorkflowSubscription | null | undefined,
+  now: Date,
+): boolean {
+  if (!sub || sub.status === 'SUSPENDED' || sub.status === 'EXPIRED') {
+    return false;
+  }
+  if (!sub.endDate) {
+    return true; // No end date: open-ended.
+  }
+  const graceEnd =
+    sub.gracePeriodEndDate ??
+    new Date(new Date(sub.endDate).getTime() + CW_GRACE_DAYS * 86_400_000);
+  return now <= new Date(graceEnd);
+}
+
 export function effectivePlanKey(
   products: ChurchProduct[] | undefined,
   subscription: { currentPeriodEnd: Date } | null,
   now: Date,
+  churchWorkflow: ChurchWorkflowSubscription | null = null,
 ): EffectivePlanKey {
-  // The timer is included in Church Workflow (section 8.1).
-  if (!products?.length || products.includes(ChurchProduct.CHURCH_WORKFLOW)) {
+  // Churches that came through Church Workflow: the timer is included
+  // (section 8.1). Unchanged from before the Church Workflow link.
+  if (!products?.length || !products.includes(ChurchProduct.SERVICE_TIMER)) {
+    return 'CHURCH_WORKFLOW';
+  }
+  // Timer churches get it included while Church Workflow is running for
+  // them: the trial they start from the timer, or a paid plan. The trial
+  // every church gets at sign-up doesn't count until they start it.
+  const started =
+    products.includes(ChurchProduct.CHURCH_WORKFLOW) ||
+    churchWorkflow?.status === 'ACTIVE';
+  if (started && churchWorkflowLive(churchWorkflow, now)) {
     return 'CHURCH_WORKFLOW';
   }
   return subscription && subscription.currentPeriodEnd > now

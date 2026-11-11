@@ -103,7 +103,9 @@ export class TimerBillingService implements OnModuleInit {
         this.branchService.countActive(churchId),
         this.plans.subscriptionOf(churchId),
       ]);
-    const renewing = plan.key === TimerPlan.CHURCH && !!sub?.autoRenew;
+    // Also shown once Church Workflow includes the timer, so a church that
+    // moved across can stop paying for the timer separately.
+    const renewing = plan.key !== TimerPlan.FREE && !!sub?.autoRenew;
     const limits = (c: typeof free) => ({
       users: c.userLimit,
       imports: c.importLimit,

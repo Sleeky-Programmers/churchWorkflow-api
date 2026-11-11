@@ -5,6 +5,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 
 import { Church } from '../../../schemas/church.schema';
+import { Subscription } from '../../../schemas/subscription.schema';
 import {
   TimerBillingCycle,
   TimerPlan,
@@ -41,6 +42,9 @@ export class TimerPlanService {
     @InjectModel(TimerSubscription.name)
     private subscriptionModel: Model<TimerSubscription>,
     @InjectModel(Church.name) private churchModel: Model<Church>,
+    // Church Workflow's own subscription (read only).
+    @InjectModel(Subscription.name)
+    private cwSubscriptionModel: Model<Subscription>,
     private config: ConfigService,
   ) {}
 
@@ -90,11 +94,15 @@ export class TimerPlanService {
   }
 
   async planFor(churchId: Types.ObjectId): Promise<ChurchPlan> {
-    const [church, sub] = await Promise.all([
+    const [church, sub, cw] = await Promise.all([
       this.churchModel.findById(churchId).select('products').lean(),
       this.subscriptionOf(churchId),
+      this.cwSubscriptionModel
+        .findOne({ churchId })
+        .select('status endDate gracePeriodEndDate')
+        .lean(),
     ]);
-    const key = effectivePlanKey(church?.products, sub, new Date());
+    const key = effectivePlanKey(church?.products, sub, new Date(), cw);
 
     if (key === 'CHURCH_WORKFLOW') {
       const fairUse = Number(
