@@ -106,7 +106,7 @@ function build(opts: { invites?: any[]; plan?: any } = {}) {
     changeRole: jest.fn(),
     removeUser: jest.fn(),
   };
-  const rolesService = { findOne: async (name: string) => roles[name] };
+  const rolesService = { findSystemRole: async (name: string) => roles[name] };
   const plans = {
     planFor: jest
       .fn()
