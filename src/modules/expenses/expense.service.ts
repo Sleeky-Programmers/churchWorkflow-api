@@ -62,9 +62,9 @@ export class ExpenseService {
     if (role.type === RoleType.SYSTEM && role.roleName === 'Super Admin') {
       return true;
     }
-    const perm = role.permissions?.find(
-      (p) => p.moduleSection === ModuleSections.GIVING_AND_EXPENSES,
-    );
+    const perm = role.permissions?.find((p) => {
+      return p.moduleSection === ModuleSections.GIVING_AND_EXPENSES;
+    });
     return perm?.accessLevel === AccessLevel.FULL_ACCESS;
   }
 
@@ -136,7 +136,9 @@ export class ExpenseService {
     ]);
 
     return {
-      data: expenses.map((expense) => this.toResponse(expense)),
+      data: expenses.map((expense) => {
+        return this.toResponse(expense);
+      }),
       pagination: paginationMeta({ page, limit, itemCount }),
     };
   }
@@ -169,10 +171,9 @@ export class ExpenseService {
 
     const expenses = await this.expenseModel.find(filter).lean();
 
-    const totalAmount = expenses.reduce(
-      (sum, expense) => sum + (expense.amount || 0),
-      0,
-    );
+    const totalAmount = expenses.reduce((sum, expense) => {
+      return sum + (expense.amount || 0);
+    }, 0);
 
     const byCategory = expenses.reduce<Record<string, number>>(
       (acc, expense) => {
@@ -186,10 +187,12 @@ export class ExpenseService {
     return {
       totalAmount,
       recordCount: expenses.length,
-      byCategory: Object.entries(byCategory).map(([category, amount]) => ({
-        category,
-        amount,
-      })),
+      byCategory: Object.entries(byCategory).map(([category, amount]) => {
+        return {
+          category,
+          amount,
+        };
+      }),
     };
   }
 
@@ -213,10 +216,12 @@ export class ExpenseService {
       totalsByMonth[date.getMonth()] += expense.amount || 0;
     }
 
-    return totalsByMonth.map((totalAmount, index) => ({
-      month: MONTH_NAMES[index],
-      totalAmount,
-    }));
+    return totalsByMonth.map((totalAmount, index) => {
+      return {
+        month: MONTH_NAMES[index],
+        totalAmount,
+      };
+    });
   }
 
   async update(

@@ -50,9 +50,9 @@ export class RequisitionService {
     if (role.type === RoleType.SYSTEM && role.roleName === 'Super Admin') {
       return true;
     }
-    const perm = role.permissions?.find(
-      (p) => p.moduleSection === ModuleSections.REQUESTS,
-    );
+    const perm = role.permissions?.find((p) => {
+      return p.moduleSection === ModuleSections.REQUESTS;
+    });
     return perm?.accessLevel === AccessLevel.FULL_ACCESS;
   }
 
@@ -83,7 +83,9 @@ export class RequisitionService {
       })
       .select('_id')
       .lean();
-    return departments.map((d) => d._id as Types.ObjectId);
+    return departments.map((d) => {
+      return d._id as Types.ObjectId;
+    });
   }
 
   async create(
@@ -153,7 +155,9 @@ export class RequisitionService {
       // Read another department's requests just by passing its id.
       const ledIds = await this.ledDepartmentIds(tenant, authUser);
       if (departmentId) {
-        const isLed = ledIds.some((led) => led.toString() === departmentId);
+        const isLed = ledIds.some((led) => {
+          return led.toString() === departmentId;
+        });
         if (!isLed) {
           throw new ForbiddenException(
             'You can only view requests for a department you head',
@@ -183,7 +187,9 @@ export class RequisitionService {
     ]);
 
     return {
-      data: requisitions.map((r) => this.toResponse(r, r.departmentId)),
+      data: requisitions.map((r) => {
+        return this.toResponse(r, r.departmentId);
+      }),
       pagination: paginationMeta({ page, limit, itemCount }),
     };
   }
@@ -419,13 +425,15 @@ export class RequisitionService {
       reviewedAt: requisition.reviewedAt || null,
       reviewNote: requisition.reviewNote || null,
       expenseId: requisition.expenseId?.toString() || null,
-      comments: (requisition.comments || []).map((c: any) => ({
-        id: c._id?.toString(),
-        authorId: c.authorId?.toString(),
-        authorName: c.authorName,
-        body: c.body,
-        createdAt: c.createdAt,
-      })),
+      comments: (requisition.comments || []).map((c: any) => {
+        return {
+          id: c._id?.toString(),
+          authorId: c.authorId?.toString(),
+          authorName: c.authorName,
+          body: c.body,
+          createdAt: c.createdAt,
+        };
+      }),
       createdAt: requisition.createdAt,
       updatedAt: requisition.updatedAt,
     };

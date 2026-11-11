@@ -35,12 +35,16 @@ export const paginationMeta = ({
 };
 
 export class PaginationBaseDto {
-  @Type(() => Number)
+  @Type(() => {
+    return Number;
+  })
   @IsInt()
   @Min(1)
   public page?: number = 1;
 
-  @Type(() => Number)
+  @Type(() => {
+    return Number;
+  })
   @IsInt()
   @Min(1)
   @Max(100)

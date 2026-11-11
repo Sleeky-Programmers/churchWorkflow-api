@@ -134,7 +134,11 @@ export class RolesService implements OnModuleInit {
     const [systemRoles, customRoles] = await Promise.all([
       this.roleModel.find({
         type: RoleType.SYSTEM,
-        roleName: { $nin: TIMER_ROLES.map((r) => r.roleName) },
+        roleName: {
+          $nin: TIMER_ROLES.map((r) => {
+            return r.roleName;
+          }),
+        },
       }),
       this.roleModel.find({ churchId: authUser.churchId }),
     ]);

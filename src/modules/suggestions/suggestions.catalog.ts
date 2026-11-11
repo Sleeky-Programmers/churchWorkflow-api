@@ -176,9 +176,13 @@ export function normalizePagePath(
 }
 
 export function findPage(path: string): CatalogPage | undefined {
-  return PAGE_CATALOG.find((p) => p.path === path);
+  return PAGE_CATALOG.find((p) => {
+    return p.path === path;
+  });
 }
 
 export function findAction(key: string): CatalogAction | undefined {
-  return ACTION_CATALOG.find((a) => a.key === key);
+  return ACTION_CATALOG.find((a) => {
+    return a.key === key;
+  });
 }

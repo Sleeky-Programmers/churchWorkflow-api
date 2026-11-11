@@ -38,12 +38,16 @@ export class AccountSettingsDto {
   @IsOptional()
   @IsObject()
   @ValidateNested()
-  @Type(() => PersonalPreferencesDto)
+  @Type(() => {
+    return PersonalPreferencesDto;
+  })
   personalPreferences?: PersonalPreferencesDto;
 
   @IsOptional()
   @IsObject()
   @ValidateNested()
-  @Type(() => PersonalPrivacyDto)
+  @Type(() => {
+    return PersonalPrivacyDto;
+  })
   personalPrivacy?: PersonalPrivacyDto;
 }

@@ -134,18 +134,22 @@ export class TimerChurchWorkflowService {
       .limit(40)
       .lean();
     return rows
-      .map((s) => ({
-        id: String(s._id),
-        title: s.title || 'Service',
-        // Instances are stored at midnight, server time (UTC in production).
-        date: new Date(s.date).toISOString().slice(0, 10),
-        startTime: /^\d{1,2}:\d{2}$/.test(s.startTime ?? '')
-          ? s.startTime.padStart(5, '0')
-          : null,
-        endTime: s.endTime || null,
-        location: s.location || null,
-      }))
-      .filter((s) => s.date >= today)
+      .map((s) => {
+        return {
+          id: String(s._id),
+          title: s.title || 'Service',
+          // Instances are stored at midnight, server time (UTC in production).
+          date: new Date(s.date).toISOString().slice(0, 10),
+          startTime: /^\d{1,2}:\d{2}$/.test(s.startTime ?? '')
+            ? s.startTime.padStart(5, '0')
+            : null,
+          endTime: s.endTime || null,
+          location: s.location || null,
+        };
+      })
+      .filter((s) => {
+        return s.date >= today;
+      })
       .slice(0, 20);
   }
 }

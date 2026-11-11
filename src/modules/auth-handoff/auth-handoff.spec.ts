@@ -12,15 +12,18 @@ function setup() {
     firstName: 'Ada',
   };
   const handoffModel = {
-    create: async (d: any) => codes.push({ ...d, usedAt: null }),
+    create: async (d: any) => {
+      return codes.push({ ...d, usedAt: null });
+    },
     // Matches { codeHash, usedAt: null, expiresAt: { $gt } } like MongoDB.
     findOneAndUpdate: async (q: any, u: any) => {
-      const h = codes.find(
-        (c) =>
+      const h = codes.find((c) => {
+        return (
           c.codeHash === q.codeHash &&
           c.usedAt === null &&
-          c.expiresAt > q.expiresAt.$gt,
-      );
+          c.expiresAt > q.expiresAt.$gt
+        );
+      });
       if (h) {
         Object.assign(h, u.$set);
       }
@@ -28,15 +31,21 @@ function setup() {
     },
   };
   const adminModel = {
-    findById: (id: any) => ({
-      lean: async () => (String(id) === String(admin._id) ? admin : null),
-    }),
+    findById: (id: any) => {
+      return {
+        lean: async () => {
+          return String(id) === String(admin._id) ? admin : null;
+        },
+      };
+    },
   };
   const authService = {
-    generateTokens: jest.fn((sub: string, branch?: string | null) => ({
-      accessToken: `access:${sub}:${branch}`,
-      refreshToken: `refresh:${sub}:${branch}`,
-    })),
+    generateTokens: jest.fn((sub: string, branch?: string | null) => {
+      return {
+        accessToken: `access:${sub}:${branch}`,
+        refreshToken: `refresh:${sub}:${branch}`,
+      };
+    }),
   };
   const service = new AuthHandoffService(
     handoffModel as any,

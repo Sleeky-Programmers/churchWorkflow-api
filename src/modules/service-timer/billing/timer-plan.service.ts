@@ -60,7 +60,11 @@ export class TimerPlanService {
   }
 
   async listConfigs() {
-    return Promise.all(Object.values(TimerPlan).map((p) => this.getConfig(p)));
+    return Promise.all(
+      Object.values(TimerPlan).map((p) => {
+        return this.getConfig(p);
+      }),
+    );
   }
 
   async updateConfig(

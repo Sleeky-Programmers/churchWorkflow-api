@@ -47,14 +47,16 @@ const person = (
   first: string,
   role: string,
   email = `${first.toLowerCase()}@example.com`,
-) => ({
-  _id: new Types.ObjectId(),
-  churchId,
-  firstName: first,
-  lastName: 'Obi',
-  email,
-  churchRole: roles[role],
-});
+) => {
+  return {
+    _id: new Types.ObjectId(),
+    churchId,
+    firstName: first,
+    lastName: 'Obi',
+    email,
+    churchRole: roles[role],
+  };
+};
 
 const owner = person('Ada', 'Super Admin');
 const operator = person('Ben', 'Timer Operator');
@@ -64,37 +66,63 @@ const me = person('Dee', 'Timer Admin');
 function build(opts: { invites?: any[]; plan?: any } = {}) {
   const invites = opts.invites ?? [];
   const admins = [owner, operator, usher, me];
-  const chain = (v: any) => ({
-    populate: () => ({
-      sort: () => ({ lean: async () => v }),
-      lean: async () => v,
-      then: (r: any) => r(v),
-    }),
-  });
+  const chain = (v: any) => {
+    return {
+      populate: () => {
+        return {
+          sort: () => {
+            return {
+              lean: async () => {
+                return v;
+              },
+            };
+          },
+          lean: async () => {
+            return v;
+          },
+          then: (r: any) => {
+            return r(v);
+          },
+        };
+      },
+    };
+  };
   const adminModel = {
-    find: () => chain(admins),
-    findOne: (q: any) => ({
-      populate: async () =>
-        admins.find(
-          (a) =>
-            String(a._id) === String(q._id) &&
-            String(a.churchId) === String(q.churchId),
-        ) ?? null,
-    }),
+    find: () => {
+      return chain(admins);
+    },
+    findOne: (q: any) => {
+      return {
+        populate: async () => {
+          return (
+            admins.find((a) => {
+              return (
+                String(a._id) === String(q._id) &&
+                String(a.churchId) === String(q.churchId)
+              );
+            }) ?? null
+          );
+        },
+      };
+    },
     updateOne: jest.fn(),
     deleteOne: jest.fn(),
   };
   const inviteModel = {
-    find: () => chain(invites),
-    findOne: jest.fn(
-      async (q: any) =>
-        invites.find(
-          (i) =>
+    find: () => {
+      return chain(invites);
+    },
+    findOne: jest.fn(async (q: any) => {
+      return (
+        invites.find((i) => {
+          return (
             (q._id ? String(i._id) === String(q._id) : true) &&
             (q.email ? i.email === q.email : true) &&
-            String(i.churchId) === String(q.churchId),
-        ) ?? null,
-    ),
+            String(i.churchId) === String(q.churchId)
+          );
+        }) ?? null
+      );
+    }),
   };
   const adminInviteService = {
     getUserLimitStatus: jest
@@ -106,7 +134,11 @@ function build(opts: { invites?: any[]; plan?: any } = {}) {
     changeRole: jest.fn(),
     removeUser: jest.fn(),
   };
-  const rolesService = { findSystemRole: async (name: string) => roles[name] };
+  const rolesService = {
+    findSystemRole: async (name: string) => {
+      return roles[name];
+    },
+  };
   const plans = {
     planFor: jest
       .fn()
@@ -136,7 +168,9 @@ describe('TimerTeamService', () => {
     const { service } = build({ invites: [pendingInvite] });
     const team = await service.list(authUser);
     const byName = Object.fromEntries(
-      team.members.map((m) => [m.name.split(' ')[0], m]),
+      team.members.map((m) => {
+        return [m.name.split(' ')[0], m];
+      }),
     );
     expect(byName.Ada).toMatchObject({
       roleName: 'Owner',
@@ -266,11 +300,16 @@ describe('invite emails', () => {
   const sent: { to: string; html: string }[] = [];
   const invites = new AdminInviteService(
     {} as any,
-    { findById: async () => ({ name: 'Grace Assembly' }) } as any,
+    {
+      findById: async () => {
+        return { name: 'Grace Assembly' };
+      },
+    } as any,
     {} as any,
     {
-      sendEmail: async (to: string, _s: string, html: string) =>
-        sent.push({ to, html }),
+      sendEmail: async (to: string, _s: string, html: string) => {
+        return sent.push({ to, html });
+      },
     } as any,
     {} as any,
     {} as any,

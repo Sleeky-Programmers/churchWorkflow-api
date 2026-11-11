@@ -46,11 +46,13 @@ export class TimerBranchesController {
       this.branches.countActive(tenant.churchId),
     ]);
     return {
-      branches: mine.branches.map((b) => ({
-        id: String(b._id),
-        name: b.name,
-        isHQ: !!b.isHQ,
-      })),
+      branches: mine.branches.map((b) => {
+        return {
+          id: String(b._id),
+          name: b.name,
+          isHQ: !!b.isHQ,
+        };
+      }),
       activeBranchId: mine.activeBranchId,
       accessScope: mine.accessScope,
       // Null: Church Workflow's own limits apply (managed there).

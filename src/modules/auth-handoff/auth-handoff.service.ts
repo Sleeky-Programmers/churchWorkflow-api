@@ -11,7 +11,9 @@ import { AuthService } from '../auth/auth.service';
 /** How long a code works: enough to open a new tab, not to be reused later. */
 export const HANDOFF_TTL_MS = 60_000;
 
-const hash = (code: string) => createHash('sha256').update(code).digest('hex');
+const hash = (code: string) => {
+  return createHash('sha256').update(code).digest('hex');
+};
 
 /**
  * Moving between our apps without signing in again. The app the user is in
@@ -45,10 +47,11 @@ export class AuthHandoffService {
       { $set: { usedAt: now } },
       { new: true },
     );
-    const fail = () =>
-      new UnauthorizedException(
+    const fail = () => {
+      return new UnauthorizedException(
         'This sign-in link has expired or was already used. Please sign in.',
       );
+    };
     if (!handoff) {
       throw fail();
     }

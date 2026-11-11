@@ -154,18 +154,29 @@ function billing(
   const payments: any[] = opts.payment ? [opts.payment] : [];
   const subs: any[] = [];
   const paymentModel = {
-    create: jest.fn(async (d) =>
-      payments.push({ ...d, status: TimerPaymentStatus.PENDING }),
-    ),
-    findOne: jest.fn(
-      async (q) => payments.find((p) => p.reference === q.reference) ?? null,
-    ),
-    find: () => ({
-      limit: async () =>
-        payments.filter((p) => p.status === TimerPaymentStatus.PENDING),
+    create: jest.fn(async (d) => {
+      return payments.push({ ...d, status: TimerPaymentStatus.PENDING });
     }),
+    findOne: jest.fn(async (q) => {
+      return (
+        payments.find((p) => {
+          return p.reference === q.reference;
+        }) ?? null
+      );
+    }),
+    find: () => {
+      return {
+        limit: async () => {
+          return payments.filter((p) => {
+            return p.status === TimerPaymentStatus.PENDING;
+          });
+        },
+      };
+    },
     updateOne: jest.fn(async (q, u) => {
-      const p = payments.find((x) => x._id === q._id && x.status === q.status);
+      const p = payments.find((x) => {
+        return x._id === q._id && x.status === q.status;
+      });
       if (!p) {
         return { modifiedCount: 0 };
       }
@@ -174,7 +185,9 @@ function billing(
     }),
   };
   const subscriptionModel = {
-    findOne: async () => subs[0] ?? null,
+    findOne: async () => {
+      return subs[0] ?? null;
+    },
     updateOne: jest.fn(async (_q, u) => {
       if (subs[0]) {
         Object.assign(subs[0], u.$set);
@@ -190,7 +203,9 @@ function billing(
       monthlyPrice: opts.price ?? 2500,
       yearlyPrice: 25000,
     }),
-    subscriptionOf: jest.fn(async () => subs[0] ?? null),
+    subscriptionOf: jest.fn(async () => {
+      return subs[0] ?? null;
+    }),
   };
   const paystack = {
     initialize: jest.fn().mockResolvedValue({
@@ -207,8 +222,16 @@ function billing(
     {} as any,
     plans as any,
     paystack as any,
-    { countActive: async () => 1 } as any,
-    { register: () => undefined } as any,
+    {
+      countActive: async () => {
+        return 1;
+      },
+    } as any,
+    {
+      register: () => {
+        return undefined;
+      },
+    } as any,
   );
   return { service, payments, subs, paystack };
 }
@@ -255,15 +278,17 @@ describe('TimerBillingService', () => {
     ).rejects.toThrow(ServiceUnavailableException);
   });
 
-  const pending = () => ({
-    _id: 'p1',
-    churchId,
-    reference: 'ref_1',
-    amount: 2500,
-    cycle: TimerBillingCycle.MONTHLY,
-    status: TimerPaymentStatus.PENDING,
-    createdAt: new Date(),
-  });
+  const pending = () => {
+    return {
+      _id: 'p1',
+      churchId,
+      reference: 'ref_1',
+      amount: 2500,
+      cycle: TimerBillingCycle.MONTHLY,
+      status: TimerPaymentStatus.PENDING,
+      createdAt: new Date(),
+    };
+  };
 
   it('applies a successful payment once, even if confirmed twice', async () => {
     const { service, subs } = billing({
@@ -314,28 +339,42 @@ describe('branding on the Free plan', () => {
   };
   const build = (customBranding: boolean) => {
     const settingsModel = {
-      findOneAndUpdate: jest.fn(async () => settingsDoc),
-      exists: async () => null,
+      findOneAndUpdate: jest.fn(async () => {
+        return settingsDoc;
+      }),
+      exists: async () => {
+        return null;
+      },
     };
     const svc = new ServiceTimerService(
       settingsModel as any,
       {} as any,
       {} as any,
       {
-        findById: () => ({
-          select: () => ({ lean: async () => ({ name: 'Grace' }) }),
-        }),
+        findById: () => {
+          return {
+            select: () => {
+              return {
+                lean: async () => {
+                  return { name: 'Grace' };
+                },
+              };
+            },
+          };
+        },
       } as any,
       { uploadFile: jest.fn() } as any,
       {} as any,
       {} as any,
       { emitToBranch: jest.fn() } as any,
       {
-        planFor: async () => ({
-          key: customBranding ? 'CHURCH' : 'FREE',
-          customBranding,
-          showMark: !customBranding,
-        }),
+        planFor: async () => {
+          return {
+            key: customBranding ? 'CHURCH' : 'FREE',
+            customBranding,
+            showMark: !customBranding,
+          };
+        },
       } as any,
     );
     return { svc, settingsModel };
@@ -349,7 +388,9 @@ describe('branding on the Free plan', () => {
     ).resolves.toBeDefined();
     const err = await svc
       .updateSettings(scope, { colors: { bg: '#123456' } })
-      .catch((e) => e);
+      .catch((e) => {
+        return e;
+      });
     expect(err).toBeInstanceOf(HttpException);
     expect(err.getResponse()).toMatchObject({ code: 'PLAN_REQUIRED' });
     await expect(

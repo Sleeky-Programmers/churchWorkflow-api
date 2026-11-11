@@ -18,14 +18,15 @@ import {
 const role = (
   permissions: { moduleSection: ModuleSections; accessLevel: AccessLevel }[],
   extra = {},
-) =>
-  ({
+) => {
+  return {
     roleName: 'Custom',
     type: RoleType.CUSTOM,
     status: RoleStatus.ACTIVE,
     permissions,
     ...extra,
-  }) as any;
+  } as any;
+};
 
 const ids = { churchId: 'c1', branchId: 'b1', adminId: 'a1' };
 
@@ -62,8 +63,8 @@ describe('timer access', () => {
   });
 
   it('maps Timer Admin, Operator and Viewer to manage, control and view', () => {
-    const [admin, operator, viewer] = TIMER_ROLES.map((r) =>
-      adminPrincipal(
+    const [admin, operator, viewer] = TIMER_ROLES.map((r) => {
+      return adminPrincipal(
         timerAccessFor(
           role([
             {
@@ -73,8 +74,8 @@ describe('timer access', () => {
           ]),
         ),
         ids,
-      ),
-    );
+      );
+    });
     expect(admin).toMatchObject({ canControl: true, canManage: true });
     expect(operator).toMatchObject({ canControl: true, canManage: false });
     expect(viewer).toMatchObject({ canControl: false, canManage: false });

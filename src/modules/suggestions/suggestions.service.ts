@@ -21,8 +21,8 @@ import { PastoralAlert } from '../../schemas/pastoral-alert.schema';
 import { Requisition } from '../../schemas/requisition.schema';
 import { Role } from '../../schemas/role.schema';
 import { UsageStat, UsageStatKind } from '../../schemas/usage-stat.schema';
-import { findAction, findPage, normalizePagePath } from './suggestions.catalog';
 import { UsageEventDto } from './dto/suggestions.dto';
+import { findAction, findPage, normalizePagePath } from './suggestions.catalog';
 
 export type SuggestionType =
   | 'next_step'
@@ -158,7 +158,7 @@ export class SuggestionsService {
     roleId: Types.ObjectId | null,
     kind: UsageStatKind,
     key: string,
-    opts: { now: Date; hour?: string; day?: string; seconds?: number },
+    opts: { now: Date; hour?: string; day?: string },
   ) {
     const inc: Record<string, number> = { count: 1 };
     if (opts.hour !== undefined) {
@@ -166,9 +166,6 @@ export class SuggestionsService {
     }
     if (opts.day !== undefined) {
       inc[`dayCounts.${opts.day}`] = 1;
-    }
-    if (opts.seconds) {
-      inc.totalSeconds = opts.seconds;
     }
 
     await this.usageModel.updateOne(
@@ -229,25 +226,38 @@ export class SuggestionsService {
       }
     }
 
-    const allowed = (section: ModuleSections | null) =>
-      section === null || roleHasAccess(role, section, AccessLevel.VIEW);
+    const allowed = (section: ModuleSections | null) => {
+      return section === null || roleHasAccess(role, section, AccessLevel.VIEW);
+    };
 
-    const pages = stats.filter((s) => s.kind === UsageStatKind.PAGE);
-    const actions = stats.filter((s) => s.kind === UsageStatKind.ACTION);
-    const transitions = stats.filter(
-      (s) => s.kind === UsageStatKind.TRANSITION,
+    const pages = stats.filter((s) => {
+      return s.kind === UsageStatKind.PAGE;
+    });
+    const actions = stats.filter((s) => {
+      return s.kind === UsageStatKind.ACTION;
+    });
+    const transitions = stats.filter((s) => {
+      return s.kind === UsageStatKind.TRANSITION;
+    });
+    const visitedCount = new Map(
+      pages.map((p) => {
+        return [p.key, p.count];
+      }),
     );
-    const visitedCount = new Map(pages.map((p) => [p.key, p.count]));
-    const totalVisits = pages.reduce((sum, p) => sum + p.count, 0);
+    const totalVisits = pages.reduce((sum, p) => {
+      return sum + p.count;
+    }, 0);
 
     const out: Suggestion[] = [];
 
     // 1. Likely next step from the page they are on.
     if (current) {
-      const fromHere = transitions.filter((t) =>
-        t.key.startsWith(`${current}>`),
-      );
-      const total = fromHere.reduce((sum, t) => sum + t.count, 0);
+      const fromHere = transitions.filter((t) => {
+        return t.key.startsWith(`${current}>`);
+      });
+      const total = fromHere.reduce((sum, t) => {
+        return sum + t.count;
+      }, 0);
       const currentLabel = findPage(current)?.label ?? 'this page';
 
       for (const t of fromHere) {
@@ -292,18 +302,14 @@ export class SuggestionsService {
         stat.kind === UsageStatKind.PAGE
           ? (meta as { path: string }).path
           : (meta as { href: string }).href;
-      if (href === current) {
-        continue;
-      }
-      if (stat.lastAt >= startOfToday) {
+      if (href === current || stat.lastAt >= startOfToday) {
         continue;
       }
 
       const hours = stat.hourCounts ?? {};
-      const nearHour = [-1, 0, 1].reduce(
-        (sum, offset) => sum + (hours[String((hour + offset + 24) % 24)] ?? 0),
-        0,
-      );
+      const nearHour = [-1, 0, 1].reduce((sum, offset) => {
+        return sum + (hours[String((hour + offset + 24) % 24)] ?? 0);
+      }, 0);
       const hourShare = nearHour / stat.count;
       const dayShare = (stat.dayCounts?.[String(day)] ?? 0) / stat.count;
       if (hourShare < 0.4 || dayShare < 0.3) {
@@ -341,7 +347,9 @@ export class SuggestionsService {
           p.key !== current
         );
       })
-      .sort((a, b) => b.count - a.count)[0];
+      .sort((a, b) => {
+        return b.count - a.count;
+      })[0];
     if (neglected) {
       const page = findPage(neglected.key)!;
       out.push({
@@ -378,13 +386,17 @@ export class SuggestionsService {
         seen.add(s.id);
         return true;
       })
-      .sort((a, b) => b.priority - a.priority)
+      .sort((a, b) => {
+        return b.priority - a.priority;
+      })
       .slice(0, MAX_SHOWN)
-      .map((s) => ({
-        ...s,
-        priority: Math.round(s.priority),
-        anchors: [...(s.anchors ?? []), ...this.navAnchors(s.href)],
-      }));
+      .map((s) => {
+        return {
+          ...s,
+          priority: Math.round(s.priority),
+          anchors: [...(s.anchors ?? []), ...this.navAnchors(s.href)],
+        };
+      });
   }
 
   /**
@@ -412,10 +424,10 @@ export class SuggestionsService {
       churchId: tenant.churchId,
       branchId: { $in: branchIds },
     };
-    const boost = (href: string) =>
-      (visitedCount.get(href) ?? 0) >= 3 ? 8 : 0;
+    const boost = (href: string) => {
+      return (visitedCount.get(href) ?? 0) >= 3 ? 8 : 0;
+    };
     const out: Suggestion[] = [];
-
     const tasks: Promise<void>[] = [];
 
     if (roleHasAccess(role, ModuleSections.REQUESTS, AccessLevel.FULL_ACCESS)) {
@@ -538,7 +550,9 @@ export class SuggestionsService {
     }
 
     await Promise.all(tasks);
-    return out.filter((s) => s.href !== current);
+    return out.filter((s) => {
+      return s.href !== current;
+    });
   }
 
   private async popularForRole(

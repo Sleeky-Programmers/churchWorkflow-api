@@ -43,6 +43,8 @@ export class TimerTemplateDto {
   @IsArray()
   @ArrayMaxSize(100)
   @ValidateNested({ each: true })
-  @Type(() => TimerTemplateItemDto)
+  @Type(() => {
+    return TimerTemplateItemDto;
+  })
   items: TimerTemplateItemDto[];
 }

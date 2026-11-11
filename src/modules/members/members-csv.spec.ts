@@ -15,17 +15,33 @@ const HEADER =
 
 function build(room: { members: number | null; guests: number | null }) {
   const memberModel: any = {
-    find: () => ({
-      setOptions: () => ({ select: () => ({ lean: async () => [] }) }),
+    find: () => {
+      return {
+        setOptions: () => {
+          return {
+            select: () => {
+              return {
+                lean: async () => {
+                  return [];
+                },
+              };
+            },
+          };
+        },
+      };
+    },
+    insertMany: jest.fn(async (docs: any[]) => {
+      return docs;
     }),
-    insertMany: jest.fn(async (docs: any[]) => docs),
   };
   const guestRules: any = {
-    getLimitSnapshot: jest.fn(async () => ({
-      room,
-      memberLimit: 100,
-      guestLimit: 200,
-    })),
+    getLimitSnapshot: jest.fn(async () => {
+      return {
+        room,
+        memberLimit: 100,
+        guestLimit: 200,
+      };
+    }),
   };
   const service = new MembersService(
     memberModel,
@@ -41,7 +57,9 @@ function build(room: { members: number | null; guests: number | null }) {
   return { service, memberModel };
 }
 
-const csv = (...rows: string[]) => Buffer.from([HEADER, ...rows].join('\n'));
+const csv = (...rows: string[]) => {
+  return Buffer.from([HEADER, ...rows].join('\n'));
+};
 
 describe('Member CSV import', () => {
   it('rejects blank and unknown statuses instead of guessing', async () => {
@@ -54,7 +72,11 @@ describe('Member CSV import', () => {
         'Chi Ude,MALE,0803,chi@x.org,New convert,',
       ),
     );
-    expect(res.errors.map((e) => [e.row, e.column])).toEqual([
+    expect(
+      res.errors.map((e) => {
+        return [e.row, e.column];
+      }),
+    ).toEqual([
       [2, 'status'],
       [3, 'status'],
     ]);

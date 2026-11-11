@@ -40,6 +40,8 @@ export function hasSectionAccess(
   if (isSuperAdminRole(role)) {
     return true;
   }
-  const entry = role.permissions?.find((p) => p.moduleSection === section);
+  const entry = role.permissions?.find((p) => {
+    return p.moduleSection === section;
+  });
   return !!entry && hasSufficientAccess(entry.accessLevel, level);
 }

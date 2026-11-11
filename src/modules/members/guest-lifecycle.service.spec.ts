@@ -4,13 +4,27 @@ import { GuestLifecycleService } from './guest-lifecycle.service';
 
 const churchId = new Types.ObjectId();
 const now = new Date('2026-11-05T01:00:00Z');
-const daysAgo = (n: number) => new Date(now.getTime() - n * 86400000);
-const dayKey = (n: number) => daysAgo(n).toISOString().slice(0, 10);
+const daysAgo = (n: number) => {
+  return new Date(now.getTime() - n * 86400000);
+};
+const dayKey = (n: number) => {
+  return daysAgo(n).toISOString().slice(0, 10);
+};
 
-const lean = (value: any) => ({
-  select: () => ({ lean: async () => value }),
-  lean: async () => value,
-});
+const lean = (value: any) => {
+  return {
+    select: () => {
+      return {
+        lean: async () => {
+          return value;
+        },
+      };
+    },
+    lean: async () => {
+      return value;
+    },
+  };
+};
 
 function build(opts: {
   guests?: { _id: Types.ObjectId; createdAt: Date }[];
@@ -20,31 +34,63 @@ function build(opts: {
 }) {
   const findQueue = [...(opts.findResults ?? [])];
   const memberModel: any = {
-    find: jest.fn(() =>
-      lean(findQueue.length ? findQueue.shift() : (opts.guests ?? [])),
-    ),
-    updateMany: jest.fn(async (filter: any) => ({
-      modifiedCount: filter._id?.$in?.length ?? 0,
-    })),
-    deleteMany: jest.fn(async (filter: any) => ({
-      deletedCount: filter._id?.$in?.length ?? 0,
-    })),
+    find: jest.fn(() => {
+      return lean(findQueue.length ? findQueue.shift() : (opts.guests ?? []));
+    }),
+    updateMany: jest.fn(async (filter: any) => {
+      return {
+        modifiedCount: filter._id?.$in?.length ?? 0,
+      };
+    }),
+    deleteMany: jest.fn(async (filter: any) => {
+      return {
+        deletedCount: filter._id?.$in?.length ?? 0,
+      };
+    }),
   };
   const settingsModel: any = {
-    findOne: () => lean({ archiveAfterDays: opts.archiveAfterDays ?? 90 }),
+    findOne: () => {
+      return lean({ archiveAfterDays: opts.archiveAfterDays ?? 90 });
+    },
   };
-  const attendanceModel: any = { deleteMany: jest.fn(async () => ({})) };
-  const departmentModel: any = { updateMany: jest.fn(async () => ({})) };
-  const smallTeamModel: any = { updateMany: jest.fn(async () => ({})) };
+  const attendanceModel: any = {
+    deleteMany: jest.fn(async () => {
+      return {};
+    }),
+  };
+  const departmentModel: any = {
+    updateMany: jest.fn(async () => {
+      return {};
+    }),
+  };
+  const smallTeamModel: any = {
+    updateMany: jest.fn(async () => {
+      return {};
+    }),
+  };
   const adminModel: any = {
-    find: () => lean([{ email: 'a@x.org', firstName: 'A' }]),
+    find: () => {
+      return lean([{ email: 'a@x.org', firstName: 'A' }]);
+    },
   };
   const guestRules: any = {
-    lastPresentDays: jest.fn(async () => opts.lastPresent ?? new Map()),
-    getFrequentGuestIds: jest.fn(async () => []),
+    lastPresentDays: jest.fn(async () => {
+      return opts.lastPresent ?? new Map();
+    }),
+    getFrequentGuestIds: jest.fn(async () => {
+      return [];
+    }),
   };
-  const notifications: any = { createNotification: jest.fn(async () => ({})) };
-  const email: any = { sendEmail: jest.fn(async () => ({})) };
+  const notifications: any = {
+    createNotification: jest.fn(async () => {
+      return {};
+    }),
+  };
+  const email: any = {
+    sendEmail: jest.fn(async () => {
+      return {};
+    }),
+  };
 
   const service = new GuestLifecycleService(
     memberModel,

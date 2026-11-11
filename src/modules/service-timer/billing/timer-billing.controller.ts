@@ -139,9 +139,9 @@ export class TimerPlansAdminController {
     @Body() dto: UpdatePlanDto,
     @AuthUser() productAdmin: { _id?: Types.ObjectId },
   ) {
-    const key = [TimerPlan.FREE, TimerPlan.CHURCH].find(
-      (p) => p.toLowerCase() === plan.toLowerCase(),
-    );
+    const key = [TimerPlan.FREE, TimerPlan.CHURCH].find((p) => {
+      return p.toLowerCase() === plan.toLowerCase();
+    });
     if (!key) {
       throw new NotFoundException('Unknown plan');
     }

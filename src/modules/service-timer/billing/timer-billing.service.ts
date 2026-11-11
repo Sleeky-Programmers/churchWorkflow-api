@@ -53,7 +53,9 @@ export class TimerBillingService implements OnModuleInit {
   private readonly logger = new Logger(TimerBillingService.name);
 
   onModuleInit() {
-    this.webhooks.register((payload) => this.handleWebhook(payload));
+    this.webhooks.register((payload) => {
+      return this.handleWebhook(payload);
+    });
   }
 
   constructor(
@@ -106,12 +108,14 @@ export class TimerBillingService implements OnModuleInit {
     // Also shown once Church Workflow includes the timer, so a church that
     // Moved across can stop paying for the timer separately.
     const renewing = plan.key !== TimerPlan.FREE && !!sub?.autoRenew;
-    const limits = (c: typeof free) => ({
-      users: c.userLimit,
-      imports: c.importLimit,
-      branches: c.branchLimit ?? DEFAULT_PLANS[c.plan].branchLimit,
-      customBranding: c.customBranding,
-    });
+    const limits = (c: typeof free) => {
+      return {
+        users: c.userLimit,
+        imports: c.importLimit,
+        branches: c.branchLimit ?? DEFAULT_PLANS[c.plan].branchLimit,
+        customBranding: c.customBranding,
+      };
+    };
     return {
       plan,
       plans: {
@@ -130,13 +134,15 @@ export class TimerBillingService implements OnModuleInit {
       autoRenew: renewing
         ? { cycle: sub!.cycle, nextChargeAt: sub!.currentPeriodEnd }
         : null,
-      payments: payments.map((p) => ({
-        reference: p.reference,
-        amount: p.amount,
-        cycle: p.cycle,
-        paidAt: p.paidAt,
-        renewal: !!p.renewal,
-      })),
+      payments: payments.map((p) => {
+        return {
+          reference: p.reference,
+          amount: p.amount,
+          cycle: p.cycle,
+          paidAt: p.paidAt,
+          renewal: !!p.renewal,
+        };
+      }),
     };
   }
 
@@ -206,9 +212,11 @@ export class TimerBillingService implements OnModuleInit {
       .find({ churchId, status: TimerPaymentStatus.PENDING })
       .limit(5);
     for (const p of pending) {
-      await this.settle(p).catch((err) =>
-        this.logger.warn(`Couldn't check payment ${p.reference}: ${err}`),
-      );
+      await this.settle(p).catch((err) => {
+        return this.logger.warn(
+          `Couldn't check payment ${p.reference}: ${err}`,
+        );
+      });
     }
   }
 
@@ -252,16 +260,16 @@ export class TimerBillingService implements OnModuleInit {
           { upsert: true },
         );
         if (payment.autoRenew) {
-          await this.startAutoRenew(payment, tx, end).catch((err) =>
-            this.logger.error(
+          await this.startAutoRenew(payment, tx, end).catch((err) => {
+            return this.logger.error(
               `Couldn't set up auto-renew for ${payment.reference}: ${err}`,
-            ),
-          );
+            );
+          });
         } else if (sub?.autoRenew) {
           // Paid by hand after a lapsed auto-renew: stop the old one.
-          await this.cancelAutoRenew(payment.churchId).catch((err) =>
-            this.logger.warn(`Couldn't stop old auto-renew: ${err}`),
-          );
+          await this.cancelAutoRenew(payment.churchId).catch((err) => {
+            return this.logger.warn(`Couldn't stop old auto-renew: ${err}`);
+          });
         }
       }
       return TimerPaymentStatus.SUCCESS;
@@ -307,26 +315,33 @@ export class TimerBillingService implements OnModuleInit {
         { $group: { _id: '$cycle', n: { $sum: 1 } } },
       ]),
     ]);
-    const count = (cycle: TimerBillingCycle) =>
-      renewing.find((r) => r._id === cycle)?.n ?? 0;
-    return configs.map((c) => ({
-      plan: c.plan,
-      name: c.name,
-      monthlyPrice: c.monthlyPrice,
-      yearlyPrice: c.yearlyPrice,
-      userLimit: c.userLimit,
-      importLimit: c.importLimit,
-      branchLimit: c.branchLimit ?? DEFAULT_PLANS[c.plan].branchLimit,
-      customBranding: c.customBranding,
-      updatedAt: (c as { updatedAt?: Date }).updatedAt ?? null,
-      autoRenewing:
-        c.plan === TimerPlan.CHURCH
-          ? {
-              monthly: count(TimerBillingCycle.MONTHLY),
-              yearly: count(TimerBillingCycle.YEARLY),
-            }
-          : null,
-    }));
+    const count = (cycle: TimerBillingCycle) => {
+      return (
+        renewing.find((r) => {
+          return r._id === cycle;
+        })?.n ?? 0
+      );
+    };
+    return configs.map((c) => {
+      return {
+        plan: c.plan,
+        name: c.name,
+        monthlyPrice: c.monthlyPrice,
+        yearlyPrice: c.yearlyPrice,
+        userLimit: c.userLimit,
+        importLimit: c.importLimit,
+        branchLimit: c.branchLimit ?? DEFAULT_PLANS[c.plan].branchLimit,
+        customBranding: c.customBranding,
+        updatedAt: (c as { updatedAt?: Date }).updatedAt ?? null,
+        autoRenewing:
+          c.plan === TimerPlan.CHURCH
+            ? {
+                monthly: count(TimerBillingCycle.MONTHLY),
+                yearly: count(TimerBillingCycle.YEARLY),
+              }
+            : null,
+      };
+    });
   }
 
   /**
@@ -384,12 +399,19 @@ export class TimerBillingService implements OnModuleInit {
         changed.push([TimerBillingCycle.YEARLY, patch.yearlyPrice]);
       }
       paystack = await Promise.all(
-        changed.map(([cycle, amount]) => this.repricePaystack(cycle, amount)),
+        changed.map(([cycle, amount]) => {
+          return this.repricePaystack(cycle, amount);
+        }),
       );
     }
 
     const plans = await this.adminPlans();
-    return { ...plans.find((p) => p.plan === plan)!, paystack };
+    return {
+      ...plans.find((p) => {
+        return p.plan === plan;
+      })!,
+      paystack,
+    };
   }
 
   /** Every Paystack plan a cycle renews on: the saved one and any older ones still in use. */
@@ -453,7 +475,9 @@ export class TimerBillingService implements OnModuleInit {
           previous.paystackSubscriptionCode,
           previous.paystackEmailToken,
         )
-        .catch(() => undefined);
+        .catch(() => {
+          return undefined;
+        });
     }
     const planCode = await this.planCodeFor(payment.cycle, payment.amount);
     // Saved before Paystack answers, so its subscription.create webhook,
@@ -490,7 +514,9 @@ export class TimerBillingService implements OnModuleInit {
       if (saved.matchedCount === 0 && created.emailToken) {
         await this.paystack
           .disableSubscription(created.subscriptionCode, created.emailToken)
-          .catch(() => undefined);
+          .catch(() => {
+            return undefined;
+          });
       }
     }
   }
@@ -575,7 +601,9 @@ export class TimerBillingService implements OnModuleInit {
           if (data.subscription_code && data.email_token) {
             await this.paystack
               .disableSubscription(data.subscription_code, data.email_token)
-              .catch(() => undefined);
+              .catch(() => {
+                return undefined;
+              });
           }
           return true;
         }
@@ -635,7 +663,9 @@ export class TimerBillingService implements OnModuleInit {
     ]);
     return (
       !!inUse ||
-      Object.values(cfg.paystackPlans ?? {}).some((p) => p?.code === planCode)
+      Object.values(cfg.paystackPlans ?? {}).some((p) => {
+        return p?.code === planCode;
+      })
     );
   }
 

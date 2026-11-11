@@ -53,7 +53,9 @@ function changeText(m: ReportMetric): string {
 @Injectable()
 export class ReportsExportService {
   fileName(bundle: ReportBundle, ext: string): string {
-    const safe = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    const safe = (s: string) => {
+      return s.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    };
     return `${safe(bundle.churchName)}-report-${bundle.range.startStr}-to-${bundle.range.endStr}.${ext}`;
   }
 
@@ -148,13 +150,22 @@ export class ReportsExportService {
       if (section.series.length) {
         sheet.addRow([]);
         this.styleHeader(
-          sheet.addRow(['Date', ...section.series.map((s) => s.label)]),
+          sheet.addRow([
+            'Date',
+            ...section.series.map((s) => {
+              return s.label;
+            }),
+          ]),
         );
-        const days = section.series[0].points.map((p) => p.label);
+        const days = section.series[0].points.map((p) => {
+          return p.label;
+        });
         days.forEach((day, i) => {
           sheet.addRow([
             day,
-            ...section.series.map((s) => s.points[i]?.value ?? 0),
+            ...section.series.map((s) => {
+              return s.points[i]?.value ?? 0;
+            }),
           ]);
         });
         sheet.columns.forEach((_c: unknown, idx: number) => {
@@ -203,7 +214,9 @@ export class ReportsExportService {
 
   toCsv(bundle: ReportBundle, sectionKey?: string): string {
     const section = sectionKey
-      ? bundle.sections.find((s) => s.key === sectionKey)
+      ? bundle.sections.find((s) => {
+          return s.key === sectionKey;
+        })
       : bundle.sections.length === 1
         ? bundle.sections[0]
         : undefined;
@@ -214,12 +227,14 @@ export class ReportsExportService {
       );
     }
 
-    const rows = section.metrics.map((m) => ({
-      Measure: m.label,
-      'This period': m.value,
-      Previous: m.previous ?? '',
-      Change: changeText(m),
-    }));
+    const rows = section.metrics.map((m) => {
+      return {
+        Measure: m.label,
+        'This period': m.value,
+        Previous: m.previous ?? '',
+        Change: changeText(m),
+      };
+    });
     return new Parser({
       fields: ['Measure', 'This period', 'Previous', 'Change'],
     }).parse(rows);
@@ -237,8 +252,12 @@ export class ReportsExportService {
         bufferPages: true,
       });
       const chunks: Buffer[] = [];
-      doc.on('data', (c: Buffer) => chunks.push(c));
-      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('data', (c: Buffer) => {
+        return chunks.push(c);
+      });
+      doc.on('end', () => {
+        return resolve(Buffer.concat(chunks));
+      });
       doc.on('error', reject);
 
       const left = doc.page.margins.left;
@@ -346,9 +365,11 @@ export class ReportsExportService {
     }
 
     // Trend chart for the first series with any activity
-    const series = section.series.find((s) =>
-      s.points.some((p) => p.value > 0),
-    );
+    const series = section.series.find((s) => {
+      return s.points.some((p) => {
+        return p.value > 0;
+      });
+    });
     if (series) {
       this.ensureSpace(doc, 130);
       doc.y += 6;
@@ -363,7 +384,11 @@ export class ReportsExportService {
     }
 
     // First breakdown as horizontal bars
-    const bd = section.breakdowns.find((b) => b.items.some((i) => i.value > 0));
+    const bd = section.breakdowns.find((b) => {
+      return b.items.some((i) => {
+        return i.value > 0;
+      });
+    });
     if (bd) {
       const rows = bd.items.slice(0, 6);
       this.ensureSpace(doc, 24 + rows.length * 16);
@@ -397,7 +422,12 @@ export class ReportsExportService {
     w: number,
     h: number,
   ) {
-    const max = Math.max(...points.map((p) => p.value), 1);
+    const max = Math.max(
+      ...points.map((p) => {
+        return p.value;
+      }),
+      1,
+    );
     const gap = points.length > 14 ? 1 : 4;
     const barW = Math.max((w - gap * (points.length - 1)) / points.length, 1);
 
@@ -424,11 +454,7 @@ export class ReportsExportService {
         text,
         align === 'left' ? x : align === 'right' ? x + w - 40 : tx - 10,
         y + h + 3,
-        {
-          width: align === 'center' ? 40 : 40,
-          align,
-          lineBreak: false,
-        },
+        { width: 40, align, lineBreak: false },
       );
     };
     labelAt(0, 'left');
@@ -454,7 +480,12 @@ export class ReportsExportService {
     y: number,
     w: number,
   ) {
-    const max = Math.max(...rows.map((r) => r.value), 1);
+    const max = Math.max(
+      ...rows.map((r) => {
+        return r.value;
+      }),
+      1,
+    );
     const labelW = w * 0.3;
     const valueW = w * 0.2;
     const barMax = w - labelW - valueW - 8;
@@ -476,11 +507,7 @@ export class ReportsExportService {
           formatValue(r.value, bd.format, bd.currency),
           x + labelW + barMax + 8,
           ry + 2,
-          {
-            width: valueW,
-            align: 'right',
-            lineBreak: false,
-          },
+          { width: valueW, align: 'right', lineBreak: false },
         );
     });
     doc.y = y + rows.length * 16;

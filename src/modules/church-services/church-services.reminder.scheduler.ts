@@ -30,8 +30,18 @@ export class ChurchServicesReminderScheduler {
           reminderEnabled: true,
           reminderType: ReminderType.EMAIL,
           reminderSent: false,
+          // Reminders fire at most hours before the service, so only
+          // Instances within a day either side of now can be due. Without
+          // This, every future unsent instance was loaded each minute.
+          date: {
+            $gte: new Date(now.getTime() - 24 * 60 * 60 * 1000),
+            $lte: new Date(now.getTime() + 48 * 60 * 60 * 1000),
+          },
         })
         .lean();
+
+      // Admin emails per church, fetched once per run rather than per instance.
+      const emailsByChurch = new Map<string, string[]>();
 
       for (const instance of candidates) {
         const sendTime = this.computeSendTime(
@@ -44,10 +54,19 @@ export class ChurchServicesReminderScheduler {
         }
 
         if (sendTime >= windowStart && sendTime <= windowEnd) {
-          const admins = await this.adminService.findAll(
-            new Types.ObjectId(instance.churchId),
-          );
-          const emails = admins.map((a) => a.email).filter(Boolean);
+          const churchKey = String(instance.churchId);
+          let emails = emailsByChurch.get(churchKey);
+          if (!emails) {
+            const admins = await this.adminService.findAll(
+              new Types.ObjectId(instance.churchId),
+            );
+            emails = admins
+              .map((a) => {
+                return a.email;
+              })
+              .filter(Boolean);
+            emailsByChurch.set(churchKey, emails);
+          }
           if (emails.length === 0) {
             continue;
           }

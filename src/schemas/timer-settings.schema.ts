@@ -68,10 +68,20 @@ export class TimerSettings extends Document {
   @Prop({ type: String, enum: TIMER_FONTS, default: 'condensed' })
   font: TimerFont;
 
-  @Prop({ type: TimerColorsSchema, default: () => ({}) })
+  @Prop({
+    type: TimerColorsSchema,
+    default: () => {
+      return {};
+    },
+  })
   colors: TimerColors;
 
-  @Prop({ type: TimerShowSchema, default: () => ({}) })
+  @Prop({
+    type: TimerShowSchema,
+    default: () => {
+      return {};
+    },
+  })
   show: TimerShow;
 
   // Timer-specific logo. Null means "use the church's logo".

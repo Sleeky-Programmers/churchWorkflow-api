@@ -95,7 +95,9 @@ export function tidyProgram(p: ExtractedProgram): TidyProgram {
         confident: it.confident && minutes > 0,
       };
     })
-    .filter((it) => it.name.length > 0)
+    .filter((it) => {
+      return it.name.length > 0;
+    })
     .slice(0, MAX_IMPORT_ITEMS);
   return {
     serviceName: p.serviceName.replace(/\s+/g, ' ').trim().slice(0, 60),

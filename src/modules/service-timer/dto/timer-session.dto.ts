@@ -72,7 +72,9 @@ export class TimerSessionDto {
   @IsArray()
   @ArrayMaxSize(200)
   @ValidateNested({ each: true })
-  @Type(() => TimerSessionItemDto)
+  @Type(() => {
+    return TimerSessionItemDto;
+  })
   items: TimerSessionItemDto[];
 
   @IsInt()
@@ -80,11 +82,15 @@ export class TimerSessionDto {
   index: number;
 
   @ValidateNested()
-  @Type(() => TimerRunDto)
+  @Type(() => {
+    return TimerRunDto;
+  })
   timer: TimerRunDto;
 
   @ValidateNested()
-  @Type(() => TimerMessageDto)
+  @Type(() => {
+    return TimerMessageDto;
+  })
   message: TimerMessageDto;
 
   @Matches(HHMM, { message: 'serviceStart must be a time like 09:00' })

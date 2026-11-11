@@ -26,10 +26,18 @@ import { CreateAttendanceDto } from './dto/create-attendance.dto';
 export class AttendanceService {
   constructor(
     @InjectModel(Attendance.name) private attendanceModel: Model<Attendance>,
-    @Inject(forwardRef(() => MembersService))
+    @Inject(
+      forwardRef(() => {
+        return MembersService;
+      }),
+    )
     private membersService: MembersService,
     private churchServicesService: ChurchServicesService,
-    @Inject(forwardRef(() => AdminService))
+    @Inject(
+      forwardRef(() => {
+        return AdminService;
+      }),
+    )
     private adminService: AdminService,
   ) {}
 
@@ -114,7 +122,9 @@ export class AttendanceService {
 
     if (createAttendanceDto.isAllPresent) {
       const members = await this.membersService.findAll(tenant);
-      memberIds = members.map((member) => member._id.toString());
+      memberIds = members.map((member) => {
+        return member._id.toString();
+      });
     }
 
     await this.attendanceModel.deleteMany({
@@ -128,15 +138,17 @@ export class AttendanceService {
     }
 
     await this.attendanceModel.insertMany(
-      memberIds.map((memberId) => ({
-        churchServiceId: new Types.ObjectId(serviceId),
-        churchId: tenant.churchId,
-        branchId: tenant.branchId,
-        date: attendanceDate,
-        memberId: new Types.ObjectId(memberId),
-        recordedBy: authUser._id,
-        status,
-      })),
+      memberIds.map((memberId) => {
+        return {
+          churchServiceId: new Types.ObjectId(serviceId),
+          churchId: tenant.churchId,
+          branchId: tenant.branchId,
+          date: attendanceDate,
+          memberId: new Types.ObjectId(memberId),
+          recordedBy: authUser._id,
+          status,
+        };
+      }),
     );
   }
 
@@ -242,10 +254,16 @@ export class AttendanceService {
     }
 
     const presentIds = attendance
-      .filter((record) => record.status === AttendanceStatus.PRESENT)
-      .map((record) => record.memberId.toString());
+      .filter((record) => {
+        return record.status === AttendanceStatus.PRESENT;
+      })
+      .map((record) => {
+        return record.memberId.toString();
+      });
 
     const members = await this.membersService.findAll(tenant);
+    // Set lookup: O(members) instead of O(members x present) with array.includes.
+    const presentIdSet = new Set(presentIds);
 
     let malePresent = 0;
     let femalePresent = 0;
@@ -253,7 +271,7 @@ export class AttendanceService {
     let femaleAbsent = 0;
 
     for (const member of members) {
-      const isPresent = presentIds.includes(member._id.toString());
+      const isPresent = presentIdSet.has(member._id.toString());
 
       if (member.gender === Gender.MALE) {
         isPresent ? malePresent++ : maleAbsent++;
@@ -313,13 +331,35 @@ export class AttendanceService {
 
     const targetYear = year || new Date().getFullYear();
 
-    const attendances = await this.attendanceModel
-      .find({
-        churchServiceId: { $in: serviceIds },
-        status: AttendanceStatus.PRESENT,
-      })
-      .select('churchServiceId date')
-      .lean();
+    // Previously this pulled every PRESENT record the church had ever
+    // Recorded into Node and filtered by year in JS - O(all history) per
+    // Dashboard load. `date` is stored as 'YYYY-MM-DD' (see normalizeDate),
+    // So a lexicographic range bounds it to the target year, and Mongo does
+    // The per-service/per-month counting.
+    const grouped = await this.attendanceModel.aggregate<{
+      _id: { churchServiceId: Types.ObjectId; month: string };
+      count: number;
+    }>([
+      {
+        $match: {
+          churchServiceId: { $in: serviceIds },
+          status: AttendanceStatus.PRESENT,
+          date: {
+            $gte: `${targetYear}-01-01`,
+            $lt: `${targetYear + 1}-01-01`,
+          },
+        },
+      },
+      {
+        $group: {
+          _id: {
+            churchServiceId: '$churchServiceId',
+            month: { $substrCP: ['$date', 5, 2] },
+          },
+          count: { $sum: 1 },
+        },
+      },
+    ]);
 
     const monthNames = [
       'January',
@@ -339,39 +379,34 @@ export class AttendanceService {
     const regularCounts = new Array(12).fill(0);
     const specialCounts = new Array(12).fill(0);
 
-    for (const record of attendances) {
-      const serviceId = record.churchServiceId?.toString?.();
-      if (!serviceId) {
+    for (const row of grouped) {
+      const serviceId = row._id.churchServiceId?.toString?.();
+      const month = Number(row._id.month) - 1;
+      if (!serviceId || !Number.isInteger(month) || month < 0 || month > 11) {
         continue;
       }
       const serviceType = serviceTypeMap.get(serviceId) || ServiceType.REGULAR;
 
-      const date = new Date(record.date);
-      if (isNaN(date.getTime())) {
-        continue;
-      }
-      const year = date.getFullYear();
-      if (year !== targetYear) {
-        continue;
-      }
-      const month = date.getMonth();
-
       if (serviceType === ServiceType.SPECIAL) {
-        specialCounts[month]++;
+        specialCounts[month] += row.count;
       } else {
-        regularCounts[month]++;
+        regularCounts[month] += row.count;
       }
     }
 
-    const regularService = regularCounts.map((total, index) => ({
-      month: monthNames[index],
-      totalAttendance: total,
-    }));
+    const regularService = regularCounts.map((total, index) => {
+      return {
+        month: monthNames[index],
+        totalAttendance: total,
+      };
+    });
 
-    const specialService = specialCounts.map((total, index) => ({
-      month: monthNames[index],
-      totalAttendance: total,
-    }));
+    const specialService = specialCounts.map((total, index) => {
+      return {
+        month: monthNames[index],
+        totalAttendance: total,
+      };
+    });
 
     return { regularService, specialService };
   }
@@ -395,9 +430,13 @@ export class AttendanceService {
     const services = await this.churchServicesService.findByChurchId(tenant);
 
     const serviceMap = new Map(
-      services.map((service: any) => [service._id.toString(), service.title]),
+      services.map((service: any) => {
+        return [service._id.toString(), service.title];
+      }),
     );
-    const serviceIds = services.map((service: any) => service._id);
+    const serviceIds = services.map((service: any) => {
+      return service._id;
+    });
 
     if (!serviceIds.length) {
       return {
@@ -494,9 +533,13 @@ export class AttendanceService {
     const recordedByIds = Array.from(
       new Set(
         records
-          .map((record) => record.recordedById)
+          .map((record) => {
+            return record.recordedById;
+          })
           .filter(Boolean)
-          .map((id) => id as string),
+          .map((id) => {
+            return id as string;
+          }),
       ),
     );
 
@@ -505,10 +548,12 @@ export class AttendanceService {
       : [];
 
     const adminNameMap = new Map(
-      admins.map((admin: any) => [
-        admin._id.toString(),
-        `${admin.firstName || ''} ${admin.lastName || ''}`.trim(),
-      ]),
+      admins.map((admin: any) => {
+        return [
+          admin._id.toString(),
+          `${admin.firstName || ''} ${admin.lastName || ''}`.trim(),
+        ];
+      }),
     );
 
     const normalizedRecords = records
@@ -536,9 +581,9 @@ export class AttendanceService {
         return b.date.localeCompare(a.date);
       });
 
-    const attended = normalizedRecords.filter(
-      (record) => record.status === 'Present',
-    ).length;
+    const attended = normalizedRecords.filter((record) => {
+      return record.status === 'Present';
+    }).length;
     const missed = normalizedRecords.length - attended;
     const rate = normalizedRecords.length
       ? Math.round((attended / normalizedRecords.length) * 100)
@@ -556,15 +601,19 @@ export class AttendanceService {
     }
 
     const trends = Array.from(trendMap.entries())
-      .map(([month, value]) => ({
-        month,
-        attended: value.attended,
-        total: value.total,
-        rate: value.total
-          ? Math.round((value.attended / value.total) * 100)
-          : 0,
-      }))
-      .sort((a, b) => a.month.localeCompare(b.month));
+      .map(([month, value]) => {
+        return {
+          month,
+          attended: value.attended,
+          total: value.total,
+          rate: value.total
+            ? Math.round((value.attended / value.total) * 100)
+            : 0,
+        };
+      })
+      .sort((a, b) => {
+        return a.month.localeCompare(b.month);
+      });
 
     return {
       memberId: member._id.toString(),
@@ -658,13 +707,15 @@ export class AttendanceService {
     }
 
     await this.attendanceModel.insertMany(
-      presentMemberIds.map((memberId) => ({
-        churchServiceId: new Types.ObjectId(serviceId),
-        date: attendanceDate,
-        memberId: new Types.ObjectId(memberId),
-        recordedBy,
-        status: AttendanceStatus.PRESENT,
-      })),
+      presentMemberIds.map((memberId) => {
+        return {
+          churchServiceId: new Types.ObjectId(serviceId),
+          date: attendanceDate,
+          memberId: new Types.ObjectId(memberId),
+          recordedBy,
+          status: AttendanceStatus.PRESENT,
+        };
+      }),
     );
   }
 
@@ -687,7 +738,9 @@ export class AttendanceService {
     return await this.attendanceModel
       .find({
         memberId: {
-          $in: memberIds.map((memberId) => new Types.ObjectId(memberId)),
+          $in: memberIds.map((memberId) => {
+            return new Types.ObjectId(memberId);
+          }),
         },
         status: AttendanceStatus.PRESENT,
         ...dateFilter,
@@ -799,12 +852,18 @@ export class AttendanceService {
     // Get all church services to determine their types
     const serviceIds = [
       ...new Set(
-        attendances.map((a) => a.churchServiceId?.toString()).filter(Boolean),
+        attendances
+          .map((a) => {
+            return a.churchServiceId?.toString();
+          })
+          .filter(Boolean),
       ),
     ];
     const services = await this.churchServicesService.findByIds(serviceIds);
     const serviceTypeMap = new Map(
-      services.map((s) => [s._id.toString(), s.type]),
+      services.map((s) => {
+        return [s._id.toString(), s.type];
+      }),
     );
 
     // Initialize counters for each month
@@ -838,15 +897,19 @@ export class AttendanceService {
       }
     }
 
-    const regularService = regularCounts.map((total, index) => ({
-      month: monthNames[index],
-      totalAttendance: total,
-    }));
+    const regularService = regularCounts.map((total, index) => {
+      return {
+        month: monthNames[index],
+        totalAttendance: total,
+      };
+    });
 
-    const specialService = specialCounts.map((total, index) => ({
-      month: monthNames[index],
-      totalAttendance: total,
-    }));
+    const specialService = specialCounts.map((total, index) => {
+      return {
+        month: monthNames[index],
+        totalAttendance: total,
+      };
+    });
 
     return { regularService, specialService };
   }

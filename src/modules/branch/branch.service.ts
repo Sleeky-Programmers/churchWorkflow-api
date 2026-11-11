@@ -357,13 +357,17 @@ export class BranchService {
       .lean();
 
     return grants
-      .filter((grant) => grant.adminId)
-      .map((grant: any) => ({
-        id: grant.adminId._id.toString(),
-        firstName: grant.adminId.firstName,
-        lastName: grant.adminId.lastName,
-        email: grant.adminId.email,
-      }));
+      .filter((grant) => {
+        return grant.adminId;
+      })
+      .map((grant: any) => {
+        return {
+          id: grant.adminId._id.toString(),
+          firstName: grant.adminId.firstName,
+          lastName: grant.adminId.lastName,
+          email: grant.adminId.email,
+        };
+      });
   }
 
   async getAdminAccess(authUser: Admin, adminId: string) {
@@ -384,7 +388,9 @@ export class BranchService {
 
     return {
       accessScope: targetAdmin.accessScope,
-      branchIds: grants.map((g) => g.branchId.toString()),
+      branchIds: grants.map((g) => {
+        return g.branchId.toString();
+      }),
     };
   }
 
@@ -467,11 +473,13 @@ export class BranchService {
     await this.adminBranchAccessModel.deleteMany({ adminId });
     if (branchIds.length) {
       await this.adminBranchAccessModel.insertMany(
-        branchIds.map((branchId) => ({
-          adminId,
-          branchId,
-          churchId: authUser.churchId,
-        })),
+        branchIds.map((branchId) => {
+          return {
+            adminId,
+            branchId,
+            churchId: authUser.churchId,
+          };
+        }),
       );
     }
 

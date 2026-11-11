@@ -38,7 +38,9 @@ export class TrackUsageDto {
   @IsArray()
   @ArrayMaxSize(25)
   @ValidateNested({ each: true })
-  @Type(() => UsageEventDto)
+  @Type(() => {
+    return UsageEventDto;
+  })
   events: UsageEventDto[];
 }
 

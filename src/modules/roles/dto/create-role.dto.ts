@@ -27,6 +27,8 @@ export class CreateRoleDto {
   @IsArray()
   @ArrayNotEmpty()
   @ValidateNested({ each: true })
-  @Type(() => SectionPermissionDto)
+  @Type(() => {
+    return SectionPermissionDto;
+  })
   permissions: SectionPermissionDto[];
 }

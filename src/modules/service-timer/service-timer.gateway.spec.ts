@@ -32,14 +32,16 @@ const churchId = new Types.ObjectId();
 const branchA = new Types.ObjectId();
 const branchB = new Types.ObjectId();
 
-const roleWith = (level: AccessLevel) => ({
-  roleName: 'Custom',
-  type: RoleType.CUSTOM,
-  status: RoleStatus.ACTIVE,
-  permissions: [
-    { moduleSection: ModuleSections.SERVICE_TIMER, accessLevel: level },
-  ],
-});
+const roleWith = (level: AccessLevel) => {
+  return {
+    roleName: 'Custom',
+    type: RoleType.CUSTOM,
+    status: RoleStatus.ACTIVE,
+    permissions: [
+      { moduleSection: ModuleSections.SERVICE_TIMER, accessLevel: level },
+    ],
+  };
+};
 
 const admins: Record<string, any> = {};
 function addAdmin(level: AccessLevel) {
@@ -48,14 +50,21 @@ function addAdmin(level: AccessLevel) {
   return new JwtService({}).sign({ sub: String(_id) }, { secret: SECRET });
 }
 
-const session = (origin: string) => ({
-  items: [{ id: 'a', name: 'The Word', person: '', minutes: 40 }],
-  index: 0,
-  timer: { running: true, startedAt: Date.now(), elapsedBefore: 0, extraMs: 0 },
-  message: { text: '', shown: false },
-  serviceStart: '09:00',
-  origin,
-});
+const session = (origin: string) => {
+  return {
+    items: [{ id: 'a', name: 'The Word', person: '', minutes: 40 }],
+    index: 0,
+    timer: {
+      running: true,
+      startedAt: Date.now(),
+      elapsedBefore: 0,
+      extraMs: 0,
+    },
+    message: { text: '', shown: false },
+    serviceStart: '09:00',
+    origin,
+  };
+};
 
 describe('ServiceTimerGateway', () => {
   let app: INestApplication;
@@ -68,18 +77,22 @@ describe('ServiceTimerGateway', () => {
     const events = new ServiceTimerEvents();
     reportsMock = { recordRuns: jest.fn().mockResolvedValue({ saved: 1 }) };
     const timerMock = {
-      snapshotFor: async (p: TimerPrincipal) => ({
-        access: {
-          kind: p.kind,
-          canControl: p.canControl,
-          canManage: p.canManage,
-        },
-        serverNow: Date.now(),
-      }),
-      scopeOf: (p: TimerPrincipal) => ({
-        churchId: p.churchId,
-        branchId: p.branchId,
-      }),
+      snapshotFor: async (p: TimerPrincipal) => {
+        return {
+          access: {
+            kind: p.kind,
+            canControl: p.canControl,
+            canManage: p.canManage,
+          },
+          serverNow: Date.now(),
+        };
+      },
+      scopeOf: (p: TimerPrincipal) => {
+        return {
+          churchId: p.churchId,
+          branchId: p.branchId,
+        };
+      },
       // Like the real service: save, then send to the branch.
       pushSession: async (scope: any, dto: any) => {
         version += 1;
@@ -113,19 +126,32 @@ describe('ServiceTimerGateway', () => {
         { provide: ServiceTimerService, useValue: timerMock },
         {
           provide: AdminService,
-          useValue: { findById: async (id: any) => admins[String(id)] },
+          useValue: {
+            findById: async (id: any) => {
+              return admins[String(id)];
+            },
+          },
         },
         {
           provide: TenantContextService,
           useValue: {
-            resolveTenantContext: async (_admin: any, requested?: string) => ({
-              churchId,
-              branchId: requested === String(branchB) ? branchB : branchA,
-            }),
+            resolveTenantContext: async (_admin: any, requested?: string) => {
+              return {
+                churchId,
+                branchId: requested === String(branchB) ? branchB : branchA,
+              };
+            },
           },
         },
         { provide: JwtService, useValue: new JwtService({}) },
-        { provide: ConfigService, useValue: { get: () => SECRET } },
+        {
+          provide: ConfigService,
+          useValue: {
+            get: () => {
+              return SECRET;
+            },
+          },
+        },
         { provide: TimerReportsService, useValue: reportsMock },
       ],
     }).compile();
@@ -137,7 +163,9 @@ describe('ServiceTimerGateway', () => {
   });
 
   afterEach(() => {
-    sockets.splice(0).forEach((s) => s.disconnect());
+    sockets.splice(0).forEach((s) => {
+      return s.disconnect();
+    });
   });
 
   afterAll(async () => {
@@ -150,22 +178,27 @@ describe('ServiceTimerGateway', () => {
     sockets.push(s);
     return new Promise<{ socket: Socket; event: string; data: any }>(
       (resolve) => {
-        s.once('hello', (data) => resolve({ socket: s, event: 'hello', data }));
-        s.once('denied', (data) =>
-          resolve({ socket: s, event: 'denied', data }),
-        );
+        s.once('hello', (data) => {
+          return resolve({ socket: s, event: 'hello', data });
+        });
+        s.once('denied', (data) => {
+          return resolve({ socket: s, event: 'denied', data });
+        });
       },
     );
   }
 
-  const nextEvent = (s: Socket, event: string, ms = 1000) =>
-    new Promise<any>((resolve) => {
-      const t = setTimeout(() => resolve(null), ms);
+  const nextEvent = (s: Socket, event: string, ms = 1000) => {
+    return new Promise<any>((resolve) => {
+      const t = setTimeout(() => {
+        return resolve(null);
+      }, ms);
       s.once(event, (d) => {
         clearTimeout(t);
         resolve(d);
       });
     });
+  };
 
   it('lets an operator push a change that reaches every device in the branch', async () => {
     const controller = await connect({ token: addAdmin(AccessLevel.MANAGE) });

@@ -60,10 +60,20 @@ export class TimerSession extends Document {
   @Prop({ default: 0 })
   index: number;
 
-  @Prop({ type: TimerRunSchema, default: () => ({}) })
+  @Prop({
+    type: TimerRunSchema,
+    default: () => {
+      return {};
+    },
+  })
   timer: TimerRun;
 
-  @Prop({ type: TimerMessageSchema, default: () => ({}) })
+  @Prop({
+    type: TimerMessageSchema,
+    default: () => {
+      return {};
+    },
+  })
   message: TimerMessage;
 
   // Lives on the session, not the settings, because loading a template

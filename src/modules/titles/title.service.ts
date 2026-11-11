@@ -38,13 +38,15 @@ export class TitleService {
 
   async seedDefaults(churchId: Types.ObjectId) {
     return this.titleModel.insertMany(
-      DEFAULT_TITLES.map((name, index) => ({
-        churchId,
-        name,
-        isActive: true,
-        sortOrder: index,
-        isSystem: true,
-      })),
+      DEFAULT_TITLES.map((name, index) => {
+        return {
+          churchId,
+          name,
+          isActive: true,
+          sortOrder: index,
+          isSystem: true,
+        };
+      }),
     );
   }
 

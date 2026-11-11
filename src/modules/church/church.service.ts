@@ -44,7 +44,11 @@ export class ChurchService {
   constructor(
     @InjectModel(Church.name) private churchModel: Model<Church>,
     private fileUploadService: FileUploadService,
-    @Inject(forwardRef(() => AdminService))
+    @Inject(
+      forwardRef(() => {
+        return AdminService;
+      }),
+    )
     private adminService: AdminService,
     private subscriptionService: SubscriptionService,
     private membersService: MembersService,
@@ -149,9 +153,9 @@ export class ChurchService {
       // Process and filter churches
       const processedChurches =
         await this.processChurchesWithStatus(allChurches);
-      const filteredChurches = processedChurches.filter(
-        (church) => church.subscriptionStatus === subscriptionStatus,
-      );
+      const filteredChurches = processedChurches.filter((church) => {
+        return church.subscriptionStatus === subscriptionStatus;
+      });
 
       churches = filteredChurches.slice(skip, skip + limit);
       itemCount = filteredChurches.length;

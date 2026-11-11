@@ -33,13 +33,15 @@ export class OfferingTypeService {
 
   async seedDefaults(churchId: Types.ObjectId) {
     return this.offeringTypeModel.insertMany(
-      DEFAULT_OFFERING_TYPES.map((name, index) => ({
-        churchId,
-        name,
-        isActive: true,
-        sortOrder: index,
-        isSystem: true,
-      })),
+      DEFAULT_OFFERING_TYPES.map((name, index) => {
+        return {
+          churchId,
+          name,
+          isActive: true,
+          sortOrder: index,
+          isSystem: true,
+        };
+      }),
     );
   }
 

@@ -120,7 +120,9 @@ export class CreateAssetDto {
   // Legacy shape: still accepted when no units are sent.
   @IsOptional()
   @ValidateNested()
-  @Type(() => AssetConditionBreakdownDto)
+  @Type(() => {
+    return AssetConditionBreakdownDto;
+  })
   conditions?: AssetConditionBreakdownDto;
 
   // One entry per physical item, each with its own condition and details.
@@ -128,7 +130,9 @@ export class CreateAssetDto {
   @ArrayMinSize(1)
   @ArrayMaxSize(500)
   @ValidateNested({ each: true })
-  @Type(() => AssetUnitDto)
+  @Type(() => {
+    return AssetUnitDto;
+  })
   units?: AssetUnitDto[];
 
   @IsNotEmpty()

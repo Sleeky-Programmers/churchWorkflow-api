@@ -32,7 +32,9 @@ function settingsDoc(over: Record<string, unknown> = {}) {
 function build(doc: Record<string, unknown> | null) {
   const updates: unknown[] = [];
   const settingsModel = {
-    findOne: jest.fn(() => ({ select: jest.fn().mockResolvedValue(doc) })),
+    findOne: jest.fn(() => {
+      return { select: jest.fn().mockResolvedValue(doc) };
+    }),
     updateOne: jest.fn((_filter, update) => {
       updates.push(update);
       return Promise.resolve({});
@@ -45,7 +47,11 @@ function build(doc: Record<string, unknown> | null) {
     {} as any,
     {} as any,
     new JwtService({}),
-    { get: () => 'test-secret' } as any,
+    {
+      get: () => {
+        return 'test-secret';
+      },
+    } as any,
     { disconnectGuests: jest.fn() } as any,
     { planFor: jest.fn() } as any,
   );
@@ -96,7 +102,9 @@ describe('operator PIN login', () => {
     );
     const err = await service
       .operatorLogin('display-token', '2468')
-      .catch((e) => e);
+      .catch((e) => {
+        return e;
+      });
     expect(err).toBeInstanceOf(HttpException);
     expect(err.getStatus()).toBe(429);
     expect(err.message).toBe('Too many wrong PINs. Try again in 2 minutes.');

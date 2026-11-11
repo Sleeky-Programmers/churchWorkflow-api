@@ -76,7 +76,9 @@ export class FileValidationInterceptor implements NestInterceptor {
       if (allowedTypes.length > 0 && !allowedTypes.includes(file.mimetype)) {
         throw new UnsupportedMediaTypeException(
           `"${file.originalname}" is not a supported file type. Allowed types: ${allowedTypes
-            .map((type) => type.replace('image/', '').toUpperCase())
+            .map((type) => {
+              return type.replace('image/', '').toUpperCase();
+            })
             .join(', ')}.`,
         );
       }

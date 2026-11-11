@@ -30,8 +30,13 @@ const ROLE_NAME: Record<TimerRoleKey, string> = {
   viewer: TIMER_ROLES[2].roleName,
 };
 
-const keyForRoleName = (name?: string | null): TimerRoleKey | null =>
-  TIMER_ROLE_KEYS.find((k) => ROLE_NAME[k] === name) ?? null;
+const keyForRoleName = (name?: string | null): TimerRoleKey | null => {
+  return (
+    TIMER_ROLE_KEYS.find((k) => {
+      return ROLE_NAME[k] === name;
+    }) ?? null
+  );
+};
 
 /**
  * The timer's view of the church's team. It reuses Church Workflow's invite
@@ -73,7 +78,9 @@ export class TimerTeamService {
       this.plans.planFor(authUser.churchId as Types.ObjectId),
     ]);
     const inviteByEmail = new Map(
-      invites.map((i) => [i.email?.toLowerCase(), i]),
+      invites.map((i) => {
+        return [i.email?.toLowerCase(), i];
+      }),
     );
 
     const members = admins.map((a) => {
@@ -96,7 +103,9 @@ export class TimerTeamService {
     });
 
     const pending = invites
-      .filter((i) => i.status === AdminInviteStatus.PENDING)
+      .filter((i) => {
+        return i.status === AdminInviteStatus.PENDING;
+      })
       .map((i) => {
         const role = i.churchRole as unknown as Role | null;
         return {

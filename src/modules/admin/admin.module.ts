@@ -11,7 +11,9 @@ import { SubscriptionModule } from '../subscription/subscription.module';
 @Module({
   imports: [
     MongooseModule.forFeature([{ name: Admin.name, schema: AdminSchema }]),
-    forwardRef(() => ChurchModule),
+    forwardRef(() => {
+      return ChurchModule;
+    }),
     RolesModule,
     AccountSettingsModule,
     SubscriptionModule,

@@ -55,9 +55,9 @@ export class SmallTeamsService {
     if (role.type === RoleType.SYSTEM && role.roleName === 'Super Admin') {
       return true;
     }
-    const perm = role.permissions?.find(
-      (p) => p.moduleSection === ModuleSections.SMALL_TEAMS,
-    );
+    const perm = role.permissions?.find((p) => {
+      return p.moduleSection === ModuleSections.SMALL_TEAMS;
+    });
     return perm?.accessLevel === AccessLevel.FULL_ACCESS;
   }
 
@@ -138,7 +138,9 @@ export class SmallTeamsService {
     ]);
 
     return {
-      data: teams.map((team) => this.toTeamResponse(team)),
+      data: teams.map((team) => {
+        return this.toTeamResponse(team);
+      }),
       pagination: paginationMeta({ page, limit, itemCount }),
     };
   }
@@ -237,9 +239,9 @@ export class SmallTeamsService {
     if (dto.memberIds) {
       const memberIds = this.toUniqueIds(dto.memberIds);
       await this.assertMembersInChurch(tenant, memberIds, existing.memberIds);
-      updatePayload.memberIds = memberIds.map(
-        (memberId) => new Types.ObjectId(memberId),
-      );
+      updatePayload.memberIds = memberIds.map((memberId) => {
+        return new Types.ObjectId(memberId);
+      });
     }
 
     await this.smallTeamModel.updateOne(
@@ -269,7 +271,9 @@ export class SmallTeamsService {
     const memberIds = this.toUniqueIds(dto.memberIds);
     await this.assertMembersInChurch(tenant, memberIds, team.memberIds);
 
-    team.memberIds = memberIds.map((memberId) => new Types.ObjectId(memberId));
+    team.memberIds = memberIds.map((memberId) => {
+      return new Types.ObjectId(memberId);
+    });
     await team.save();
 
     return this.findById(authUser, tenant, id);
@@ -313,11 +317,13 @@ export class SmallTeamsService {
       throw new BadRequestException('Service not found');
     }
 
-    const teamMemberIds = team.memberIds.map((memberId) => memberId.toString());
+    const teamMemberIds = team.memberIds.map((memberId) => {
+      return memberId.toString();
+    });
     const memberIds = this.toUniqueIds(dto.memberIds);
-    const invalidSelections = memberIds.filter(
-      (memberId) => !teamMemberIds.includes(memberId),
-    );
+    const invalidSelections = memberIds.filter((memberId) => {
+      return !teamMemberIds.includes(memberId);
+    });
     if (invalidSelections.length > 0) {
       throw new BadRequestException(
         'One or more selected members are not part of this team',
@@ -357,9 +363,9 @@ export class SmallTeamsService {
 
     this.assertCanAccessTeam(authUser, team);
 
-    const memberIds = team.memberIds.map((member: any) =>
-      member?._id ? member._id.toString() : member.toString(),
-    );
+    const memberIds = team.memberIds.map((member: any) => {
+      return member?._id ? member._id.toString() : member.toString();
+    });
 
     if (memberIds.length === 0) {
       return {
@@ -378,10 +384,9 @@ export class SmallTeamsService {
       );
 
     const sessionKeySet = new Set(
-      attendance.map(
-        (record) =>
-          `${record.churchServiceId.toString()}_${new Date(record.date).toISOString().split('T')[0]}`,
-      ),
+      attendance.map((record) => {
+        return `${record.churchServiceId.toString()}_${new Date(record.date).toISOString().split('T')[0]}`;
+      }),
     );
     const sessions = sessionKeySet.size;
 
@@ -411,8 +416,12 @@ export class SmallTeamsService {
           attendancePercentage: percentage,
         };
       })
-      .filter((member) => member.attendancePercentage < threshold)
-      .sort((a, b) => a.attendancePercentage - b.attendancePercentage);
+      .filter((member) => {
+        return member.attendancePercentage < threshold;
+      })
+      .sort((a, b) => {
+        return a.attendancePercentage - b.attendancePercentage;
+      });
 
     return {
       team: this.toTeamResponse(team),
@@ -467,9 +476,15 @@ export class SmallTeamsService {
     }
 
     // Guests stay basic: they can't be added to a small team.
-    const existing = new Set(currentIds.map((id) => String(id)));
+    const existing = new Set(
+      currentIds.map((id) => {
+        return String(id);
+      }),
+    );
     await this.membersService.assertNoGuests(
-      memberIds.filter((id) => !existing.has(String(id))),
+      memberIds.filter((id) => {
+        return !existing.has(String(id));
+      }),
       tenant,
     );
   }
@@ -492,12 +507,16 @@ export class SmallTeamsService {
   private toTeamResponse(team: any) {
     const members = Array.isArray(team.memberIds) ? team.memberIds : [];
     const memberList = members
-      .filter((member: any) => member?._id)
-      .map((member: any) => ({
-        id: member._id.toString(),
-        fullName: member.fullName,
-        email: member.email || '',
-      }));
+      .filter((member: any) => {
+        return member?._id;
+      })
+      .map((member: any) => {
+        return {
+          id: member._id.toString(),
+          fullName: member.fullName,
+          email: member.email || '',
+        };
+      });
 
     return {
       _id: team._id.toString(),

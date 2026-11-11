@@ -102,8 +102,9 @@ export class SubscriptionService implements OnModuleInit {
       }
 
       const oldValue = (before as any)[key];
-      const format = (value: unknown) =>
-        Array.isArray(value) ? `[${value.join(', ')}]` : String(value);
+      const format = (value: unknown) => {
+        return Array.isArray(value) ? `[${value.join(', ')}]` : String(value);
+      };
 
       if (JSON.stringify(oldValue) !== JSON.stringify(newValue)) {
         changes.push(`${key}: ${format(oldValue)} → ${format(newValue)}`);
@@ -152,7 +153,11 @@ export class SubscriptionService implements OnModuleInit {
       'branchLimit',
       'customRolesEnabled',
     ] as const;
-    if (limitKeys.some((k) => dto[k] !== undefined)) {
+    if (
+      limitKeys.some((k) => {
+        return dto[k] !== undefined;
+      })
+    ) {
       await this.subscriptionModel.updateMany(
         { plan },
         { $set: this.limitsFromPlan(updated) },
@@ -168,7 +173,9 @@ export class SubscriptionService implements OnModuleInit {
       plan: plan as any,
     } as any);
 
-    return this.getPlans().find((p) => p.type === plan);
+    return this.getPlans().find((p) => {
+      return p.type === plan;
+    });
   }
 
   /** The limit fields a subscription copies from its plan. */
@@ -430,8 +437,12 @@ export class SubscriptionService implements OnModuleInit {
     const field = resource === 'member' ? 'memberLimit' : 'guestLimit';
     const current = this.getPlanConfig(plan)[field];
     const next = Object.values(PlanType)
-      .filter((p) => this.planRank[p] > this.planRank[plan])
-      .sort((a, b) => this.planRank[a] - this.planRank[b])
+      .filter((p) => {
+        return this.planRank[p] > this.planRank[plan];
+      })
+      .sort((a, b) => {
+        return this.planRank[a] - this.planRank[b];
+      })
       .find((p) => {
         const value = this.getPlanConfig(p)[field];
         return value === -1 || value > current;
@@ -577,14 +588,16 @@ export class SubscriptionService implements OnModuleInit {
       ...this.latestSubscriptionPerChurchStages(),
       { $match: { plan } },
     ]);
-    return subs.map((s) => s._id);
+    return subs.map((s) => {
+      return s._id;
+    });
   }
 
   async getCurrentPlan(churchId: Types.ObjectId) {
     const subscription = await this.getSubscription(churchId);
-    const planDetails = this.getPlans().find(
-      (plan) => plan.type === subscription.plan,
-    );
+    const planDetails = this.getPlans().find((plan) => {
+      return plan.type === subscription.plan;
+    });
 
     return {
       ...planDetails,
@@ -820,7 +833,9 @@ export class SubscriptionService implements OnModuleInit {
     ]);
 
     const map: Record<string, number> = {};
-    res.forEach((r: any) => (map[r._id] = r.count));
+    res.forEach((r: any) => {
+      return (map[r._id] = r.count);
+    });
     return map;
   }
 
@@ -842,18 +857,25 @@ export class SubscriptionService implements OnModuleInit {
     ]);
 
     const map: Record<string, number> = {};
-    res.forEach((r: any) => (map[r._id] = r.count));
+    res.forEach((r: any) => {
+      return (map[r._id] = r.count);
+    });
     return map;
   }
 
   async getDueSubscriptions(): Promise<Subscription[]> {
     const now = new Date();
 
-    return this.subscriptionModel.find({
-      status: SubscriptionStatus.ACTIVE,
-      isAutoRenew: true,
-      endDate: { $lte: now },
-    });
+    // Bounded per run so one cron tick cannot exceed the function time limit;
+    // Oldest-due first, and the remainder is picked up on the next tick.
+    return this.subscriptionModel
+      .find({
+        status: SubscriptionStatus.ACTIVE,
+        isAutoRenew: true,
+        endDate: { $lte: now },
+      })
+      .sort({ endDate: 1 })
+      .limit(50);
   }
 
   async extendSubscription(data: {

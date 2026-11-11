@@ -37,19 +37,22 @@ export class ItemRunsDto {
   @IsArray()
   @ArrayMaxSize(50)
   @ValidateNested({ each: true })
-  @Type(() => ItemRunDto)
+  @Type(() => {
+    return ItemRunDto;
+  })
   runs: ItemRunDto[];
 }
 
 /** "YYYY-MM-DD" for a moment in a time zone (falls back to Lagos). */
 export function serviceDateOf(ms: number, timeZone?: string | null) {
-  const fmt = (tz: string) =>
-    new Intl.DateTimeFormat('en-CA', {
+  const fmt = (tz: string) => {
+    return new Intl.DateTimeFormat('en-CA', {
       timeZone: tz,
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
     }).format(new Date(ms));
+  };
   try {
     return fmt(timeZone || 'Africa/Lagos');
   } catch {
@@ -90,34 +93,36 @@ export class TimerReportsService {
     await this.runModel.bulkWrite(
       runs
         // Ignore runs from a device with a badly wrong clock.
-        .filter(
-          (r) =>
-            r.startedAt > now - 7 * 86_400_000 &&
-            r.startedAt < now + 86_400_000,
-        )
-        .map((r) => ({
-          updateOne: {
-            filter: { churchId: scope.churchId, runId: r.id },
-            update: {
-              $setOnInsert: {
-                churchId: scope.churchId,
-                branchId: scope.branchId,
-                runId: r.id,
-                startedAt: new Date(r.startedAt),
-                serviceDate: serviceDateOf(r.startedAt, tz),
+        .filter((r) => {
+          return (
+            r.startedAt > now - 7 * 86_400_000 && r.startedAt < now + 86_400_000
+          );
+        })
+        .map((r) => {
+          return {
+            updateOne: {
+              filter: { churchId: scope.churchId, runId: r.id },
+              update: {
+                $setOnInsert: {
+                  churchId: scope.churchId,
+                  branchId: scope.branchId,
+                  runId: r.id,
+                  startedAt: new Date(r.startedAt),
+                  serviceDate: serviceDateOf(r.startedAt, tz),
+                },
+                $set: {
+                  itemName: r.name,
+                  person: r.person ?? '',
+                  plannedMinutes: r.plannedMinutes,
+                  extraMs: r.extraMs,
+                },
+                // Snapshots can arrive out of order: keep the longest.
+                $max: { actualMs: r.actualMs, endedAt: new Date(r.endedAt) },
               },
-              $set: {
-                itemName: r.name,
-                person: r.person ?? '',
-                plannedMinutes: r.plannedMinutes,
-                extraMs: r.extraMs,
-              },
-              // Snapshots can arrive out of order: keep the longest.
-              $max: { actualMs: r.actualMs, endedAt: new Date(r.endedAt) },
+              upsert: true,
             },
-            upsert: true,
-          },
-        })),
+          };
+        }),
       { ordered: false },
     );
     return { saved: runs.length };
@@ -165,15 +170,17 @@ export class TimerReportsService {
       },
       { $sort: { _id: -1 } },
     ]);
-    return rows.map((r) => ({
-      date: r._id as string,
-      startedAt: r.startedAt,
-      endedAt: r.endedAt,
-      items: r.items,
-      plannedMs: r.plannedMs,
-      actualMs: r.actualMs,
-      overMs: r.actualMs - r.plannedMs,
-    }));
+    return rows.map((r) => {
+      return {
+        date: r._id as string,
+        startedAt: r.startedAt,
+        endedAt: r.endedAt,
+        items: r.items,
+        plannedMs: r.plannedMs,
+        actualMs: r.actualMs,
+        overMs: r.actualMs - r.plannedMs,
+      };
+    });
   }
 
   /** One service, item by item against the program. */
@@ -199,16 +206,19 @@ export class TimerReportsService {
         overMs: r.actualMs - plannedMs,
       };
     });
-    const plannedMs = items.reduce((a, i) => a + i.plannedMs, 0);
-    const actualMs = items.reduce((a, i) => a + i.actualMs, 0);
+    const plannedMs = items.reduce((a, i) => {
+      return a + i.plannedMs;
+    }, 0);
+    const actualMs = items.reduce((a, i) => {
+      return a + i.actualMs;
+    }, 0);
     return {
       date,
       startedAt: runs[0]?.startedAt ?? null,
       endedAt: runs.length
-        ? runs.reduce(
-            (a, r) => (r.endedAt > a ? r.endedAt : a),
-            runs[0].endedAt,
-          )
+        ? runs.reduce((a, r) => {
+            return r.endedAt > a ? r.endedAt : a;
+          }, runs[0].endedAt)
         : null,
       plannedMs,
       actualMs,

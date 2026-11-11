@@ -37,6 +37,7 @@ module.exports = {
     ],
     'no-console': 'error',
     curly: ['error', 'all'],
+    'arrow-body-style': ['error', 'always'],
     'no-lonely-if': 'error',
     'brace-style': ['error', '1tbs'],
 		'no-warning-comments': [

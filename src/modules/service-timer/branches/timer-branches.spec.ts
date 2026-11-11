@@ -15,8 +15,12 @@ const admin = {
 function setup(opts: { plan: any; active: number }) {
   const created: any[] = [];
   const branchModel = {
-    findOne: async () => null,
-    countDocuments: async () => opts.active,
+    findOne: async () => {
+      return null;
+    },
+    countDocuments: async () => {
+      return opts.active;
+    },
     create: async (doc: any) => {
       created.push(doc);
       return { _id: new Types.ObjectId(), ...doc };
@@ -31,7 +35,11 @@ function setup(opts: { plan: any; active: number }) {
     {} as any,
     cwSubscriptions as any,
   );
-  const plans = { planFor: async () => opts.plan };
+  const plans = {
+    planFor: async () => {
+      return opts.plan;
+    },
+  };
   const controller = new TimerBranchesController(branches, plans as any);
   return { controller, created, cwSubscriptions };
 }

@@ -69,12 +69,16 @@ export class UpdateTimerSettingsDto {
 
   @IsOptional()
   @ValidateNested()
-  @Type(() => TimerColorsDto)
+  @Type(() => {
+    return TimerColorsDto;
+  })
   colors?: TimerColorsDto;
 
   @IsOptional()
   @ValidateNested()
-  @Type(() => TimerShowDto)
+  @Type(() => {
+    return TimerShowDto;
+  })
   show?: TimerShowDto;
 }
 

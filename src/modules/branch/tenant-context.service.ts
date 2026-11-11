@@ -31,7 +31,9 @@ export class TenantContextService {
         .select('_id')
         .lean();
 
-      return branches.map((branch) => branch._id as Types.ObjectId);
+      return branches.map((branch) => {
+        return branch._id as Types.ObjectId;
+      });
     }
 
     const grants = await this.adminBranchAccessModel
@@ -39,7 +41,9 @@ export class TenantContextService {
       .select('branchId')
       .lean();
 
-    return grants.map((grant) => grant.branchId as Types.ObjectId);
+    return grants.map((grant) => {
+      return grant.branchId as Types.ObjectId;
+    });
   }
 
   async resolveTenantContext(
@@ -47,14 +51,17 @@ export class TenantContextService {
     requestedBranchId?: string | null,
   ): Promise<TenantContext> {
     const accessibleBranchIds = await this.resolveAccessibleBranchIds(admin);
-    const accessibleIdStrings = accessibleBranchIds.map((id) => id.toString());
+    const accessibleIdStrings = accessibleBranchIds.map((id) => {
+      return id.toString();
+    });
 
     let branchId: Types.ObjectId | null = null;
 
     if (requestedBranchId && accessibleIdStrings.includes(requestedBranchId)) {
       branchId =
-        accessibleBranchIds.find((id) => id.toString() === requestedBranchId) ||
-        null;
+        accessibleBranchIds.find((id) => {
+          return id.toString() === requestedBranchId;
+        }) || null;
     } else if (
       admin.defaultBranchId &&
       accessibleIdStrings.includes(admin.defaultBranchId.toString())
@@ -77,6 +84,8 @@ export class TenantContextService {
     branchId: string,
   ): Promise<boolean> {
     const accessibleBranchIds = await this.resolveAccessibleBranchIds(admin);
-    return accessibleBranchIds.some((id) => id.toString() === branchId);
+    return accessibleBranchIds.some((id) => {
+      return id.toString() === branchId;
+    });
   }
 }

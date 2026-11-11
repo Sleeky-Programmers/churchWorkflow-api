@@ -151,7 +151,9 @@ export class GuestLifecycleService {
     }
 
     const lastPresent = await this.guestRulesService.lastPresentDays(
-      guests.map((g) => g._id as Types.ObjectId),
+      guests.map((g) => {
+        return g._id as Types.ObjectId;
+      }),
     );
 
     const toArchive = guests
@@ -159,7 +161,9 @@ export class GuestLifecycleService {
         const last = lastPresent.get(String(g._id));
         return last ? last < cutoffDay : g.createdAt < cutoffDate;
       })
-      .map((g) => g._id);
+      .map((g) => {
+        return g._id;
+      });
 
     if (!toArchive.length) {
       return 0;
@@ -192,7 +196,11 @@ export class GuestLifecycleService {
     }
     const fresh = await this.memberModel
       .find({
-        _id: { $in: ids.map((id) => new Types.ObjectId(id)) },
+        _id: {
+          $in: ids.map((id) => {
+            return new Types.ObjectId(id);
+          }),
+        },
         frequentGuestNotifiedAt: null,
       })
       .select('_id fullName')
@@ -202,13 +210,21 @@ export class GuestLifecycleService {
     }
 
     await this.memberModel.updateMany(
-      { _id: { $in: fresh.map((m) => m._id) } },
+      {
+        _id: {
+          $in: fresh.map((m) => {
+            return m._id;
+          }),
+        },
+      },
       { $set: { frequentGuestNotifiedAt: now } },
     );
 
     const names = fresh
       .slice(0, 5)
-      .map((m) => m.fullName)
+      .map((m) => {
+        return m.fullName;
+      })
       .join(', ');
     const more = fresh.length > 5 ? ` and ${fresh.length - 5} more` : '';
     await this.notificationService.createNotification(churchId, {
@@ -238,8 +254,12 @@ export class GuestLifecycleService {
     }
 
     const earliest = due
-      .map((m) => addDays(m.archivedAt!, ARCHIVE_RETENTION_DAYS))
-      .sort((a, b) => a.getTime() - b.getTime())[0];
+      .map((m) => {
+        return addDays(m.archivedAt!, ARCHIVE_RETENTION_DAYS);
+      })
+      .sort((a, b) => {
+        return a.getTime() - b.getTime();
+      })[0];
     // Deletion never happens sooner than 30 days after the warning.
     const deleteOn = new Date(
       Math.max(
@@ -259,7 +279,13 @@ export class GuestLifecycleService {
     await this.emailChurchAdmins(churchId, due.length, deleteOnText);
 
     await this.memberModel.updateMany(
-      { _id: { $in: due.map((m) => m._id) } },
+      {
+        _id: {
+          $in: due.map((m) => {
+            return m._id;
+          }),
+        },
+      },
       { $set: { archiveDeletionWarnedAt: now } },
     );
     return due.length;
@@ -322,7 +348,9 @@ export class GuestLifecycleService {
     if (!expired.length) {
       return 0;
     }
-    const ids = expired.map((m) => m._id as Types.ObjectId);
+    const ids = expired.map((m) => {
+      return m._id as Types.ObjectId;
+    });
 
     await Promise.all([
       this.attendanceModel.deleteMany({ memberId: { $in: ids } }),

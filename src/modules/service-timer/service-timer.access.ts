@@ -33,9 +33,9 @@ export function timerAccessFor(role?: Partial<Role> | null): AccessLevel {
   if (isSuperAdminRole(role)) {
     return AccessLevel.FULL_ACCESS;
   }
-  const entry = role.permissions?.find(
-    (p) => p.moduleSection === ModuleSections.SERVICE_TIMER,
-  );
+  const entry = role.permissions?.find((p) => {
+    return p.moduleSection === ModuleSections.SERVICE_TIMER;
+  });
   return entry?.accessLevel ?? AccessLevel.NO_ACCESS;
 }
 
@@ -55,11 +55,14 @@ export function adminPrincipal(
 }
 
 /** Every device for one branch's timer. */
-export const branchRoom = (churchId: string, branchId: string) =>
-  `timer:${churchId}:${branchId}`;
+export const branchRoom = (churchId: string, branchId: string) => {
+  return `timer:${churchId}:${branchId}`;
+};
 
 /** Every device in the church, for church-wide changes such as templates. */
-export const churchRoom = (churchId: string) => `timer-church:${churchId}`;
+export const churchRoom = (churchId: string) => {
+  return `timer-church:${churchId}`;
+};
 
 export const MAX_PIN_ATTEMPTS = 5;
 export const PIN_LOCK_MS = 5 * 60 * 1000;
@@ -86,12 +89,14 @@ export function pinLockMinutesLeft(lockedUntil: Date | null, now: number) {
 
 /** Keeps the current index inside the program and trims item text. */
 export function tidySession(dto: TimerSessionDto): TimerSessionDto {
-  const items = dto.items.map((it) => ({
-    id: it.id,
-    name: it.name,
-    person: it.person ?? '',
-    minutes: it.minutes,
-  }));
+  const items = dto.items.map((it) => {
+    return {
+      id: it.id,
+      name: it.name,
+      person: it.person ?? '',
+      minutes: it.minutes,
+    };
+  });
   const maxIndex = Math.max(0, items.length - 1);
   return {
     ...dto,

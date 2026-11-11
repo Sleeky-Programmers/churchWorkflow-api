@@ -113,7 +113,9 @@ export const SECTION_DEFS: SectionDef[] = [
   },
 ];
 
-export const SECTION_KEYS = SECTION_DEFS.map((d) => d.key);
+export const SECTION_KEYS = SECTION_DEFS.map((d) => {
+  return d.key;
+});
 
 const TOP_CURRENCIES = 3;
 
@@ -144,10 +146,12 @@ function seriesFromMap(
     key,
     label,
     ...(currency ? { currency } : {}),
-    points: enumerateDays(range).map((day) => ({
-      label: day,
-      value: Math.round((byDate.get(day) ?? 0) * 100) / 100,
-    })),
+    points: enumerateDays(range).map((day) => {
+      return {
+        label: day,
+        value: Math.round((byDate.get(day) ?? 0) * 100) / 100,
+      };
+    }),
   };
 }
 
@@ -157,7 +161,9 @@ function topEntries<T>(
   n: number,
 ) {
   return [...map.entries()]
-    .sort((a, b) => score(b[1]) - score(a[1]))
+    .sort((a, b) => {
+      return score(b[1]) - score(a[1]);
+    })
     .slice(0, n);
 }
 
@@ -174,10 +180,18 @@ function breakdown(
     label,
     format,
     ...(currency ? { currency } : {}),
-    items: topEntries(map, (v) => v, limit).map(([name, value]) => ({
-      label: name,
-      value: Math.round(value * 100) / 100,
-    })),
+    items: topEntries(
+      map,
+      (v) => {
+        return v;
+      },
+      limit,
+    ).map(([name, value]) => {
+      return {
+        label: name,
+        value: Math.round(value * 100) / 100,
+      };
+    }),
   };
 }
 
@@ -207,9 +221,9 @@ export class ReportSectionsService {
     keys: string[] = SECTION_KEYS,
   ): Promise<Record<string, SectionResult>> {
     const entries = await Promise.all(
-      keys.map(
-        async (key) => [key, await this.compute(key, scope, range)] as const,
-      ),
+      keys.map(async (key) => {
+        return [key, await this.compute(key, scope, range)] as const;
+      }),
     );
     return Object.fromEntries(entries);
   }
@@ -249,7 +263,9 @@ export class ReportSectionsService {
   }
 
   private shell(key: string): SectionResult {
-    const def = SECTION_DEFS.find((d) => d.key === key)!;
+    const def = SECTION_DEFS.find((d) => {
+      return d.key === key;
+    })!;
     return {
       key,
       title: def.title,
@@ -354,6 +370,7 @@ export class ReportSectionsService {
       this.memberModel
         .find({ ...base, createdAt: { $gte: range.start, $lte: range.end } })
         .select('createdAt membershipStatus')
+        .maxTimeMS(20_000)
         .lean(),
       this.memberModel.aggregate([
         { $match: { ...base, createdAt: { $lte: range.end } } },
@@ -361,9 +378,9 @@ export class ReportSectionsService {
       ]),
     ]);
 
-    const visitors = joined.filter(
-      (m: any) => m.membershipStatus === 'VISITOR',
-    ).length;
+    const visitors = joined.filter((m: any) => {
+      return m.membershipStatus === 'VISITOR';
+    }).length;
     const byDay = new Map<string, number>();
     for (const m of joined as any[]) {
       const day = toDateStr(m.createdAt);
@@ -382,7 +399,11 @@ export class ReportSectionsService {
       breakdown(
         'members_by_status',
         'Members by status',
-        new Map(byStatus.map((r: any) => [r._id || 'Unspecified', r.n])),
+        new Map(
+          byStatus.map((r: any) => {
+            return [r._id || 'Unspecified', r.n];
+          }),
+        ),
       ),
     );
     return out;
@@ -419,17 +440,22 @@ export class ReportSectionsService {
     });
 
     const alerts: any[] = await this.alertModel.aggregate(pipeline);
-    const inRange = (d?: Date | null) =>
-      !!d && d >= range.start && d <= range.end;
+    const inRange = (d?: Date | null) => {
+      return !!d && d >= range.start && d <= range.end;
+    };
 
-    const raised = alerts.filter((a) => inRange(a.createdAt));
-    const resolvedNow = alerts.filter((a) => inRange(a.resolvedAt));
-    const open = alerts.filter(
-      (a) => !a.resolved || (a.resolvedAt && a.resolvedAt > range.end),
-    );
-    const urgentOpen = open.filter(
-      (a) => a.severity === 'urgent' || a.severity === 'high',
-    );
+    const raised = alerts.filter((a) => {
+      return inRange(a.createdAt);
+    });
+    const resolvedNow = alerts.filter((a) => {
+      return inRange(a.resolvedAt);
+    });
+    const open = alerts.filter((a) => {
+      return !a.resolved || (a.resolvedAt && a.resolvedAt > range.end);
+    });
+    const urgentOpen = open.filter((a) => {
+      return a.severity === 'urgent' || a.severity === 'high';
+    });
 
     const raisedByDay = new Map<string, number>();
     for (const a of raised) {
@@ -501,9 +527,13 @@ export class ReportSectionsService {
     ]);
 
     const sizes = new Map<string, number>(
-      (teams as any[]).map((t) => [t.name, t.memberIds?.length ?? 0]),
+      (teams as any[]).map((t) => {
+        return [t.name, t.memberIds?.length ?? 0];
+      }),
     );
-    const totalMembers = [...sizes.values()].reduce((a, b) => a + b, 0);
+    const totalMembers = [...sizes.values()].reduce((a, b) => {
+      return a + b;
+    }, 0);
 
     out.metrics.push(
       metric('teams_active', 'Active teams', teams.length),
@@ -543,9 +573,21 @@ export class ReportSectionsService {
       return out;
     }
 
-    const dateByBatch = new Map(batches.map((b) => [String(b._id), b.date]));
+    const dateByBatch = new Map(
+      batches.map((b) => {
+        return [String(b._id), b.date];
+      }),
+    );
     const rows: any[] = await this.entryModel.aggregate([
-      { $match: { batchId: { $in: batches.map((b) => b._id) } } },
+      {
+        $match: {
+          batchId: {
+            $in: batches.map((b) => {
+              return b._id;
+            }),
+          },
+        },
+      },
       {
         $group: {
           _id: {
@@ -564,14 +606,30 @@ export class ReportSectionsService {
       const cur = r._id.cur || 'N/A';
       totalByCur.set(cur, (totalByCur.get(cur) ?? 0) + r.total);
     }
-    const currencies = topEntries(totalByCur, (v) => v, TOP_CURRENCIES);
+    const currencies = topEntries(
+      totalByCur,
+      (v) => {
+        return v;
+      },
+      TOP_CURRENCIES,
+    );
 
-    const typeIds = [...new Set(rows.map((r) => String(r._id.type)))];
+    const typeIds = [
+      ...new Set(
+        rows.map((r) => {
+          return String(r._id.type);
+        }),
+      ),
+    ];
     const types: any[] = await this.offeringTypeModel
       .find({ _id: { $in: typeIds } })
       .select('name')
       .lean();
-    const typeName = new Map(types.map((t) => [String(t._id), t.name]));
+    const typeName = new Map(
+      types.map((t) => {
+        return [String(t._id), t.name];
+      }),
+    );
 
     for (const [cur, total] of currencies) {
       out.metrics.push(
@@ -673,7 +731,9 @@ export class ReportSectionsService {
       },
     ]);
 
-    const count = rows.reduce((sum, r) => sum + r.n, 0);
+    const count = rows.reduce((sum, r) => {
+      return sum + r.n;
+    }, 0);
     out.metrics.push(metric('expenses_count', 'Expenses recorded', count));
     if (!rows.length) {
       out.notes.push('No expenses were recorded in this period.');
@@ -685,7 +745,13 @@ export class ReportSectionsService {
       const cur = r._id.cur || 'N/A';
       totalByCur.set(cur, (totalByCur.get(cur) ?? 0) + r.total);
     }
-    const currencies = topEntries(totalByCur, (v) => v, TOP_CURRENCIES);
+    const currencies = topEntries(
+      totalByCur,
+      (v) => {
+        return v;
+      },
+      TOP_CURRENCIES,
+    );
 
     for (const [cur, total] of currencies) {
       out.metrics.push(
@@ -770,9 +836,9 @@ export class ReportSectionsService {
       }),
     ]);
 
-    const approved = (reviewed as any[]).filter(
-      (r) => r.status === RequisitionStatus.APPROVED,
-    );
+    const approved = (reviewed as any[]).filter((r) => {
+      return r.status === RequisitionStatus.APPROVED;
+    });
     const rejected = (reviewed as any[]).length - approved.length;
     const approvedByCur = new Map<string, number>();
     for (const r of approved) {
@@ -794,7 +860,9 @@ export class ReportSectionsService {
     );
     for (const [cur, total] of topEntries(
       approvedByCur,
-      (v) => v,
+      (v) => {
+        return v;
+      },
       TOP_CURRENCIES,
     )) {
       out.metrics.push(
@@ -838,7 +906,9 @@ export class ReportSectionsService {
       metric(
         'events_reminders',
         'With reminders on',
-        instances.filter((i) => i.reminderEnabled).length,
+        instances.filter((i) => {
+          return i.reminderEnabled;
+        }).length,
       ),
     );
     out.series.push(
@@ -868,9 +938,13 @@ export class ReportSectionsService {
     ]);
 
     const sizes = new Map<string, number>(
-      (departments as any[]).map((d) => [d.name, d.members?.length ?? 0]),
+      (departments as any[]).map((d) => {
+        return [d.name, d.members?.length ?? 0];
+      }),
     );
-    const total = [...sizes.values()].reduce((a, b) => a + b, 0);
+    const total = [...sizes.values()].reduce((a, b) => {
+      return a + b;
+    }, 0);
 
     out.metrics.push(
       metric('departments_active', 'Active departments', departments.length),
@@ -927,9 +1001,13 @@ export class ReportSectionsService {
     ]);
 
     const byDay = new Map<string, number>(
-      (services as any[]).map((s) => [s._id, s.n]),
+      (services as any[]).map((s) => {
+        return [s._id, s.n];
+      }),
     );
-    const logged = [...byDay.values()].reduce((a, b) => a + b, 0);
+    const logged = [...byDay.values()].reduce((a, b) => {
+      return a + b;
+    }, 0);
 
     out.metrics.push(
       metric('assets_active', 'Active assets', active),
@@ -945,7 +1023,9 @@ export class ReportSectionsService {
         'assets_by_condition',
         'Condition of active assets',
         new Map(
-          (byCondition as any[]).map((c) => [c._id || 'Unspecified', c.n]),
+          (byCondition as any[]).map((c) => {
+            return [c._id || 'Unspecified', c.n];
+          }),
         ),
       ),
     );

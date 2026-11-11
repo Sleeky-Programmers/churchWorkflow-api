@@ -148,7 +148,13 @@ export class AdminService {
 
   async findNamesByIds(ids: string[]) {
     return await this.adminModel
-      .find({ _id: { $in: ids.map((id) => new Types.ObjectId(id)) } })
+      .find({
+        _id: {
+          $in: ids.map((id) => {
+            return new Types.ObjectId(id);
+          }),
+        },
+      })
       .select('firstName lastName')
       .lean();
   }

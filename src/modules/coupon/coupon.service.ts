@@ -308,11 +308,13 @@ export class CouponService {
       expiredCoupons,
       draftCoupons,
       totalUsage: totalUsage[0]?.total || 0,
-      usageByType: usageByType.map((item) => ({
-        type: item._id,
-        count: item.count,
-        totalUsage: item.totalUsage || 0,
-      })),
+      usageByType: usageByType.map((item) => {
+        return {
+          type: item._id,
+          count: item.count,
+          totalUsage: item.totalUsage || 0,
+        };
+      }),
     };
   }
 
@@ -390,9 +392,9 @@ export class CouponService {
 
     // Check if church already used this coupon
     if (churchId && coupon.usageHistory) {
-      const alreadyUsed = coupon.usageHistory.some(
-        (usage) => usage.churchId.toString() === churchId.toString(),
-      );
+      const alreadyUsed = coupon.usageHistory.some((usage) => {
+        return usage.churchId.toString() === churchId.toString();
+      });
       if (alreadyUsed) {
         throw new BadRequestException(
           'This coupon has already been used by your church',
@@ -614,25 +616,33 @@ export class CouponService {
     const paginatedHistory = history.slice(skip, skip + limit);
 
     // Populate church details
-    const churchIds = paginatedHistory.map((item) => item.churchId);
+    const churchIds = paginatedHistory.map((item) => {
+      return item.churchId;
+    });
     const churches = await this.couponModel.db
       .collection('churches')
       .find({ _id: { $in: churchIds } })
       .project({ _id: 1, name: 1, email: 1 })
       .toArray();
 
-    const churchMap = new Map(churches.map((c) => [c._id.toString(), c]));
+    const churchMap = new Map(
+      churches.map((c) => {
+        return [c._id.toString(), c];
+      }),
+    );
 
-    const data = paginatedHistory.map((item) => ({
-      churchId: item.churchId,
-      churchName: churchMap.get(item.churchId.toString())?.name || 'Unknown',
-      churchEmail: churchMap.get(item.churchId.toString())?.email,
-      appliedAt: item.appliedAt,
-      discountApplied: item.discountApplied,
-      planType: item.planType,
-      originalAmount: item.originalAmount,
-      discountedAmount: item.discountedAmount,
-    }));
+    const data = paginatedHistory.map((item) => {
+      return {
+        churchId: item.churchId,
+        churchName: churchMap.get(item.churchId.toString())?.name || 'Unknown',
+        churchEmail: churchMap.get(item.churchId.toString())?.email,
+        appliedAt: item.appliedAt,
+        discountApplied: item.discountApplied,
+        planType: item.planType,
+        originalAmount: item.originalAmount,
+        discountedAmount: item.discountedAmount,
+      };
+    });
 
     return {
       data,

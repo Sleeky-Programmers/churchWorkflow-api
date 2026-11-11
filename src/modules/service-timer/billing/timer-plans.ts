@@ -141,9 +141,9 @@ export const COLOUR_PRESETS = [
 ];
 
 export function isPreset(colors: Record<string, string>) {
-  return COLOUR_PRESETS.some((p) =>
-    (Object.keys(p) as (keyof typeof p)[]).every(
-      (k) => String(colors[k]).toLowerCase() === p[k],
-    ),
-  );
+  return COLOUR_PRESETS.some((p) => {
+    return (Object.keys(p) as (keyof typeof p)[]).every((k) => {
+      return String(colors[k]).toLowerCase() === p[k];
+    });
+  });
 }

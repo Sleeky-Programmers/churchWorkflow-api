@@ -81,7 +81,9 @@ async function run() {
             types = await offeringTypeModel.find({ churchId }).lean();
           }
           nameToId = new Map(
-            types.map((t) => [t.name, t._id as Types.ObjectId]),
+            types.map((t) => {
+              return [t.name, t._id as Types.ObjectId];
+            }),
           );
           offeringTypeCache.set(churchKey, nameToId);
         }
@@ -96,7 +98,9 @@ async function run() {
         }
 
         const nonZeroFields = Object.entries(FIELD_TO_OFFERING_NAME).filter(
-          ([field]) => (record[field] || 0) > 0,
+          ([field]) => {
+            return (record[field] || 0) > 0;
+          },
         );
         if (nonZeroFields.length === 0) {
           skipped += 1;
@@ -105,7 +109,9 @@ async function run() {
 
         const totalAmount =
           record.totalAmount ||
-          nonZeroFields.reduce((sum, [field]) => sum + (record[field] || 0), 0);
+          nonZeroFields.reduce((sum, [field]) => {
+            return sum + (record[field] || 0);
+          }, 0);
 
         const batch = await givingBatchModel.create({
           churchId,
@@ -159,7 +165,9 @@ async function run() {
 }
 
 run()
-  .then(() => process.exit(0))
+  .then(() => {
+    return process.exit(0);
+  })
   .catch((error) => {
     console.error('Migration failed', error);
     process.exit(1);

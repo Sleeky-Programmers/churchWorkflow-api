@@ -11,7 +11,9 @@ export class SmallTeamReportQueryDto {
   to?: string;
 
   @IsOptional()
-  @Type(() => Number)
+  @Type(() => {
+    return Number;
+  })
   @IsNumber()
   @Min(0)
   @Max(100)

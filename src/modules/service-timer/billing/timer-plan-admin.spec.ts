@@ -35,9 +35,14 @@ function setup(opts: { inUse?: string[]; failCodes?: string[] } = {}) {
     },
   };
   const plans = {
-    getConfig: async (p: TimerPlan) => structuredClone(configs[p]),
-    listConfigs: async () =>
-      Object.values(configs).map((c) => structuredClone(c)),
+    getConfig: async (p: TimerPlan) => {
+      return structuredClone(configs[p]);
+    },
+    listConfigs: async () => {
+      return Object.values(configs).map((c) => {
+        return structuredClone(c);
+      });
+    },
     updateConfig: jest.fn(async (p: TimerPlan, patch: any) => {
       Object.assign(configs[p], patch);
       return configs[p];
@@ -50,13 +55,15 @@ function setup(opts: { inUse?: string[]; failCodes?: string[] } = {}) {
     }),
   };
   const subs = {
-    aggregate: async () => [
-      { _id: TimerBillingCycle.MONTHLY, n: 3 },
-      { _id: TimerBillingCycle.YEARLY, n: 1 },
-    ],
-    distinct: jest.fn(async (_f: string, q: any) =>
-      q.cycle === TimerBillingCycle.MONTHLY ? (opts.inUse ?? []) : [],
-    ),
+    aggregate: async () => {
+      return [
+        { _id: TimerBillingCycle.MONTHLY, n: 3 },
+        { _id: TimerBillingCycle.YEARLY, n: 1 },
+      ];
+    },
+    distinct: jest.fn(async (_f: string, q: any) => {
+      return q.cycle === TimerBillingCycle.MONTHLY ? (opts.inUse ?? []) : [];
+    }),
   };
   const paystack = {
     updatePlanAmount: jest.fn(async (code: string) => {
@@ -74,7 +81,11 @@ function setup(opts: { inUse?: string[]; failCodes?: string[] } = {}) {
     plans as any,
     paystack as any,
     {} as any,
-    { register: () => undefined } as any,
+    {
+      register: () => {
+        return undefined;
+      },
+    } as any,
   );
   return { service, configs, plans, paystack, subs };
 }
@@ -83,7 +94,11 @@ describe('Timer plans for product admins', () => {
   it('lists both plans with how many churches renew by themselves', async () => {
     const { service } = setup();
     const list = await service.adminPlans();
-    expect(list.map((p) => p.plan)).toEqual([TimerPlan.FREE, TimerPlan.CHURCH]);
+    expect(
+      list.map((p) => {
+        return p.plan;
+      }),
+    ).toEqual([TimerPlan.FREE, TimerPlan.CHURCH]);
     expect(list[1].autoRenewing).toEqual({ monthly: 3, yearly: 1 });
     expect(list[0].autoRenewing).toBeNull();
     expect(list[1]).not.toHaveProperty('paystackPlans');

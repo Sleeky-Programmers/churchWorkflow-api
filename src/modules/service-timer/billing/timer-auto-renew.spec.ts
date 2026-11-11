@@ -15,19 +15,47 @@ import {
 /** Just enough of a Mongoose model for these tests (equality filters). */
 function memModel(unique?: string) {
   const docs: any[] = [];
-  const matches = (d: any, q: any) =>
-    Object.entries(q).every(([k, v]) => String(d[k]) === String(v));
-  const query = (result: any): any => ({
-    lean: async () => result,
-    sort: () => query(result),
-    then: (ok: any, bad: any) => Promise.resolve(result).then(ok, bad),
-  });
+  const matches = (d: any, q: any) => {
+    return Object.entries(q).every(([k, v]) => {
+      return String(d[k]) === String(v);
+    });
+  };
+  const query = (result: any): any => {
+    return {
+      lean: async () => {
+        return result;
+      },
+      sort: () => {
+        return query(result);
+      },
+      then: (ok: any, bad: any) => {
+        return Promise.resolve(result).then(ok, bad);
+      },
+    };
+  };
   return {
     docs,
-    findOne: (q: any) => query(docs.find((d) => matches(d, q)) ?? null),
-    exists: async (q: any) => (docs.some((d) => matches(d, q)) ? {} : null),
+    findOne: (q: any) => {
+      return query(
+        docs.find((d) => {
+          return matches(d, q);
+        }) ?? null,
+      );
+    },
+    exists: async (q: any) => {
+      return docs.some((d) => {
+        return matches(d, q);
+      })
+        ? {}
+        : null;
+    },
     create: async (d: any) => {
-      if (unique && docs.some((x) => x[unique] === d[unique])) {
+      if (
+        unique &&
+        docs.some((x) => {
+          return x[unique] === d[unique];
+        })
+      ) {
         throw Object.assign(new Error('dup'), { code: 11000 });
       }
       const doc = {
@@ -39,7 +67,9 @@ function memModel(unique?: string) {
       return doc;
     },
     updateOne: async (q: any, u: any, opts: any = {}) => {
-      const d = docs.find((x) => matches(x, q));
+      const d = docs.find((x) => {
+        return matches(x, q);
+      });
       if (d) {
         Object.assign(d, u.$set);
         return { matchedCount: 1, modifiedCount: 1 };
@@ -65,33 +95,47 @@ function setup(opts: { planKey?: string } = {}) {
     paystackPlans: {},
   };
   const plans = {
-    planFor: jest.fn(async () => ({ key: opts.planKey ?? 'FREE' })),
-    getConfig: async () => config,
-    subscriptionOf: async () => subs.docs[0] ?? null,
+    planFor: jest.fn(async () => {
+      return { key: opts.planKey ?? 'FREE' };
+    }),
+    getConfig: async () => {
+      return config;
+    },
+    subscriptionOf: async () => {
+      return subs.docs[0] ?? null;
+    },
     setPaystackPlan: async (cycle: string, p: any) => {
       config.paystackPlans[cycle] = p;
     },
   };
   const paystack = {
-    initialize: jest.fn(async (_body: any) => ({
-      reference: 'ref_1',
-      authorizationUrl: 'https://checkout.paystack.com/x',
-    })),
-    verify: jest.fn(
-      async (reference: string): Promise<any> => ({
+    initialize: jest.fn(async (_body: any) => {
+      return {
+        reference: 'ref_1',
+        authorizationUrl: 'https://checkout.paystack.com/x',
+      };
+    }),
+    verify: jest.fn(async (reference: string): Promise<any> => {
+      return {
         status: 'success',
         reference,
         amount: 250000,
         customer: { customer_code: 'CUS_1' },
         authorization: { authorization_code: 'AUTH_1', reusable: true },
-      }),
-    ),
-    createPlan: jest.fn(async () => 'PLN_monthly'),
-    createSubscription: jest.fn(async () => ({
-      subscriptionCode: 'SUB_1',
-      emailToken: 'tok_1',
-    })),
-    disableSubscription: jest.fn(async () => undefined),
+      };
+    }),
+    createPlan: jest.fn(async () => {
+      return 'PLN_monthly';
+    }),
+    createSubscription: jest.fn(async () => {
+      return {
+        subscriptionCode: 'SUB_1',
+        emailToken: 'tok_1',
+      };
+    }),
+    disableSubscription: jest.fn(async () => {
+      return undefined;
+    }),
   };
   const service = new TimerBillingService(
     payments as any,
@@ -102,7 +146,11 @@ function setup(opts: { planKey?: string } = {}) {
     plans as any,
     paystack as any,
     {} as any,
-    { register: () => undefined } as any,
+    {
+      register: () => {
+        return undefined;
+      },
+    } as any,
   );
   return { service, payments, subs, paystack, config, plans };
 }
@@ -196,7 +244,9 @@ describe('Timer auto-renew', () => {
     const expected = new Date(firstEnd);
     expected.setUTCMonth(expected.getUTCMonth() + 1);
     expect(end.toISOString()).toBe(expected.toISOString());
-    const renewals = s.payments.docs.filter((p) => p.renewal);
+    const renewals = s.payments.docs.filter((p) => {
+      return p.renewal;
+    });
     expect(renewals).toHaveLength(1);
     expect(renewals[0]).toMatchObject({
       amount: 2500,
@@ -219,9 +269,9 @@ describe('Timer auto-renew', () => {
     };
     s.subs.docs.push(old);
     await paidWithAutoRenew(s);
-    const mine = s.subs.docs.find(
-      (d) => String(d.churchId) === String(churchId),
-    );
+    const mine = s.subs.docs.find((d) => {
+      return String(d.churchId) === String(churchId);
+    });
     const before = mine.currentPeriodEnd.getTime();
 
     await s.service.handleWebhook({

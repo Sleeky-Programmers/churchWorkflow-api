@@ -46,9 +46,17 @@ export class OnlineGivingService {
     @InjectModel(GivingEntry.name)
     private givingEntryModel: Model<GivingEntry>,
     private churchService: ChurchService,
-    @Inject(forwardRef(() => PaystackService))
+    @Inject(
+      forwardRef(() => {
+        return PaystackService;
+      }),
+    )
     private paystackService: PaystackService,
-    @Inject(forwardRef(() => FlutterwaveService))
+    @Inject(
+      forwardRef(() => {
+        return FlutterwaveService;
+      }),
+    )
     private flutterwaveService: FlutterwaveService,
   ) {}
 
@@ -81,16 +89,20 @@ export class OnlineGivingService {
         slug: church.slug,
         logoUrl: church.logoUrl,
       },
-      offeringTypes: offeringTypes.map((offeringType) => ({
-        id: offeringType._id.toString(),
-        name: offeringType.name,
-      })),
-      currencies: currencies.map((currency) => ({
-        code: currency.code,
-        symbol: currency.symbol,
-        name: currency.name,
-        isDefault: currency.isDefault,
-      })),
+      offeringTypes: offeringTypes.map((offeringType) => {
+        return {
+          id: offeringType._id.toString(),
+          name: offeringType.name,
+        };
+      }),
+      currencies: currencies.map((currency) => {
+        return {
+          code: currency.code,
+          symbol: currency.symbol,
+          name: currency.name,
+          isDefault: currency.isDefault,
+        };
+      }),
     };
   }
 

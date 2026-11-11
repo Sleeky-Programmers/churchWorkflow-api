@@ -30,7 +30,9 @@ export function roleHasAccess(
     return true;
   }
 
-  const permission = role.permissions?.find((p) => p.moduleSection === section);
+  const permission = role.permissions?.find((p) => {
+    return p.moduleSection === section;
+  });
   if (!permission) {
     return false;
   }

@@ -24,9 +24,15 @@ import { ChurchServicesService } from './church-services.service';
       { name: ServiceInstance.name, schema: ServiceInstanceSchema },
     ]),
     EmailModule,
-    forwardRef(() => AdminModule),
-    forwardRef(() => ActivityLogModule),
-    forwardRef(() => EmailModule),
+    forwardRef(() => {
+      return AdminModule;
+    }),
+    forwardRef(() => {
+      return ActivityLogModule;
+    }),
+    forwardRef(() => {
+      return EmailModule;
+    }),
   ],
   controllers: [ChurchServicesController],
   providers: [

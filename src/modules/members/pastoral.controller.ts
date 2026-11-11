@@ -81,10 +81,11 @@ export class PastoralController {
     // Before anything is saved.
     const override: Parameters<typeof this.pastoralService.getImpactCounts>[1] =
       {};
-    const num = (v?: string) =>
-      v !== undefined && v !== '' && Number.isInteger(Number(v))
+    const num = (v?: string) => {
+      return v !== undefined && v !== '' && Number.isInteger(Number(v))
         ? Number(v)
         : undefined;
+    };
 
     override.needsFollowUpThreshold = num(needsFollowUpThreshold);
     override.atRiskThreshold = num(atRiskThreshold);

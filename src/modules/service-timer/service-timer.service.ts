@@ -51,7 +51,9 @@ interface OperatorTokenPayload {
 
 const OPERATOR_TOKEN_TTL = '12h';
 
-const newDisplayToken = () => randomBytes(18).toString('base64url');
+const newDisplayToken = () => {
+  return randomBytes(18).toString('base64url');
+};
 
 @Injectable()
 export class ServiceTimerService {
@@ -420,18 +422,22 @@ export class ServiceTimerService {
       id: String(t._id),
       name: t.name,
       serviceStart: t.serviceStart,
-      items: t.items.map((i) => ({
-        name: i.name,
-        person: i.person ?? '',
-        minutes: i.minutes,
-      })),
+      items: t.items.map((i) => {
+        return {
+          name: i.name,
+          person: i.person ?? '',
+          minutes: i.minutes,
+        };
+      }),
       updatedAt: (t as unknown as { updatedAt?: Date }).updatedAt,
     };
   }
 
   async listTemplates(churchId: Types.ObjectId) {
     const docs = await this.templateModel.find({ churchId }).sort({ name: 1 });
-    return docs.map((t) => this.presentTemplate(t));
+    return docs.map((t) => {
+      return this.presentTemplate(t);
+    });
   }
 
   private async publishTemplates(churchId: Types.ObjectId) {
@@ -446,11 +452,13 @@ export class ServiceTimerService {
       name,
       nameKey: name.toLowerCase(),
       serviceStart: dto.serviceStart,
-      items: dto.items.map((i) => ({
-        name: i.name,
-        person: i.person ?? '',
-        minutes: i.minutes,
-      })),
+      items: dto.items.map((i) => {
+        return {
+          name: i.name,
+          person: i.person ?? '',
+          minutes: i.minutes,
+        };
+      }),
       updatedBy: adminId,
     };
   }
@@ -524,12 +532,14 @@ export class ServiceTimerService {
 
   private presentSession(s: TimerSession) {
     return {
-      items: s.items.map((i) => ({
-        id: i.id,
-        name: i.name,
-        person: i.person ?? '',
-        minutes: i.minutes,
-      })),
+      items: s.items.map((i) => {
+        return {
+          id: i.id,
+          name: i.name,
+          person: i.person ?? '',
+          minutes: i.minutes,
+        };
+      }),
       index: s.index,
       timer: {
         running: s.timer?.running ?? false,

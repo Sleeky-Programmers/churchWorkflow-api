@@ -21,10 +21,12 @@ import { PaymentMethod } from '../../schemas/payment-method.schema';
 // Previously existed between this enum and the frontend's hardcoded list.
 export const PAYMENT_METHOD_PRESETS = Object.values(
   GivingEntryPaymentMethod,
-).map((value) => ({
-  code: value,
-  name: value,
-}));
+).map((value) => {
+  return {
+    code: value,
+    name: value,
+  };
+});
 
 @Injectable()
 export class PaymentMethodService {
@@ -42,8 +44,33 @@ export class PaymentMethodService {
   }
 
   async findAll(tenant: TenantContext) {
+    const filter = { churchId: tenant.churchId };
+
+    // A church that has never configured payment methods would otherwise get
+    // An empty dropdown on the giving form, so seed the presets on first read.
+    // Creates data only (no schema change); unique-index races are ignored.
+    const count = await this.paymentMethodModel.countDocuments(filter);
+    if (count === 0) {
+      try {
+        await this.paymentMethodModel.insertMany(
+          PAYMENT_METHOD_PRESETS.map((preset, index) => {
+            return {
+              churchId: tenant.churchId,
+              code: preset.code,
+              name: preset.name,
+              isActive: true,
+              sortOrder: index,
+            };
+          }),
+          { ordered: false },
+        );
+      } catch {
+        // Concurrent first-load already seeded them.
+      }
+    }
+
     return this.paymentMethodModel
-      .find({ churchId: tenant.churchId })
+      .find(filter)
       .sort({ sortOrder: 1, name: 1 })
       .lean();
   }
@@ -64,7 +91,9 @@ export class PaymentMethodService {
       sortOrder?: number;
     },
   ) {
-    const preset = PAYMENT_METHOD_PRESETS.find((p) => p.code === dto.code);
+    const preset = PAYMENT_METHOD_PRESETS.find((p) => {
+      return p.code === dto.code;
+    });
     if (!preset) {
       throw new BadRequestException('Unknown payment method preset');
     }

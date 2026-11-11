@@ -12,10 +12,16 @@ import { AdminActivityLogModule } from '../admin-activity-log/admin-activity-log
 @Module({
   imports: [
     MongooseModule.forFeature([{ name: Payment.name, schema: PaymentSchema }]),
-    forwardRef(() => PaystackModule),
-    forwardRef(() => FlutterwaveModule),
+    forwardRef(() => {
+      return PaystackModule;
+    }),
+    forwardRef(() => {
+      return FlutterwaveModule;
+    }),
     CouponModule,
-    forwardRef(() => SubscriptionModule),
+    forwardRef(() => {
+      return SubscriptionModule;
+    }),
     AdminActivityLogModule,
   ],
   controllers: [PaymentController],

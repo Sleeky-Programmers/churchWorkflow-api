@@ -9,7 +9,9 @@ import { PaymentModule } from '../payment/payment.module';
 
 @Module({
   imports: [
-    forwardRef(() => ChurchModule),
+    forwardRef(() => {
+      return ChurchModule;
+    }),
     MembersModule,
     SubscriptionModule,
     AttendanceModule,

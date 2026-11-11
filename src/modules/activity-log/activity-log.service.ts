@@ -132,14 +132,16 @@ export class ActivityLogService {
       .sort({ createdAt: -1 })
       .lean();
 
-    const formatted = logs.map((log: any) => ({
-      Admin: log.adminId
-        ? `${log.adminId.firstName} ${log.adminId.lastName}`
-        : 'N/A',
-      Action: log.action,
-      Description: log.description,
-      Date: log.createdAt,
-    }));
+    const formatted = logs.map((log: any) => {
+      return {
+        Admin: log.adminId
+          ? `${log.adminId.firstName} ${log.adminId.lastName}`
+          : 'N/A',
+        Action: log.action,
+        Description: log.description,
+        Date: log.createdAt,
+      };
+    });
 
     const parser = new Parser({
       fields: ['Admin', 'Action', 'Description', 'Date'],

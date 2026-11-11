@@ -10,10 +10,20 @@ const day = 86_400_000;
 const churchId = new Types.ObjectId();
 const branchId = new Types.ObjectId();
 
-const lean = (v: any) => ({
-  select: () => ({ lean: async () => v }),
-  lean: async () => v,
-});
+const lean = (v: any) => {
+  return {
+    select: () => {
+      return {
+        lean: async () => {
+          return v;
+        },
+      };
+    },
+    lean: async () => {
+      return v;
+    },
+  };
+};
 
 function setup(opts: {
   products: ChurchProduct[];
@@ -29,7 +39,9 @@ function setup(opts: {
   let instanceQuery: any = null;
   const service = new TimerChurchWorkflowService(
     {
-      findById: () => lean(church),
+      findById: () => {
+        return lean(church);
+      },
       updateOne: async (_q: any, u: any) => {
         for (const p of u.$addToSet?.products ? [u.$addToSet.products] : []) {
           if (!church.products.includes(p)) {
@@ -38,9 +50,15 @@ function setup(opts: {
         }
       },
     } as any,
-    { findById: () => lean({ timeZone: null }) } as any,
     {
-      findOne: () => lean(cw),
+      findById: () => {
+        return lean({ timeZone: null });
+      },
+    } as any,
+    {
+      findOne: () => {
+        return lean(cw);
+      },
       updateOne: async (q: any, u: any) => {
         if (cw && cw.status !== q.status.$ne) {
           Object.assign(cw, u.$set);
@@ -51,25 +69,45 @@ function setup(opts: {
       find: (q: any) => {
         instanceQuery = q;
         return {
-          sort: () => ({
-            limit: () => ({ lean: async () => opts.instances ?? [] }),
-          }),
+          sort: () => {
+            return {
+              limit: () => {
+                return {
+                  lean: async () => {
+                    return opts.instances ?? [];
+                  },
+                };
+              },
+            };
+          },
         };
       },
     } as any,
     {
-      get: (k: string) =>
-        k === 'FRONTEND_URL' ? 'https://app.churchworkflow.test/' : undefined,
+      get: (k: string) => {
+        return k === 'FRONTEND_URL'
+          ? 'https://app.churchworkflow.test/'
+          : undefined;
+      },
     } as any,
   );
-  return { service, church, cw, query: () => instanceQuery };
+  return {
+    service,
+    church,
+    cw,
+    query: () => {
+      return instanceQuery;
+    },
+  };
 }
 
-const signupTrial = () => ({
-  status: 'TRIAL',
-  endDate: new Date(Date.now() - 20 * day),
-  gracePeriodEndDate: new Date(Date.now() - 20 * day),
-});
+const signupTrial = () => {
+  return {
+    status: 'TRIAL',
+    endDate: new Date(Date.now() - 20 * day),
+    gracePeriodEndDate: new Date(Date.now() - 20 * day),
+  };
+};
 
 describe('Timer ↔ Church Workflow link', () => {
   it('Church Workflow churches are members already', async () => {
@@ -136,7 +174,9 @@ describe('Timer ↔ Church Workflow link', () => {
     const today = new Intl.DateTimeFormat('en-CA', {
       timeZone: 'Africa/Lagos',
     }).format(new Date());
-    const at = (d: string) => new Date(`${d}T00:00:00.000Z`);
+    const at = (d: string) => {
+      return new Date(`${d}T00:00:00.000Z`);
+    };
     const yesterday = new Date(at(today).getTime() - day)
       .toISOString()
       .slice(0, 10);

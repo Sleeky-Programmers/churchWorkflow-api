@@ -37,9 +37,9 @@ import {
   recentPeriods,
 } from './reports.periods';
 import {
+  ReportSectionsService,
   SECTION_DEFS,
   SECTION_KEYS,
-  ReportSectionsService,
 } from './reports.sections';
 import {
   ReportRange,
@@ -110,7 +110,11 @@ export class ReportsService {
     const wanted = branchParam
       ? this.toObjectId(branchParam)
       : (tenant.branchId as Types.ObjectId);
-    if (!accessible.some((id) => id.equals(wanted))) {
+    if (
+      !accessible.some((id) => {
+        return id.equals(wanted);
+      })
+    ) {
       throw new ForbiddenException('You do not have access to that branch.');
     }
 
@@ -135,7 +139,9 @@ export class ReportsService {
   }
 
   permittedDefs(role: Role | null | undefined): SectionDef[] {
-    return SECTION_DEFS.filter((d) => roleHasAccess(role, d.permission));
+    return SECTION_DEFS.filter((d) => {
+      return roleHasAccess(role, d.permission);
+    });
   }
 
   async includedDefs(
@@ -147,10 +153,14 @@ export class ReportsService {
 
     if (requested && requested.length) {
       const wanted = new Set(requested);
-      defs = defs.filter((d) => wanted.has(d.key));
+      defs = defs.filter((d) => {
+        return wanted.has(d.key);
+      });
     } else {
       const excluded = await this.excludedFor(authUser);
-      defs = defs.filter((d) => !excluded.has(d.key));
+      defs = defs.filter((d) => {
+        return !excluded.has(d.key);
+      });
     }
 
     return defs;
@@ -164,8 +174,12 @@ export class ReportsService {
       })
       .lean();
 
-    const church = profiles.find((p) => p.adminId === null);
-    const personal = profiles.find((p) => p.adminId !== null);
+    const church = profiles.find((p) => {
+      return p.adminId === null;
+    });
+    const personal = profiles.find((p) => {
+      return p.adminId !== null;
+    });
 
     const source =
       personal && personal.overridesChurchDefault ? personal : church;
@@ -235,7 +249,11 @@ export class ReportsService {
         continue;
       }
 
-      const prevByKey = new Map(before.metrics.map((m) => [m.key, m.value]));
+      const prevByKey = new Map(
+        before.metrics.map((m) => {
+          return [m.key, m.value];
+        }),
+      );
       for (const m of section.metrics) {
         const prev = prevByKey.get(m.key) ?? 0;
         m.previous = prev;
@@ -252,7 +270,13 @@ export class ReportsService {
     defs: SectionDef[],
   ): Record<string, SectionResult> {
     return Object.fromEntries(
-      defs.filter((d) => data[d.key]).map((d) => [d.key, data[d.key]]),
+      defs
+        .filter((d) => {
+          return data[d.key];
+        })
+        .map((d) => {
+          return [d.key, data[d.key]];
+        }),
     );
   }
 
@@ -292,12 +316,14 @@ export class ReportsService {
     return {
       period,
       scope: { label: scope.label },
-      sections: defs.map(({ key, title, group, description }) => ({
-        key,
-        title,
-        group,
-        description,
-      })),
+      sections: defs.map(({ key, title, group, description }) => {
+        return {
+          key,
+          title,
+          group,
+          description,
+        };
+      }),
       periods,
     };
   }
@@ -391,7 +417,11 @@ export class ReportsService {
       period,
       range,
       previousRange,
-      sections: defs.map((d) => data[d.key]).filter(Boolean),
+      sections: defs
+        .map((d) => {
+          return data[d.key];
+        })
+        .filter(Boolean),
       generatedAt: new Date(),
     };
   }
@@ -411,7 +441,9 @@ export class ReportsService {
     const requested = query.sections
       ? query.sections
           .split(',')
-          .map((s) => s.trim())
+          .map((s) => {
+            return s.trim();
+          })
           .filter(Boolean)
       : undefined;
     const bundle = await this.buildBundle(authUser, tenant, {
@@ -442,7 +474,11 @@ export class ReportsService {
 
   async getPreferences(authUser: Admin) {
     const role = authUser.churchRole as unknown as Role;
-    const permitted = new Set(this.permittedDefs(role).map((d) => d.key));
+    const permitted = new Set(
+      this.permittedDefs(role).map((d) => {
+        return d.key;
+      }),
+    );
 
     const profiles = await this.profileModel
       .find({
@@ -450,18 +486,24 @@ export class ReportsService {
         adminId: { $in: [null, authUser._id] },
       })
       .lean();
-    const church = profiles.find((p) => p.adminId === null);
-    const personal = profiles.find((p) => p.adminId !== null);
+    const church = profiles.find((p) => {
+      return p.adminId === null;
+    });
+    const personal = profiles.find((p) => {
+      return p.adminId !== null;
+    });
     const excluded = await this.excludedFor(authUser);
 
     return {
-      sections: SECTION_DEFS.map(({ key, title, group, description }) => ({
-        key,
-        title,
-        group,
-        description,
-        permitted: permitted.has(key),
-      })),
+      sections: SECTION_DEFS.map(({ key, title, group, description }) => {
+        return {
+          key,
+          title,
+          group,
+          description,
+          permitted: permitted.has(key),
+        };
+      }),
       church: { excludedSections: church?.excludedSections ?? [] },
       personal: {
         useChurchDefault: !personal?.overridesChurchDefault,
@@ -469,15 +511,17 @@ export class ReportsService {
         digestFrequency:
           personal?.digestFrequency ?? ReportDigestFrequency.NONE,
       },
-      effectiveIncluded: [...permitted].filter((k) => !excluded.has(k)),
+      effectiveIncluded: [...permitted].filter((k) => {
+        return !excluded.has(k);
+      }),
       canEditChurch: this.canEditChurch(role),
     };
   }
 
   async savePreferences(authUser: Admin, dto: SavePreferencesDto) {
-    const unknown = (dto.excludedSections ?? []).filter(
-      (k) => !SECTION_KEYS.includes(k),
-    );
+    const unknown = (dto.excludedSections ?? []).filter((k) => {
+      return !SECTION_KEYS.includes(k);
+    });
     if (unknown.length) {
       throw new BadRequestException(`Unknown report section: ${unknown[0]}`);
     }

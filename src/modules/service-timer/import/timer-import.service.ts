@@ -98,7 +98,9 @@ export class TimerImportService {
   private get effort() {
     const e = this.config.get<string>('TIMER_IMPORT_EFFORT');
     return (
-      (['low', 'medium', 'high'] as const).find((x) => x === e) ?? 'medium'
+      (['low', 'medium', 'high'] as const).find((x) => {
+        return x === e;
+      }) ?? 'medium'
     );
   }
 
@@ -154,8 +156,8 @@ export class TimerImportService {
     }
 
     const { content, source } = await this.toContent(input);
-    const record = (status: TimerImportStatus, extra: Partial<TimerImport>) =>
-      this.importModel.create({
+    const record = (status: TimerImportStatus, extra: Partial<TimerImport>) => {
+      return this.importModel.create({
         churchId,
         adminId,
         source,
@@ -164,6 +166,7 @@ export class TimerImportService {
         aiModel: this.model,
         ...extra,
       });
+    };
 
     let response: ParsedProgramMessage;
     try {

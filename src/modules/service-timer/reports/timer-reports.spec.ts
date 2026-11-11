@@ -12,16 +12,52 @@ const scope = {
 function build(planKey = 'CHURCH', runs: any[] = []) {
   const writes: any[] = [];
   const runModel = {
-    bulkWrite: jest.fn(async (ops) => writes.push(...ops)),
-    aggregate: jest.fn(async () => []),
-    find: () => ({ sort: () => ({ lean: async () => runs }) }),
+    bulkWrite: jest.fn(async (ops) => {
+      return writes.push(...ops);
+    }),
+    aggregate: jest.fn(async () => {
+      return [];
+    }),
+    find: () => {
+      return {
+        sort: () => {
+          return {
+            lean: async () => {
+              return runs;
+            },
+          };
+        },
+      };
+    },
   };
-  const lean = (v: any) => ({ select: () => ({ lean: async () => v }) });
+  const lean = (v: any) => {
+    return {
+      select: () => {
+        return {
+          lean: async () => {
+            return v;
+          },
+        };
+      },
+    };
+  };
   const service = new TimerReportsService(
     runModel as any,
-    { findById: () => lean({ timeZone: 'Africa/Lagos' }) } as any,
-    { findById: () => lean({ timeZone: null }) } as any,
-    { planFor: async () => ({ key: planKey }) } as any,
+    {
+      findById: () => {
+        return lean({ timeZone: 'Africa/Lagos' });
+      },
+    } as any,
+    {
+      findById: () => {
+        return lean({ timeZone: null });
+      },
+    } as any,
+    {
+      planFor: async () => {
+        return { key: planKey };
+      },
+    } as any,
   );
   return { service, writes };
 }
@@ -78,7 +114,9 @@ describe('service reports', () => {
 
   it('records on Free but only shows reports on the Church plan', async () => {
     const free = build('FREE');
-    const err = await free.service.listServices(scope).catch((e) => e);
+    const err = await free.service.listServices(scope).catch((e) => {
+      return e;
+    });
     expect(err).toBeInstanceOf(HttpException);
     expect(err.getResponse()).toMatchObject({ code: 'PLAN_REQUIRED' });
     await expect(
@@ -88,7 +126,9 @@ describe('service reports', () => {
 
   it('summarises a service against its program', async () => {
     const t = new Date('2026-11-08T08:00:00Z');
-    const at = (min: number) => new Date(+t + min * 60000);
+    const at = (min: number) => {
+      return new Date(+t + min * 60000);
+    };
     const { service } = build('CHURCH', [
       {
         itemName: 'Prayer',
@@ -113,7 +153,11 @@ describe('service reports', () => {
     expect(s.plannedMs).toBe(50 * 60000);
     expect(s.actualMs).toBe(58 * 60000);
     expect(s.overMs).toBe(8 * 60000);
-    expect(s.items.map((i) => i.overMs)).toEqual([2 * 60000, 6 * 60000]);
+    expect(
+      s.items.map((i) => {
+        return i.overMs;
+      }),
+    ).toEqual([2 * 60000, 6 * 60000]);
     expect(s.endedAt).toEqual(at(58));
   });
 });

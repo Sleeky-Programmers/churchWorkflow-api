@@ -24,9 +24,9 @@ export class SearchThrottleGuard implements CanActivate {
     const key = String(req.user?._id ?? req.ip ?? 'anonymous');
     const now = Date.now();
 
-    const recent = (this.hits.get(key) ?? []).filter(
-      (t) => now - t < WINDOW_MS,
-    );
+    const recent = (this.hits.get(key) ?? []).filter((t) => {
+      return now - t < WINDOW_MS;
+    });
     if (recent.length >= MAX_REQUESTS) {
       throw new HttpException(
         'Too many searches. Please wait a moment.',

@@ -56,6 +56,12 @@ export class GivingBatchService {
     tenant: TenantContext,
     dto: CreateGivingBatchDto,
   ) {
+    if (dto.date > new Date().toISOString().slice(0, 10)) {
+      throw new BadRequestException(
+        'Giving cannot be recorded for a future date',
+      );
+    }
+
     const filter = {
       ...buildTenantFilter(tenant),
       churchServiceId: new Types.ObjectId(dto.churchServiceId),
@@ -70,10 +76,9 @@ export class GivingBatchService {
       );
     }
 
-    const totalAmount = dto.entries.reduce(
-      (sum, entry) => sum + (entry.amount || 0),
-      0,
-    );
+    const totalAmount = dto.entries.reduce((sum, entry) => {
+      return sum + (entry.amount || 0);
+    }, 0);
 
     const batch = await this.givingBatchModel.create({
       ...buildTenantFilter(tenant),
@@ -89,14 +94,16 @@ export class GivingBatchService {
 
     try {
       await this.givingEntryModel.insertMany(
-        dto.entries.map((entry) => ({
-          batchId: batch._id,
-          offeringTypeId: new Types.ObjectId(entry.offeringTypeId),
-          currencyCode: entry.currencyCode,
-          amount: entry.amount,
-          paymentMethod: entry.paymentMethod || undefined,
-          note: entry.note || null,
-        })),
+        dto.entries.map((entry) => {
+          return {
+            batchId: batch._id,
+            offeringTypeId: new Types.ObjectId(entry.offeringTypeId),
+            currencyCode: entry.currencyCode,
+            amount: entry.amount,
+            paymentMethod: entry.paymentMethod || undefined,
+            note: entry.note || null,
+          };
+        }),
       );
     } catch (error) {
       // Compensate the batch creation if entry insertion fails - there's no
@@ -156,7 +163,9 @@ export class GivingBatchService {
     ]);
 
     return {
-      data: batches.map((batch) => this.toResponse(batch)),
+      data: batches.map((batch) => {
+        return this.toResponse(batch);
+      }),
       pagination: paginationMeta({ page, limit, itemCount }),
     };
   }
@@ -199,20 +208,52 @@ export class GivingBatchService {
       );
     }
 
+    // Snapshot "before" values for the audit trail.
+    const changes: string[] = [];
+    const record = (field: string, from: unknown, to: unknown) => {
+      if (String(from ?? '') !== String(to ?? '')) {
+        changes.push(`${field}: "${from ?? ''}" -> "${to ?? ''}"`);
+      }
+    };
+    const previousEntries = dto.entries
+      ? await this.givingEntryModel.find({ batchId: batch._id }).lean()
+      : [];
+    const previousTotal = batch.totalAmount;
+
     if (dto.churchServiceId) {
-      batch.churchServiceId = new Types.ObjectId(dto.churchServiceId);
+      const newServiceId = new Types.ObjectId(dto.churchServiceId);
+      record('service', batch.churchServiceId, newServiceId);
+      batch.churchServiceId = newServiceId;
     }
     if (dto.date) {
+      record('date', batch.date, dto.date);
       batch.date = dto.date;
     }
     if (dto.countedWith !== undefined) {
+      record('countedWith', batch.countedWith, dto.countedWith);
       batch.countedWith = dto.countedWith;
     }
     if (dto.notes !== undefined) {
+      record('notes', batch.notes, dto.notes);
       batch.notes = dto.notes;
     }
     if (dto.editReason) {
       batch.editReason = dto.editReason;
+    }
+
+    if (dto.churchServiceId || dto.date) {
+      const clash = await this.givingBatchModel.findOne({
+        ...buildTenantFilter(tenant),
+        _id: { $ne: batch._id },
+        churchServiceId: batch.churchServiceId,
+        date: batch.date,
+        isVoided: false,
+      });
+      if (clash) {
+        throw new BadRequestException(
+          'A giving batch already exists for this service and date',
+        );
+      }
     }
 
     if (dto.entries) {
@@ -220,27 +261,44 @@ export class GivingBatchService {
       // Simpler and safer than diffing individual entry rows.
       await this.givingEntryModel.deleteMany({ batchId: batch._id });
       await this.givingEntryModel.insertMany(
-        dto.entries.map((entry) => ({
-          batchId: batch._id,
-          offeringTypeId: new Types.ObjectId(entry.offeringTypeId),
-          currencyCode: entry.currencyCode,
-          amount: entry.amount,
-          paymentMethod: entry.paymentMethod || undefined,
-          note: entry.note || null,
-        })),
+        dto.entries.map((entry) => {
+          return {
+            batchId: batch._id,
+            offeringTypeId: new Types.ObjectId(entry.offeringTypeId),
+            currencyCode: entry.currencyCode,
+            amount: entry.amount,
+            paymentMethod: entry.paymentMethod || undefined,
+            note: entry.note || null,
+          };
+        }),
       );
-      batch.totalAmount = dto.entries.reduce(
-        (sum, entry) => sum + (entry.amount || 0),
-        0,
-      );
+      batch.totalAmount = dto.entries.reduce((sum, entry) => {
+        return sum + (entry.amount || 0);
+      }, 0);
     }
 
     await batch.save();
 
+    if (dto.entries) {
+      record('totalAmount', previousTotal, batch.totalAmount);
+      const describe = (e: any) => {
+        return `${e.offeringTypeId}/${e.currencyCode}/${e.amount}/${e.paymentMethod ?? ''}`;
+      };
+      const before = previousEntries.map(describe).sort().join('; ');
+      const after = dto.entries.map(describe).sort().join('; ');
+      if (before !== after) {
+        changes.push(`entries: [${before}] -> [${after}]`);
+      }
+    }
+
+    // Audit trail: who changed which fields, from what to what, and why.
     await this.activityLogService.create(authUser, {
       action: 'Update Giving Batch',
       module: ModuleSections.GIVING,
-      details: `Updated giving batch for ${batch.date}`,
+      details:
+        `Updated giving batch ${id} (${batch.date}, status ${batch.status}). ` +
+        `Reason: ${dto.editReason || 'n/a'}. ` +
+        `Changes: ${changes.length ? changes.join(' | ') : 'none'}`,
     });
 
     return this.findById(tenant, id);
@@ -354,11 +412,12 @@ export class GivingBatchService {
       .find(batchFilter)
       .select('_id totalAmount')
       .lean();
-    const batchIds = batches.map((batch) => batch._id);
-    const totalAmount = batches.reduce(
-      (sum, batch) => sum + (batch.totalAmount || 0),
-      0,
-    );
+    const batchIds = batches.map((batch) => {
+      return batch._id;
+    });
+    const totalAmount = batches.reduce((sum, batch) => {
+      return sum + (batch.totalAmount || 0);
+    }, 0);
 
     if (batchIds.length === 0) {
       return {
@@ -404,15 +463,19 @@ export class GivingBatchService {
     return {
       totalAmount,
       batchCount: batches.length,
-      byOfferingType: byOfferingType.map((row) => ({
-        offeringTypeId: row._id?.toString(),
-        name: row.name || 'Unknown',
-        totalAmount: row.totalAmount || 0,
-      })),
-      byCurrency: byCurrency.map((row) => ({
-        currencyCode: row._id,
-        totalAmount: row.totalAmount || 0,
-      })),
+      byOfferingType: byOfferingType.map((row) => {
+        return {
+          offeringTypeId: row._id?.toString(),
+          name: row.name || 'Unknown',
+          totalAmount: row.totalAmount || 0,
+        };
+      }),
+      byCurrency: byCurrency.map((row) => {
+        return {
+          currencyCode: row._id,
+          totalAmount: row.totalAmount || 0,
+        };
+      }),
     };
   }
 
@@ -422,8 +485,15 @@ export class GivingBatchService {
   async monthlyTrend(tenant: TenantContext) {
     const targetYear = new Date().getFullYear();
 
+    // `date` is stored as 'YYYY-MM-DD', so a lexicographic range bounds the
+    // Query to this year instead of pulling every batch the church has ever
+    // Recorded. The JS year filter below stays as a guard for odd values.
     const batches = await this.givingBatchModel
-      .find({ ...buildTenantFilter(tenant), isVoided: false })
+      .find({
+        ...buildTenantFilter(tenant),
+        isVoided: false,
+        date: { $gte: `${targetYear}-01-01`, $lt: `${targetYear + 1}-01-01` },
+      })
       .select('_id date')
       .lean();
 
@@ -441,19 +511,37 @@ export class GivingBatchService {
       monthByBatchId.set(batch._id.toString(), new Date(batch.date).getMonth());
     });
 
-    const entries = await this.givingEntryModel
-      .find({ batchId: { $in: batchesInYear.map((batch) => batch._id) } })
-      .select('batchId currencyCode amount')
-      .lean();
+    // Sum per batch+currency in Mongo rather than shipping every entry row
+    // Back to Node - the result is at most (batches x currencies) rows.
+    const entries = await this.givingEntryModel.aggregate<{
+      _id: { batchId: Types.ObjectId; currencyCode: string };
+      total: number;
+    }>([
+      {
+        $match: {
+          batchId: {
+            $in: batchesInYear.map((batch) => {
+              return batch._id;
+            }),
+          },
+        },
+      },
+      {
+        $group: {
+          _id: { batchId: '$batchId', currencyCode: '$currencyCode' },
+          total: { $sum: { $ifNull: ['$amount', 0] } },
+        },
+      },
+    ]);
 
     const totals = new Map<string, number>();
     for (const entry of entries) {
-      const month = monthByBatchId.get(entry.batchId.toString());
+      const month = monthByBatchId.get(entry._id.batchId.toString());
       if (month === undefined) {
         continue;
       }
-      const key = `${month}|${entry.currencyCode}`;
-      totals.set(key, (totals.get(key) || 0) + (entry.amount || 0));
+      const key = `${month}|${entry._id.currencyCode}`;
+      totals.set(key, (totals.get(key) || 0) + (entry.total || 0));
     }
 
     return Array.from(totals.entries())
@@ -465,9 +553,9 @@ export class GivingBatchService {
           totalAmount,
         };
       })
-      .sort(
-        (a, b) => MONTH_NAMES.indexOf(a.month) - MONTH_NAMES.indexOf(b.month),
-      );
+      .sort((a, b) => {
+        return MONTH_NAMES.indexOf(a.month) - MONTH_NAMES.indexOf(b.month);
+      });
   }
 
   private toResponse(batch: any, entries?: any[]) {

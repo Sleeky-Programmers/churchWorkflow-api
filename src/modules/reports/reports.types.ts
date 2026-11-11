@@ -31,6 +31,8 @@ export interface ReportBreakdown {
   items: { label: string; value: number }[];
 }
 
+export type SectionGroup = 'people' | 'finance' | 'operations';
+
 export interface SectionResult {
   key: string;
   title: string;
@@ -40,8 +42,6 @@ export interface SectionResult {
   breakdowns: ReportBreakdown[];
   notes: string[];
 }
-
-export type SectionGroup = 'people' | 'finance' | 'operations';
 
 export interface SectionDef {
   key: string;

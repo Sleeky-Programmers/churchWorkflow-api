@@ -8,5 +8,6 @@ export interface PermissionRequirement {
   level: AccessLevel;
 }
 
-export const RequirePermissions = (...permissions: PermissionRequirement[]) =>
-  SetMetadata(PERMISSIONS_KEY, permissions);
+export const RequirePermissions = (...permissions: PermissionRequirement[]) => {
+  return SetMetadata(PERMISSIONS_KEY, permissions);
+};

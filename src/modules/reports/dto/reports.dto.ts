@@ -22,7 +22,9 @@ export class FeedQueryDto {
 
   // How many periods to return (including the one in progress).
   @IsOptional()
-  @Type(() => Number)
+  @Type(() => {
+    return Number;
+  })
   @IsInt()
   @Min(2)
   @Max(12)

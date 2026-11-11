@@ -25,7 +25,9 @@ import { SubscriptionPlanCodesModule } from '../subscription-plan-codes/subscrip
       { name: Subscription.name, schema: SubscriptionSchema },
       { name: PlanPricing.name, schema: PlanPricingSchema },
     ]),
-    forwardRef(() => PaymentModule),
+    forwardRef(() => {
+      return PaymentModule;
+    }),
     AdminActivityLogModule,
     NotificationModule,
     SubscriptionPlanCodesModule,

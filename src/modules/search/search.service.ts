@@ -61,16 +61,17 @@ export class SearchService {
   ): Promise<GlobalSearchResponse> {
     const role = authUser.churchRole as unknown as Role;
     const regex = searchRegex(q, 60);
-    const can = (section: ModuleSections, level = AccessLevel.VIEW) =>
-      hasSectionAccess(role, section, level);
+    const can = (section: ModuleSections, level = AccessLevel.VIEW) => {
+      return hasSectionAccess(role, section, level);
+    };
 
     const lookups: [SearchGroup, () => Promise<Record<string, any>[]>][] = [];
 
     if (can(ModuleSections.MEMBERS)) {
       lookups.push([
         'members',
-        () =>
-          this.memberModel
+        () => {
+          return this.memberModel
             .find({
               ...buildTenantFilter(tenant),
               $or: [
@@ -84,7 +85,8 @@ export class SearchService {
             .limit(limit)
             .maxTimeMS(QUERY_TIMEOUT_MS)
             .lean()
-            .exec(),
+            .exec();
+        },
       ]);
     }
 
@@ -100,15 +102,16 @@ export class SearchService {
       }
       lookups.push([
         'departments',
-        () =>
-          this.departmentModel
+        () => {
+          return this.departmentModel
             .find(filter)
             .select('name')
             .sort({ name: 1 })
             .limit(limit)
             .maxTimeMS(QUERY_TIMEOUT_MS)
             .lean()
-            .exec(),
+            .exec();
+        },
       ]);
     }
 
@@ -123,23 +126,24 @@ export class SearchService {
       }
       lookups.push([
         'smallTeams',
-        () =>
-          this.smallTeamModel
+        () => {
+          return this.smallTeamModel
             .find(filter)
             .select('name')
             .sort({ name: 1 })
             .limit(limit)
             .maxTimeMS(QUERY_TIMEOUT_MS)
             .lean()
-            .exec(),
+            .exec();
+        },
       ]);
     }
 
     if (can(ModuleSections.ASSETS)) {
       lookups.push([
         'assets',
-        () =>
-          this.assetModel
+        () => {
+          return this.assetModel
             .find({
               ...buildTenantFilter(tenant),
               $or: [{ name: regex }, { tag: regex }, { category: regex }],
@@ -149,7 +153,8 @@ export class SearchService {
             .limit(limit)
             .maxTimeMS(QUERY_TIMEOUT_MS)
             .lean()
-            .exec(),
+            .exec();
+        },
       ]);
     }
 
@@ -172,16 +177,22 @@ export class SearchService {
             .maxTimeMS(QUERY_TIMEOUT_MS)
             .lean()
             .exec();
-          return admins.map((a) => ({
-            _id: a._id,
-            name: [a.firstName, a.lastName].filter(Boolean).join(' '),
-            email: a.email,
-          }));
+          return admins.map((a) => {
+            return {
+              _id: a._id,
+              name: [a.firstName, a.lastName].filter(Boolean).join(' '),
+              email: a.email,
+            };
+          });
         },
       ]);
     }
 
-    const settled = await Promise.allSettled(lookups.map(([, run]) => run()));
+    const settled = await Promise.allSettled(
+      lookups.map(([, run]) => {
+        return run();
+      }),
+    );
 
     const results: GlobalSearchResponse['results'] = {};
     let partial = false;

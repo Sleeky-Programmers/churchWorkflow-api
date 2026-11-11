@@ -27,9 +27,15 @@ import { OnlineGivingService } from './online-giving.service';
       { name: GivingBatch.name, schema: GivingBatchSchema },
       { name: GivingEntry.name, schema: GivingEntrySchema },
     ]),
-    forwardRef(() => ChurchModule),
-    forwardRef(() => PaystackModule),
-    forwardRef(() => FlutterwaveModule),
+    forwardRef(() => {
+      return ChurchModule;
+    }),
+    forwardRef(() => {
+      return PaystackModule;
+    }),
+    forwardRef(() => {
+      return FlutterwaveModule;
+    }),
   ],
   controllers: [OnlineGivingController],
   providers: [OnlineGivingService],

@@ -17,45 +17,51 @@ import {
 } from './program-extraction';
 import { DOCX, PDF, TimerImportService } from './timer-import.service';
 
-jest.mock('mammoth', () => ({
-  extractRawText: jest.fn(async ({ buffer }: { buffer: Buffer }) => {
-    if (buffer.toString() === 'broken') {
-      throw new Error('not a zip');
-    }
-    return { value: buffer.toString() };
-  }),
-}));
+jest.mock('mammoth', () => {
+  return {
+    extractRawText: jest.fn(async ({ buffer }: { buffer: Buffer }) => {
+      if (buffer.toString() === 'broken') {
+        throw new Error('not a zip');
+      }
+      return { value: buffer.toString() };
+    }),
+  };
+});
 
 const churchId = new Types.ObjectId();
 const adminId = new Types.ObjectId();
 
-const program = (over: Partial<ExtractedProgram> = {}): ExtractedProgram => ({
-  readable: true,
-  serviceName: 'Sunday Worship Service',
-  serviceStart: '9:00',
-  items: [
-    {
-      name: ' 1. Opening  Prayer ',
-      person: 'Min. Adebisi',
-      minutes: 8,
-      confident: true,
-    },
-    {
-      name: 'The Word',
-      person: 'Pst. Oluwatoyin',
-      minutes: 40.4,
-      confident: true,
-    },
-  ],
-  ...over,
-});
+const program = (over: Partial<ExtractedProgram> = {}): ExtractedProgram => {
+  return {
+    readable: true,
+    serviceName: 'Sunday Worship Service',
+    serviceStart: '9:00',
+    items: [
+      {
+        name: ' 1. Opening  Prayer ',
+        person: 'Min. Adebisi',
+        minutes: 8,
+        confident: true,
+      },
+      {
+        name: 'The Word',
+        person: 'Pst. Oluwatoyin',
+        minutes: 40.4,
+        confident: true,
+      },
+    ],
+    ...over,
+  };
+};
 
-const reply = (parsed: ExtractedProgram | null, stop = 'end_turn') => ({
-  model: 'claude-opus-5-5',
-  stop_reason: stop,
-  usage: { input_tokens: 2100, output_tokens: 600 },
-  parsed_output: parsed,
-});
+const reply = (parsed: ExtractedProgram | null, stop = 'end_turn') => {
+  return {
+    model: 'claude-opus-5-5',
+    stop_reason: stop,
+    usage: { input_tokens: 2100, output_tokens: 600 },
+    parsed_output: parsed,
+  };
+};
 
 function build(opts: {
   used?: number;
@@ -74,12 +80,13 @@ function build(opts: {
   };
   // Church Workflow churches: fair use; timer-only churches: the Free plan.
   const plans = {
-    planFor: async () =>
-      (opts.products ?? [ChurchProduct.SERVICE_TIMER]).includes(
+    planFor: async () => {
+      return (opts.products ?? [ChurchProduct.SERVICE_TIMER]).includes(
         ChurchProduct.CHURCH_WORKFLOW,
       )
         ? { key: 'CHURCH_WORKFLOW', importLimit: 50 }
-        : { key: 'FREE', importLimit: 1 },
+        : { key: 'FREE', importLimit: 1 };
+    },
   };
   const parse = opts.parse ?? jest.fn().mockResolvedValue(reply(program()));
   const client = opts.noClient
@@ -88,18 +95,23 @@ function build(opts: {
   const service = new TimerImportService(
     importModel as any,
     plans as any,
-    { get: (k: string) => opts.env?.[k] } as any,
+    {
+      get: (k: string) => {
+        return opts.env?.[k];
+      },
+    } as any,
     client,
   );
   return { service, parse, created, importModel };
 }
 
-const file = (mimetype: string, content = 'x', originalname = 'program') =>
-  ({
+const file = (mimetype: string, content = 'x', originalname = 'program') => {
+  return {
     mimetype,
     buffer: Buffer.from(content),
     originalname,
-  }) as Express.Multer.File;
+  } as Express.Multer.File;
+};
 
 describe('tidyProgram', () => {
   it('cleans names, rounds minutes and normalises the start time', () => {
@@ -121,7 +133,11 @@ describe('tidyProgram', () => {
       }),
     );
     expect(t.serviceStart).toBe('');
-    expect(t.items.map((i) => i.name)).toEqual(['Vigil', 'Grace']);
+    expect(
+      t.items.map((i) => {
+        return i.name;
+      }),
+    ).toEqual(['Vigil', 'Grace']);
     expect(t.items[0].minutes).toBe(600);
     expect(t.items[1].confident).toBe(false);
   });
@@ -207,7 +223,9 @@ describe('TimerImportService', () => {
     const { service, parse } = build({ used: 1 });
     const err = await service
       .extract(churchId, adminId, { text: 'x' })
-      .catch((e) => e);
+      .catch((e) => {
+        return e;
+      });
     expect(err).toBeInstanceOf(HttpException);
     expect(err.getStatus()).toBe(403);
     expect(err.getResponse()).toMatchObject({ code: 'IMPORT_LIMIT_REACHED' });
@@ -258,7 +276,9 @@ describe('TimerImportService', () => {
     });
     const err = await service
       .extract(churchId, adminId, { text: 'x' })
-      .catch((e) => e);
+      .catch((e) => {
+        return e;
+      });
     expect(err).toBeInstanceOf(ServiceUnavailableException);
     expect(err.message).toMatch(/busy/);
     expect(created[0].status).toBe(TimerImportStatus.FAILED);

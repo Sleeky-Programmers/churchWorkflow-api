@@ -165,12 +165,15 @@ export class ServiceTimerGateway implements OnGatewayInit, OnGatewayConnection {
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
-      exceptionFactory: (errors) =>
-        new WsException(
+      exceptionFactory: (errors) => {
+        return new WsException(
           errors
-            .flatMap((e) => Object.values(e.constraints ?? {}))
+            .flatMap((e) => {
+              return Object.values(e.constraints ?? {});
+            })
             .join(', ') || 'Invalid session',
-        ),
+        );
+      },
     }),
   )
   @SubscribeMessage('session:push')
@@ -208,7 +211,9 @@ export class ServiceTimerGateway implements OnGatewayInit, OnGatewayConnection {
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
-      exceptionFactory: () => new WsException('Invalid runs'),
+      exceptionFactory: () => {
+        return new WsException('Invalid runs');
+      },
     }),
   )
   @SubscribeMessage('runs:push')

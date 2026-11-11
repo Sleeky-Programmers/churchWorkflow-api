@@ -1,8 +1,8 @@
 import { Model, Types } from 'mongoose';
 
 import { Injectable, Logger } from '@nestjs/common';
-import { Cron } from '@nestjs/schedule';
 import { InjectModel } from '@nestjs/mongoose';
+import { Cron } from '@nestjs/schedule';
 
 import { AdminAccessScope } from '../../common/utils/enums.utils';
 import { Admin } from '../../schemas/admin.schema';
@@ -15,8 +15,8 @@ import {
 import { ReportPeriod } from '../../schemas/report-snapshot.schema';
 import { EmailService } from '../email/email.service';
 import { renderEmailLayout } from '../email/templates/email-layout.template';
+import { formatValue } from './reports.export.service';
 import { previousPeriodRange, rangeContaining } from './reports.periods';
-import { ReportsExportService, formatValue } from './reports.export.service';
 import { ReportsService } from './reports.service';
 import { ReportScope } from './reports.types';
 
@@ -31,7 +31,6 @@ export class ReportsDigestService {
     @InjectModel(ReportProfile.name)
     private profileModel: Model<ReportProfile>,
     private readonly reports: ReportsService,
-    private readonly exporter: ReportsExportService,
     private readonly emailService: EmailService,
   ) {}
 
