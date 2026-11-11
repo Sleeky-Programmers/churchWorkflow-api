@@ -129,7 +129,7 @@ export class RolesService implements OnModuleInit {
   }
 
   // Church Workflow's role list. The Service Timer's roles are left out:
-  // they're given from the timer's own Team page, not Church Workflow.
+  // They're given from the timer's own Team page, not Church Workflow.
   async fetchRoles(authUser: Admin) {
     const [systemRoles, customRoles] = await Promise.all([
       this.roleModel.find({

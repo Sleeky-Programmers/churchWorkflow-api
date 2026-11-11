@@ -5,7 +5,11 @@ import { RolesService, TIMER_ROLES } from './roles.service';
 
 const churchId = new Types.ObjectId();
 
-const system = (roleName: string) => ({ roleName, type: RoleType.SYSTEM, churchId: null });
+const system = (roleName: string) => ({
+  roleName,
+  type: RoleType.SYSTEM,
+  churchId: null,
+});
 const docs = [
   system('Super Admin'),
   system('Small Teams'),
