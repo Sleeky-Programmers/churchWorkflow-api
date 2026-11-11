@@ -296,6 +296,136 @@ export class TimerBillingService implements OnModuleInit {
     return code;
   }
 
+  // ------------------------------------------------- product admin: plans
+
+  /** The plans as product admins edit them, with how many renew by themselves. */
+  async adminPlans() {
+    const [configs, renewing] = await Promise.all([
+      this.plans.listConfigs(),
+      this.subscriptionModel.aggregate<{ _id: TimerBillingCycle; n: number }>([
+        { $match: { autoRenew: true } },
+        { $group: { _id: '$cycle', n: { $sum: 1 } } },
+      ]),
+    ]);
+    const count = (cycle: TimerBillingCycle) =>
+      renewing.find((r) => r._id === cycle)?.n ?? 0;
+    return configs.map((c) => ({
+      plan: c.plan,
+      name: c.name,
+      monthlyPrice: c.monthlyPrice,
+      yearlyPrice: c.yearlyPrice,
+      userLimit: c.userLimit,
+      importLimit: c.importLimit,
+      branchLimit: c.branchLimit ?? DEFAULT_PLANS[c.plan].branchLimit,
+      customBranding: c.customBranding,
+      updatedAt: (c as { updatedAt?: Date }).updatedAt ?? null,
+      autoRenewing:
+        c.plan === TimerPlan.CHURCH
+          ? {
+              monthly: count(TimerBillingCycle.MONTHLY),
+              yearly: count(TimerBillingCycle.YEARLY),
+            }
+          : null,
+    }));
+  }
+
+  /**
+   * Saves a plan's prices and limits. A new Church price is also set on the
+   * Paystack plans in use, so churches on auto-renew pay it from their next
+   * renewal, as with Church Workflow's own plans. If Paystack refuses, the
+   * saved plan is dropped and the next checkout makes one at the new price.
+   */
+  async updateAdminPlan(
+    plan: TimerPlan,
+    patch: Partial<{
+      name: string;
+      monthlyPrice: number;
+      yearlyPrice: number;
+      userLimit: number;
+      importLimit: number;
+      branchLimit: number;
+      customBranding: boolean;
+    }>,
+    updatedBy: Types.ObjectId | null,
+  ) {
+    if (plan === TimerPlan.FREE) {
+      if (patch.monthlyPrice || patch.yearlyPrice) {
+        throw new BadRequestException('The Free plan has no price.');
+      }
+    } else if (
+      (patch.monthlyPrice !== undefined && patch.monthlyPrice <= 0) ||
+      (patch.yearlyPrice !== undefined && patch.yearlyPrice <= 0)
+    ) {
+      throw new BadRequestException(
+        'The Church plan needs a monthly and a yearly price above ₦0.',
+      );
+    }
+
+    const before = await this.plans.getConfig(plan);
+    await this.plans.updateConfig(plan, patch, updatedBy);
+
+    let paystack: {
+      cycle: TimerBillingCycle;
+      updated: number;
+      failed: number;
+    }[] = [];
+    if (plan === TimerPlan.CHURCH) {
+      const changed: [TimerBillingCycle, number][] = [];
+      if (
+        patch.monthlyPrice !== undefined &&
+        patch.monthlyPrice !== before.monthlyPrice
+      ) {
+        changed.push([TimerBillingCycle.MONTHLY, patch.monthlyPrice]);
+      }
+      if (
+        patch.yearlyPrice !== undefined &&
+        patch.yearlyPrice !== before.yearlyPrice
+      ) {
+        changed.push([TimerBillingCycle.YEARLY, patch.yearlyPrice]);
+      }
+      paystack = await Promise.all(
+        changed.map(([cycle, amount]) => this.repricePaystack(cycle, amount)),
+      );
+    }
+
+    const plans = await this.adminPlans();
+    return { ...plans.find((p) => p.plan === plan)!, paystack };
+  }
+
+  /** Every Paystack plan a cycle renews on: the saved one and any older ones still in use. */
+  private async repricePaystack(cycle: TimerBillingCycle, amount: number) {
+    const cfg = await this.plans.getConfig(TimerPlan.CHURCH);
+    const saved = cfg.paystackPlans?.[cycle]?.code ?? null;
+    const inUse: string[] = await this.subscriptionModel.distinct(
+      'paystackPlanCode',
+      { autoRenew: true, cycle, paystackPlanCode: { $ne: null } },
+    );
+    const codes = [...new Set([saved, ...inUse].filter(Boolean) as string[])];
+
+    let updated = 0;
+    let failed = 0;
+    for (const code of codes) {
+      try {
+        await this.paystack.updatePlanAmount(code, amount);
+        updated++;
+        if (code === saved) {
+          await this.plans.setPaystackPlan(cycle, { code, amount });
+        }
+      } catch (err) {
+        failed++;
+        this.logger.warn(
+          `Service Timer: couldn't set Paystack plan ${code} to ₦${amount} (${
+            (err as any)?.response?.data?.message ?? (err as Error).message
+          })`,
+        );
+        if (code === saved) {
+          await this.plans.clearPaystackPlan(cycle);
+        }
+      }
+    }
+    return { cycle, updated, failed };
+  }
+
   /**
    * Puts the card from the first payment on a Paystack subscription that
    * first charges when the period just paid for ends.

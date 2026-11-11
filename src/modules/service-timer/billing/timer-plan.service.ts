@@ -89,6 +89,14 @@ export class TimerPlanService {
     );
   }
 
+  /** Forgets a cycle's Paystack plan; the next checkout makes a new one. */
+  async clearPaystackPlan(cycle: TimerBillingCycle) {
+    await this.configModel.updateOne(
+      { plan: TimerPlan.CHURCH },
+      { $unset: { [`paystackPlans.${cycle}`]: 1 } },
+    );
+  }
+
   async subscriptionOf(churchId: Types.ObjectId) {
     return this.subscriptionModel.findOne({ churchId }).lean();
   }
