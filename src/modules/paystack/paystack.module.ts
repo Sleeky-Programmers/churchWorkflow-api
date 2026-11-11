@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { HttpModule } from '@nestjs/axios';
 import { PaystackService } from './paystack.service';
 import { PaystackController } from './paystack.controller';
+import { PaystackWebhookRegistry } from './paystack-webhook.registry';
 import { PaymentModule } from '../payment/payment.module';
 import { SubscriptionModule } from '../subscription/subscription.module';
 import { CouponModule } from '../coupon/coupon.module';
@@ -28,7 +29,7 @@ import { OnlineGivingModule } from '../online-giving/online-giving.module';
     }),
   ],
   controllers: [PaystackController],
-  providers: [PaystackService],
-  exports: [PaystackService],
+  providers: [PaystackService, PaystackWebhookRegistry],
+  exports: [PaystackService, PaystackWebhookRegistry],
 })
 export class PaystackModule {}

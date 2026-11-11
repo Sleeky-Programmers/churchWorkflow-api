@@ -18,6 +18,7 @@ import { Admin } from '../../schemas/admin.schema';
 import { AdminInviteService } from '../admin-invite/admin-invite.service';
 import { AdminService } from '../admin/admin.service';
 import { CreateSuperAdminDto } from '../admin/dto/create-super-admin.dto';
+import { BranchService } from '../branch/branch.service';
 import { TenantContextService } from '../branch/tenant-context.service';
 import { DepartmentService } from '../department/department.service';
 import { EmailService } from '../email/email.service';
@@ -37,6 +38,7 @@ export class AuthService {
     private adminService: AdminService,
     private adminInviteService: AdminInviteService,
     private tenantContextService: TenantContextService,
+    private branchService: BranchService,
     private smallTeamsService: SmallTeamsService,
     private departmentService: DepartmentService,
     private otpService: OtpService,
@@ -170,7 +172,7 @@ export class AuthService {
     const churchObjectId = new Types.ObjectId(churchId);
     const churchRoleObjectId = new Types.ObjectId(churchRole);
 
-    const [admin] = await Promise.all([
+    const [admin, acceptedInvite] = await Promise.all([
       this.adminService.createAdmin(
         { firstName, lastName, email, password },
         churchObjectId,
@@ -179,6 +181,15 @@ export class AuthService {
       ),
       this.adminInviteService.acceptInvitation(email),
     ]);
+
+    // Invites that name a branch (Service Timer invites) give access to it.
+    if (acceptedInvite?.branchId) {
+      await this.branchService.grantInvitedBranch(
+        admin._id as Types.ObjectId,
+        churchObjectId,
+        acceptedInvite.branchId,
+      );
+    }
 
     await Promise.all([
       this.smallTeamsService.resolvePendingLeader(
@@ -290,6 +301,15 @@ export class AuthService {
       ]);
 
       admin = results[0];
+
+      // Invites that name a branch (Service Timer invites) give access to it.
+      if (results[1]?.branchId) {
+        await this.branchService.grantInvitedBranch(
+          admin._id as Types.ObjectId,
+          churchObjectId,
+          results[1].branchId,
+        );
+      }
 
       await Promise.all([
         this.smallTeamsService.resolvePendingLeader(

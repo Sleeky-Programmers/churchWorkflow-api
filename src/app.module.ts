@@ -51,6 +51,8 @@ import { SearchModule } from './modules/search/search.module';
 import { AssetManagementModule } from './modules/asset-management/asset-management.module';
 import { SuggestionsModule } from './modules/suggestions/suggestions.module';
 import { ReportsModule } from './modules/reports/reports.module';
+import { ServiceTimerModule } from './modules/service-timer/service-timer.module';
+import { AuthHandoffModule } from './modules/auth-handoff/auth-handoff.module';
 
 @Module({
   imports: [
@@ -144,6 +146,8 @@ import { ReportsModule } from './modules/reports/reports.module';
     AssetManagementModule,
     SuggestionsModule,
     ReportsModule,
+    ServiceTimerModule,
+    AuthHandoffModule,
   ],
   controllers: [AppController],
   providers: [AppService],

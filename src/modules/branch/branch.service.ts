@@ -43,9 +43,11 @@ export class BranchService {
     name: string,
     excludeBranchId?: Types.ObjectId | string,
   ) {
+    // `_id` is only added when excluding a branch: `_id: undefined` would
+    // Match no document, so the check would never find a duplicate.
     const duplicate = await this.branchModel.findOne({
       churchId,
-      _id: excludeBranchId ? { $ne: excludeBranchId } : undefined,
+      ...(excludeBranchId ? { _id: { $ne: excludeBranchId } } : {}),
       name: {
         $regex: `^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`,
         $options: 'i',
@@ -104,19 +106,33 @@ export class BranchService {
     };
   }
 
-  async create(authUser: Admin, dto: CreateBranchDto) {
+  /**
+   * `limit` lets another product (the Service Timer) apply its own branch
+   * limit instead of the Church Workflow plan's; 0 means unlimited.
+   */
+  async create(
+    authUser: Admin,
+    dto: CreateBranchDto,
+    limit?: { max: number; message: string },
+  ) {
     this.assertOrgWide(authUser);
 
     const name = dto.name.trim();
     await this.assertNameAvailable(authUser.churchId, name);
 
     const currentBranchCount = await this.countActive(authUser.churchId);
-    const limitCheck = await this.subscriptionService.checkBranchLimit(
-      authUser.churchId,
-      currentBranchCount,
-    );
-    if (!limitCheck.allowed) {
-      throw new ForbiddenException(limitCheck.message);
+    if (limit) {
+      if (limit.max > 0 && currentBranchCount >= limit.max) {
+        throw new ForbiddenException(limit.message);
+      }
+    } else {
+      const limitCheck = await this.subscriptionService.checkBranchLimit(
+        authUser.churchId,
+        currentBranchCount,
+      );
+      if (!limitCheck.allowed) {
+        throw new ForbiddenException(limitCheck.message);
+      }
     }
 
     return this.branchModel.create({
@@ -280,6 +296,32 @@ export class BranchService {
     );
 
     return { message: 'Branch access granted' };
+  }
+
+  /**
+   * Gives a newly joined admin access to the branch they were invited to, and
+   * makes it their default. Used by Service Timer invites: the timer has no
+   * branch-access screen, so without this an invited operator could sign in
+   * but never reach a timer.
+   */
+  async grantInvitedBranch(
+    adminId: Types.ObjectId,
+    churchId: Types.ObjectId,
+    branchId: Types.ObjectId,
+  ) {
+    const branch = await this.branchModel.exists({ _id: branchId, churchId });
+    if (!branch) {
+      return;
+    }
+    await this.adminBranchAccessModel.updateOne(
+      { adminId, branchId },
+      { $set: { adminId, branchId, churchId } },
+      { upsert: true },
+    );
+    await this.adminModel.updateOne(
+      { _id: adminId, defaultBranchId: null },
+      { $set: { defaultBranchId: branchId } },
+    );
   }
 
   async revokeAccess(authUser: Admin, branchId: string, adminId: string) {
